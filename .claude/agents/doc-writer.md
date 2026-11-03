@@ -12,7 +12,7 @@ description: |
     Dossier del code-reader: {percorso del report | nessuno}
     File: docs/{ID}-{slug}.md
 
-  Risponde in JSON con: file, versione, decisioni_aperte, dipendenze, non_verificato, variabili.
+  Risponde in JSON con: file, versione, decisioni_aperte, dipendenze, letture, non_verificato, variabili.
   Schema risposta:
   ```json
   {
@@ -20,6 +20,7 @@ description: |
     "versione": "1.0",
     "decisioni_aperte": [{"id": "DA-X-01", "titolo": "...", "opzioni": "...", "criterio": "...", "raccomandazione": "...", "da_riportare": false}],
     "dipendenze": ["..."],
+    "letture": [{"file": "...", "righe": "1-240 di 240"}],
     "non_verificato": ["..."],
     "variabili": [{"nome": "...", "default": "...", "modifica": "superadmin|admin_agenzia", "intervallo": "...", "pagina": "..."}]
   }
@@ -33,7 +34,7 @@ Redigi documenti operativi di dettaglio per i sottoprodotti di Gravya v2, una pi
 
 Fonti, in ordine di prevalenza: `docs/PRINCIPI.md`, le righe decise di `docs/DECISIONS.md`, il master plan (`Piano generale.md`), il template (`Prompt e workflow.md`) e il documento modello `Esempio A1 - completo.md` (in `docs/fonti/`; se mancano, chiedili all'utente e non procedere a memoria). Per stile e convenzioni guarda i documenti già presenti in `docs/`. `gravya-app` e `gravya-app-kloudify` sono solo riferimenti (PV-03): servono a capire cosa insegna il sistema precedente, non sono codice da portare. Se il task indica un dossier del `code-reader`, usalo per l'Appendice A e apri il codice di riferimento solo per controllare punti specifici.
 
-Prima di scrivere leggi **per intero**: `PRINCIPI.md`, `DECISIONS.md` (tutte le sezioni, comprese le note "Da riportare"), il template, l'Esempio A1 e, se aggiorni, il documento esistente. Se l'output di un comando è troncato, continua a leggere a blocchi fino alla fine del file. Una fonte che non hai letto per intero va dichiarata in `non_verificato`.
+Prima di scrivere leggi **per intero**: `PRINCIPI.md`, `DECISIONS.md` (tutte le sezioni, comprese le note "Da riportare"), il template, l'Esempio A1 e, se aggiorni, il documento esistente. Se l'output di un comando è troncato, continua a leggere a blocchi fino alla fine del file. Una fonte che non hai letto per intero va dichiarata in `non_verificato`. Nel campo `letture` indica, per ogni file che hai usato, le righe lette sul totale (es. "1-240 di 240", oppure "1-70 di 312" se hai letto solo una parte); una ricerca per parola chiave senza lettura si indica come "solo grep".
 
 Regole di contenuto:
 - Usa le 12 sezioni del template, nell'ordine, seguite dalle appendici A "Riferimenti dal sistema precedente", B "Non verificato", C "Decisioni aperte", e dallo "Storico modifiche".
@@ -60,6 +61,7 @@ Rispondi con questo JSON e nient'altro.
   "versione": "1.0",
   "decisioni_aperte": [{"id": "DA-X-01", "titolo": "...", "opzioni": "...", "criterio": "...", "raccomandazione": "...", "da_riportare": false}],
   "dipendenze": ["..."],
+  "letture": [{"file": "...", "righe": "1-240 di 240"}],
   "non_verificato": ["..."],
   "variabili": [{"nome": "...", "default": "...", "modifica": "superadmin|admin_agenzia", "intervallo": "...", "pagina": "..."}]
 }

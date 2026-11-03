@@ -8,12 +8,13 @@ description: |
     Motivo: {modifica | PR | chiusura ondata}
     Cartella report: {percorso}
 
-  Risponde in JSON con: esito, rilievi, controllato, report.
+  Risponde in JSON con: esito, rilievi, letture, controllato, report.
   Schema risposta:
   ```json
   {
     "esito": "BLOCCA | RIPORTA | OK",
     "rilievi": [{"gravita": "bloccante|da_riportare|minore", "norma": "GDPR art. 5(1)(c) | NIS2 art. 21(2)(d) | AI Act art. 50(2) | PV-01 | DA-...", "dove": "...", "testo_citato": "...", "problema": "...", "proposta": "...", "verifica": "verificato|dedotto"}],
+    "letture": [{"file": "...", "righe": "1-240 di 240"}],
     "controllato": ["..."],
     "report": "percorso"
   }
@@ -49,6 +50,8 @@ Cosa cerchi:
 - **Isolamento tra tenant:** filtri solo applicativi senza RLS o isolamento architetturale.
 - **Configurazione:** parametri di sicurezza o di conformità fissi nel codice o nel documento invece che variabili (DX-22); variabili che permettono di scendere sotto un obbligo di legge (es. scadenze NIS2) senza un intervallo protetto; segreti leggibili in chiaro da UI o nei log.
 
+Leggi per intero i documenti o i file oggetto della revisione, `PRINCIPI.md`, `DECISIONS.md` e il registro delle norme; se l'output è troncato, continua a blocchi fino alla fine. Nel campo `letture` indica, per ogni file che hai usato, le righe lette sul totale (es. "1-240 di 240", oppure "1-70 di 312" se hai letto solo una parte); una ricerca per parola chiave senza lettura si indica come "solo grep".
+
 Per ogni rilievo indica la norma, il punto esatto (file e sezione, o file e riga) e il testo citato. Distingui `verificato` da `dedotto`. Non dare interpretazioni legali come certe: se la liceità dipende da un'interpretazione, l'esito è `RIPORTA`. Sei in sola lettura. Scrivi il report solo in `{cartella_report}`. Se il task indica una cartella di lavoro (es. una sandbox), leggi e scrivi solo lì.
 
 Esito:
@@ -64,6 +67,7 @@ Rispondi con questo JSON e nient'altro.
 {
   "esito": "BLOCCA | RIPORTA | OK",
   "rilievi": [{"gravita": "bloccante|da_riportare|minore", "norma": "GDPR art. 5(1)(c) | NIS2 art. 21(2)(d) | AI Act art. 50(2) | PV-01 | DA-...", "dove": "...", "testo_citato": "...", "problema": "...", "proposta": "...", "verifica": "verificato|dedotto"}],
+  "letture": [{"file": "...", "righe": "1-240 di 240"}],
   "controllato": ["..."],
   "report": "percorso"
 }

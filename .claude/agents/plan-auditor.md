@@ -8,12 +8,13 @@ description: |
     Motivo: {modifica a ... | chiusura ondata N}
     Cartella report: {percorso}
 
-  Risponde in JSON con: esito, rilievi, controllato, report.
+  Risponde in JSON con: esito, rilievi, letture, controllato, report.
   Schema risposta:
   ```json
   {
     "esito": "BLOCCA | RIPORTA | OK",
     "rilievi": [{"gravita": "bloccante|da_riportare|minore", "dove": "B2 §4.2", "testo_citato": "...", "problema": "...", "fonte_violata": "PV-02 | DA-B2-04 | C3 §4.1", "verifica": "verificato|dedotto"}],
+    "letture": [{"file": "...", "righe": "1-240 di 240"}],
     "controllato": ["..."],
     "report": "percorso del report"
   }
@@ -33,7 +34,7 @@ Fonti, in ordine di prevalenza:
 
 `gravya-app` e `gravya-app-kloudify` sono solo riferimenti: non sono una fonte di verità per v2 (PV-03).
 
-Leggi **per intero** i documenti del perimetro, `PRINCIPI.md`, `DECISIONS.md` e il template; del master plan leggi almeno le righe e le sezioni dei sottoprodotti del perimetro. Se l'output di un comando è troncato, continua a leggere a blocchi fino alla fine del file. Una fonte letta solo in parte, o solo con ricerche per parola chiave, va dichiarata in `controllato` come tale.
+Leggi **per intero** i documenti del perimetro, `PRINCIPI.md`, `DECISIONS.md` e il template; del master plan leggi almeno le righe e le sezioni dei sottoprodotti del perimetro. Se l'output di un comando è troncato, continua a leggere a blocchi fino alla fine del file. Una fonte letta solo in parte, o solo con ricerche per parola chiave, va dichiarata in `controllato` come tale. Nel campo `letture` indica, per ogni file che hai usato, le righe lette sul totale (es. "1-240 di 240", oppure "1-70 di 312" se hai letto solo una parte); una ricerca per parola chiave senza lettura si indica come "solo grep".
 
 Cosa cerchi, in quest'ordine:
 - **Violazioni dei principi e delle decisioni:** un documento che contraddice un PV o una riga "Decisa", oppure tratta come opzione una scelta già presa, o reintroduce qualcosa di escluso (per esempio OpenTelemetry come SDK o export, servizi gestiti extra-UE, durate di retention proprie invece del rimando a DX-09).
@@ -59,6 +60,7 @@ Rispondi con questo JSON e nient'altro.
 {
   "esito": "BLOCCA | RIPORTA | OK",
   "rilievi": [{"gravita": "bloccante|da_riportare|minore", "dove": "B2 §4.2", "testo_citato": "...", "problema": "...", "fonte_violata": "PV-02 | DA-B2-04 | C3 §4.1", "verifica": "verificato|dedotto"}],
+  "letture": [{"file": "...", "righe": "1-240 di 240"}],
   "controllato": ["..."],
   "report": "percorso del report"
 }
