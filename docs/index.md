@@ -8,13 +8,14 @@ Stato del codice di riferimento: `gravya-app` al commit `349118b11` (2026-11-02)
 | File | Contenuto |
 |---|---|
 | [DECISIONS.md](DECISIONS.md) | Registro delle decisioni aperte: 8 trasversali (DX) e 67 per documento (DA) |
+| [agenti/README.md](agenti/README.md) | Agenti di governance (registrar, plan-auditor, code-reviewer, compliance-auditor, doc-writer): prompt e regole di attivazione |
 | [revisione-ondata-1.md](revisione-ondata-1.md) | Revisione di coerenza dell'ondata 1: matrice delle dipendenze, correzioni fatte, problemi aperti |
 | [stato/sviluppo.md](stato/sviluppo.md) | Ricognizione di `gravya-app`: stack, struttura, cosa esiste per ciascun tema |
 | [stato/kloudify.md](stato/kloudify.md) | Ricognizione di `gravya-app-kloudify`: stato del progetto, regole Beta, priorità |
 
 ## Ondata 1: walking skeleton
 
-Stato: **v1.2 (ripartenza da zero e priorità alla conformità), in attesa di verifica dell'utente**. Principi vincolanti: [PRINCIPI.md](PRINCIPI.md).
+Stato: **v1.3 (con le decisioni dell'utente del 2026-11-03), in attesa di verifica dell'utente**. Principi vincolanti: [PRINCIPI.md](PRINCIPI.md).
 
 | ID | Documento | Componente | Taglia | Decisioni aperte |
 |---|---|---|---|---|
@@ -32,7 +33,7 @@ Tra parentesi la taglia alternativa, che dipende da una decisione aperta (vedi �
 
 ## Ondata 2: MVP completo (da redigere)
 
-A2, A4, A5, B3, B4, B5, C2, C4, D1, G2
+A2, A4, A5 (con la notifica incidenti NIS2, DX-10), B3, B4, B5, C2, C4, D1, G2, **F6 Politica di retention e cancellazione** (nuovo, DX-12)
 
 ## Ondata 3: scala (da redigere)
 

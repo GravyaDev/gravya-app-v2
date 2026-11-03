@@ -7,7 +7,7 @@
 | ID | A1 |
 | Nome | Modello del grafo dei mandati |
 | Componente padre | A — Control Plane (governance) |
-| Versione documento | 1.2 |
+| Versione documento | 1.3 |
 | Data | 2026-11-03 |
 | Ondata | 1 (walking skeleton) |
 
@@ -24,12 +24,12 @@
 
 ## 3. Contesto e dipendenze
 
-**Dipende da:** nessun sottoprodotto per lo schema. Per gli eventi di audit si appoggia ad A5 (ondata successiva); finché A5 non esiste, registra le mutazioni in una tabella di audit propria di v2 (Assunzione 3). Per tracciare le mutazioni usa il modello DB-native di E1 (vocabolario `gravya.*`, nessun OpenTelemetry: PV-02). Il campo opzionale `Agent.prompt_ref` referenzia E2 (chiave+versione, E2 §4.1).
+**Dipende da:** nessun sottoprodotto per lo schema. Per gli eventi di audit si appoggia ad A5 (ondata 2), a cui invia anche i segnali rilevanti per la notifica incidenti NIS2 (DX-10); finché A5 non esiste, registra le mutazioni in una tabella di audit propria di v2 (Assunzione 3). Per tracciare le mutazioni usa il modello DB-native di E1 (vocabolario `gravya.*`, con i nomi delle GenAI semantic conventions e il formato traceparent ammessi come vocabolario, senza SDK né export OTel: PV-02, DA-E1-05). Il campo opzionale `Agent.prompt_ref` referenzia E2 (chiave+versione, E2 §4.1).
 
 **È richiesto da:** A2 (compilatore policy), A3 (indirettamente, via A2), A4 (validatore round-trip), A5 (audit trail), B2 (allowlist tool per agente, se deriva dal grafo — DA-A1-04).
 
 **Assunzioni (da validare):**
-1. L'object storage di v2 è compatibile S3 e ospitato nel perimetro controllato (UE); gravya-app usava tier `general`/`protected` con Garage citato come destinazione, da prendere come riferimento. Il backend effettivo è **Non verificato** e non deciso.
+1. L'object storage di v2 è compatibile S3 e self-hosted su infrastruttura UE (DA-B1-06); gravya-app usava tier `general`/`protected` con Garage citato come destinazione, da prendere come riferimento. Il backend effettivo è **Non verificato** e non deciso.
 2. Il bus eventi è da scegliere (DA-A1-03 = DX-03); gravya-app usava Redis 7, che resta solo un riferimento.
 3. Fino a A5 le mutazioni si registrano in una tabella di audit append-only di v2 (in gravya-app l'analogo era `gravya_event_logs`).
 4. Il nome del campo tenant (`tenant_id` o `company_id`) segue DX-07; in questo documento si usa `tenant_id`.
@@ -63,7 +63,7 @@ Ogni nodo porta `schema_version`. Il vocabolario di `permission_key` ed `effect`
 Proprietà comuni: `created_at`, `valid_from`, `valid_until`, `metadata`. Invariante: una `Delegation` non può concedere più scope del mandato del delegante, e la catena ha profondità massima configurabile (proposta da validare: 3, valore ripreso da `MAX_CASCADE_DEPTH` di gravya-app, che però riguarda le cascate di automazioni, non le deleghe).
 
 ### 4.3 Eventi emessi
-`graph.mandate.created|updated|expired|revoked`, `graph.agent.retired`, `graph.delegation.created|revoked`; payload: `tenant_id`, `node_id`, `schema_version`, `before`, `after`, `actor`. Gli eventi sono registrati nel modello dati DB-native di E1 con attributi `gravya.*` (PV-02); nessun export verso collector o servizi esterni. `actor` è un identificativo pseudonimo dell'utente, non nome o email (minimizzazione).
+`graph.mandate.created|updated|expired|revoked`, `graph.agent.retired`, `graph.delegation.created|revoked`; payload: `tenant_id`, `node_id`, `schema_version`, `before`, `after`, `actor`. Gli eventi sono registrati nel modello dati DB-native di E1 con attributi `gravya.*` (PV-02); dove esiste un nome equivalente nelle GenAI semantic conventions si può usare come vocabolario, e la correlazione può usare il formato traceparent (DA-E1-05); nessun SDK OTel, nessun export verso collector o servizi esterni. `actor` è un identificativo pseudonimo dell'utente, non nome o email (minimizzazione).
 
 ## 5. Interfacce
 
@@ -73,7 +73,7 @@ Proprietà comuni: `created_at`, `valid_from`, `valid_until`, `metadata`. Invari
 
 ## 6. Comportamento
 
-**Creazione mandato:** validazione (tenant esiste; dominio dello stesso tenant; nessun mandato attivo identico → idempotenza) → transazione unica nodo+edge → evento → A2 ricompila.
+**Creazione mandato:** validazione (tenant esiste; dominio dello stesso tenant; nessun mandato attivo identico → idempotenza) → transazione unica nodo+edge in PostgreSQL (DA-A1-01) → evento → A2 ricompila.
 
 **Casi limite:**
 - *Scadenza:* uno sweeper marca `expired` i mandati con `valid_until < now()` ed emette l'evento. Riferimento: `kloud-hitl-expiry-sweeper.ts` di gravya-app (citato, non letto).
@@ -85,11 +85,11 @@ Proprietà comuni: `created_at`, `valid_from`, `valid_until`, `metadata`. Invari
 ## 7. Requisiti non funzionali
 
 - **Prestazioni (proposta da validare):** lettura batch p99 < 100 ms per tenant con ≤ 1.000 mandati; scrittura p99 < 50 ms.
-- **Sicurezza:** isolamento per tenant applicato dal database, non solo da `WHERE` (master plan §7). Se il backend è PostgreSQL: RLS FORCE (soluzione validata in gravya-app). Se è Neo4j: meccanismo da definire (DA-A1-01).
+- **Sicurezza:** isolamento per tenant applicato dal database, non solo da `WHERE` (master plan §7): PostgreSQL con RLS FORCE (DA-A1-01, decisa; soluzione validata in gravya-app come idea).
 - **Sicurezza e conformità (PV-01):**
-  - *GDPR.* Il grafo contiene configurazione di governance, non dati di clienti finali: `Artifact` è solo àncora (URI + hash), nessun payload (criterio 7). Dati personali presenti: identificativi degli utenti admin in `created_by`/`approved_by`/`actor` (pseudonimi). Base giuridica proposta: legittimo interesse/obbligo di accountability della governance (art. 6.1.f, art. 5.2) — **DA RIPORTARE ALL'UTENTE** (DA-A1-08). Retention di mandati revocati/scaduti e dei relativi audit: non decisa — **DA RIPORTARE ALL'UTENTE** (DA-A1-07). Diritti dell'interessato: la cancellazione di un utente admin non può cancellare la storia dei mandati; proposta pseudonimizzazione dell'`actor`, da validare in DA-A1-07. Dati e backup nel perimetro controllato UE.
-  - *NIS2 (art. 21).* Controllo accessi: scrittura solo per admin/superadmin, mai agenti; isolamento tenant con RLS; log di audit append-only di ogni mutazione (supporto a gestione e notifica incidenti, art. 23); crittografia a riposo e in transito; backend unico nel perimetro (no servizi gestiti extra-UE di default: Amazon Neptune escluso salvo decisione dell'utente, DA-A1-01).
-  - *AI Act.* A1 non contiene LLM; contribuisce alla sorveglianza umana (art. 14) perché i mandati sono definiti solo da umani e le chiavi `ALWAYS_HITL`/`MONEY_WRITE` impongono l'HITL; i log delle mutazioni concorrono alla tracciabilità (art. 12). Trasparenza art. 50: non applicabile direttamente (nessuna interazione con persone).
+  - *GDPR.* Gravya agisce come responsabile del trattamento (art. 28) per conto delle agenzie (DX-11). Il grafo contiene configurazione di governance, non dati di clienti finali: `Artifact` è solo àncora (URI + hash), nessun payload (criterio 7). Dati personali presenti: identificativi degli utenti admin in `created_by`/`approved_by`/`actor` (pseudonimi). Base giuridica: aperta (DA-A1-08), inquadrata da DX-11. Retention: politica unica DX-09 (durate non ancora fissate); A1 produce queste classi di dati: nodi e edge del grafo (inclusi mandati e deleghe scaduti/revocati), eventi `graph.*`, righe della tabella di audit delle mutazioni, snapshot letti da A2 (`snapshot_hash`). Diritti dell'interessato: la cancellazione di un utente admin non può cancellare la storia dei mandati; proposta pseudonimizzazione dell'`actor`, da validare insieme a DA-A1-08 e DX-09. Dati e backup self-hosted su infrastruttura UE (DA-B1-06).
+  - *NIS2 (art. 21).* Controllo accessi: scrittura solo per admin/superadmin, mai agenti; isolamento tenant con RLS; log di audit append-only di ogni mutazione; crittografia a riposo e in transito; backend PostgreSQL self-hosted nell'UE, nessun servizio gestito (Neptune escluso: DA-A1-01, DA-B1-06). Notifica incidenti (art. 23): responsabilità di A5 (DX-10); A1 invia ad A5 i segnali rilevanti (es. mutazioni anomale, tentativi di scrittura rifiutati, violazioni di isolamento rilevate dai test).
+  - *AI Act.* A1 non contiene LLM. I casi d'uso v2 non sono ad alto rischio (DX-11): gli artt. 12 e 14 non sono obblighi; come buona pratica i mandati restano definiti solo da umani, le chiavi `ALWAYS_HITL`/`MONEY_WRITE` impongono l'HITL e i log delle mutazioni garantiscono la tracciabilità. Trasparenza art. 50: non applicabile direttamente (nessuna interazione con persone).
   - *Osservabilità AI.* Rende osservabile chi poteva fare cosa quando: `snapshot_hash` del grafo letto da A2 permette di ricondurre ogni decisione di policy di un agente alla versione dei mandati in vigore; eventi `graph.*` nel modello DB-native di E1.
 - **Osservabilità:** ogni mutazione genera un evento di audit (chi, cosa, quando, prima/dopo), DB-native (PV-02).
 - **Scalabilità (proposta da validare):** 10.000 `Agent` e 100.000 `Artifact` per tenant senza degrado oltre le soglie sopra.
@@ -109,14 +109,14 @@ Proprietà comuni: `created_at`, `valid_from`, `valid_until`, `metadata`. Invari
 ## 9. Piano di implementazione
 
 Fasi ordinate:
-1. **Decisioni preliminari:** DA-A1-01 (backend), DA-A1-02 (modello unico dei permessi in v2), DA-A1-07 (retention), DA-A1-08 (base giuridica).
+1. **Decisioni preliminari:** DA-A1-02 (modello unico dei permessi in v2), DA-A1-08 (base giuridica). Già decise: DA-A1-01 (PostgreSQL+RLS); la retention segue DX-09.
 2. **Analisi del riferimento:** studio delle tabelle di gravya-app (`agent_registry`, `gravya_supervisors`, `gravya_executors`, `gravya_supervisor_pipeline`, `gravya_executor_tools`, `principal_permission_grants`, `permission_defaults`, `permission_exceptions`) per estrarre requisiti e casi d'uso da coprire nello schema nuovo; nessuna migrazione di dati né codice.
 3. **Schema:** vincoli di unicità su `id`, indici su `tenant_id`, `status`, `valid_until`; `schema_version`.
 4. **API** di scrittura e lettura con validazione degli schemi (DX-04).
 5. **Eventi** (DA-A1-03) e **sweeper** di scadenza.
 6. **Test** di integrità, isolamento, prestazioni.
 
-**Tecnologie:** dal master plan Neo4j/Neptune (Neptune è un servizio gestito AWS: sposta i dati fuori dal perimetro controllato, non scelto di default); come riferimento validato in gravya-app PostgreSQL 17 + RLS, Express 5, zod, Redis 7, client S3. La scelta è aperta (DA-A1-01). Nessun SDK OpenTelemetry (PV-02).
+**Tecnologie:** PostgreSQL con tabelle nodi/edge e RLS FORCE (DA-A1-01, decisa), self-hosted su infrastruttura UE (DA-B1-06); Neptune escluso; Neo4j resta alternativa solo se serviranno traversal pesanti. Come riferimento validato in gravya-app: PostgreSQL 17 + RLS, Express 5, zod, Redis 7, client S3. Nessun SDK OpenTelemetry (PV-02, DA-E1-05).
 
 ## 10. Test e valutazione
 
@@ -131,16 +131,15 @@ Fasi ordinate:
 | Rischio | Impatto | Mitigazione |
 |---|---|---|
 | Modello permessi frammentato in più strutture (difetto osservato in gravya-app: grants, defaults, exceptions) | Alto | DA-A1-02: una sola fonte in v2 |
-| Nuova tecnologia (Neo4j) senza RLS equivalente | Alto | DA-A1-01; test di isolamento obbligatori in CI |
+| Traversal pesanti non sostenibili su PostgreSQL | Medio | Schema logico §4 indipendente dal backend; Neo4j come alternativa solo se necessario (DA-A1-01); test di isolamento obbligatori in CI |
 | Grafo usato come magazzino | Medio | Criterio 7; review dello schema |
 | Deriva schema/documento | Medio | `schema_version`, migrazioni versionate, A4 |
-| Backend fuori dal perimetro controllato (Neptune o servizio gestito extra-UE) | Alto | DA-A1-01 da riportare all'utente (PV-01) |
-| Audit con dati personali conservati senza limite | Medio | DA-A1-07, pseudonimizzazione dell'attore |
+| Audit con dati personali conservati senza limite | Medio | Politica unica DX-09 (durate da fissare), pseudonimizzazione dell'attore |
 
 ## 12. Stima e priorità
 
-- **Dimensione:** L per costruzione da zero se DA-A1-01 sceglie Neo4j; M se sceglie PostgreSQL + RLS (tecnologia già nello stack v2, nessun riuso di tabelle) — proposta da validare.
-- **Dipendenze critiche:** DA-A1-01, DA-A1-02, DX-03, DX-07; nessun sottoprodotto a monte.
+- **Dimensione:** M (costruzione da zero su PostgreSQL + RLS, decisa con DA-A1-01; nessun riuso di tabelle) — proposta da validare.
+- **Dipendenze critiche:** DA-A1-02, DX-03, DX-07; nessun sottoprodotto a monte.
 - **Thin-slice MVP:** sì, ondata 1.
 
 ---
@@ -174,7 +173,7 @@ Cosa insegna gravya-app (riferimento, non codice da riusare: PV-03).
 
 - Backend object storage di gravya-app in produzione (S3 o Garage), utile solo come riferimento.
 - Se migrazioni successive alla 0055 di gravya-app abbiano aggiunto `company_id`/RLS alle tabelle agenti.
-- Che la base giuridica e i tempi di conservazione proposti in §7 siano leciti (non verificato con le analisi `gravya-app/docs/compliance/gdpr`, da riverificare).
+- Che la base giuridica proposta per DA-A1-08 sia lecita (non verificato con le analisi `gravya-app/docs/compliance/gdpr`, da riverificare).
 - Contenuto di `collaborator-grants.ts`, `access.ts`, `tier-policy.ts`, `kloud-hitl-expiry-sweeper.ts`, migrazione 0218.
 - Se `grant-evaluator` scriva davvero l'audit (commenti contraddittori).
 - Che `MAX_CASCADE_DEPTH` equivalga a una profondità di delega.
@@ -182,16 +181,16 @@ Cosa insegna gravya-app (riferimento, non codice da riusare: PV-03).
 - Che `docs/decisions/` contenga ADR pertinenti: contiene un solo file (`2026-09-13-image-pipes-evaluation-canvas-gamma.md`), non pertinente dal nome, non letto.
 - Tutte le soglie numeriche di §7-8.
 
-## Appendice C — Decisioni aperte
+## Appendice C — Decisioni
 
-- **DA-A1-01 — Backend del grafo. DA RIPORTARE ALL'UTENTE.** Opzioni: (a) Neo4j (master plan), self-hosted nel perimetro UE; (b) Amazon Neptune (master plan): servizio gestito AWS, sposta i dati fuori dal controllo diretto di Gravya — non scelto di default (PV-01); (c) PostgreSQL 17 con tabelle nodi/edge e RLS FORCE (soluzione validata in gravya-app come idea). Criterio: isolamento per tenant applicato dal DB, dati nel perimetro controllato, numero di tecnologie. Raccomandazione: (c) per l'ondata 1, con schema logico identico a §4 per migrare a (a) se le query di traversal lo richiedono; da confermare dall'utente perché diverge dal master plan.
+- **DA-A1-01 — Backend del grafo. Decisa** (2026-11-03, utente; vedi [DECISIONS.md](DECISIONS.md)): PostgreSQL con tabelle nodi/edge e RLS FORCE. Neptune escluso; Neo4j resta alternativa solo se servono traversal pesanti, con schema logico identico a §4.
 - **DA-A1-02 — Fonte di verità dei mandati in v2** (riformulata da DX-01). Opzioni: (a) il grafo è l'unica fonte e i permessi di runtime sono derivati da A2; (b) un modello permessi relazionale separato con il grafo come proiezione. Criterio: assenza di doppia scrittura, nessuna frammentazione come in gravya-app. Raccomandazione: (a). Le opzioni legate alle tabelle di gravya-app decadono.
 - **DA-A1-03 — Trasporto eventi** (= DX-03). Opzioni: Redis Stream; Redis pub/sub; pg NOTIFY. Criterio: consegna almeno-una-volta, dati nel perimetro. Raccomandazione: Redis Stream. Decisione trasversale (B1, B2, C1, C3, E2).
 - **DA-A1-04 — Allowlist tool nel grafo.** Opzioni: edge `CAN_USE` `Agent`→`Tool` nel grafo; struttura propria di B2. Raccomandazione: rinviare a B2.
 - **DA-A1-05 — Rapporto con gravya-app e Beta.** **Chiusa da DX-01**: ripartenza da zero, gravya-app solo riferimento, la Beta non vincola A1.
 - **DA-A1-06 — Isolamento.** Opzioni: istanza condivisa con `tenant_id` + RLS; istanza dedicata per tenant enterprise. Raccomandazione: condivisa, dedicata come opzione (soglia da validare).
-- **DA-A1-07 — Retention di mandati scaduti/revocati e del loro audit. DA RIPORTARE ALL'UTENTE.** Opzioni: conservazione per la durata del contratto col tenant + periodo fisso; conservazione illimitata con pseudonimizzazione dell'attore; cancellazione a scadenza. Criterio: accountability (GDPR art. 5.2), tracciabilità (AI Act art. 12, NIS2) contro minimizzazione. Nessuna raccomandazione: la liceità dei tempi non è verificata.
-- **DA-A1-08 — Base giuridica per i dati degli admin nell'audit. DA RIPORTARE ALL'UTENTE.** Proposta: legittimo interesse/accountability; da validare con l'analisi GDPR.
+- **DA-A1-07 — Retention di mandati scaduti/revocati e del loro audit. Assorbita da DX-09** (vedi [DECISIONS.md](DECISIONS.md)): si applica la politica unica di retention; le durate non sono ancora fissate. Classi di dati prodotte da A1 elencate in §7.
+- **DA-A1-08 — Base giuridica per i dati degli admin nell'audit. Aperta.** Inquadrata da DX-11 (Gravya responsabile del trattamento per conto delle agenzie); proposta: legittimo interesse/accountability, da confermare nella politica DX-09 e validare con l'analisi GDPR.
 
 ## Storico modifiche
 
@@ -200,3 +199,4 @@ Cosa insegna gravya-app (riferimento, non codice da riusare: PV-03).
 | 1.0 | 2026-11-03 | Rispetto a "Esempio A1 - completo.md": rimossi testi conversazionali e la tabella edge duplicata; rimosse le stime temporali (fasi ordinate, solo taglia S/M/L); DA rinumerate DA-A1-NN e ampliate (01 backend con PostgreSQL+RLS come opzione dal codice, invece di AGE non presente nel codice; 02 fonte di verità; 03 trasporto eventi; 04 allowlist; 05 rapporto con Beta; 06 isolamento); `Mandate` allineato a `permission_key`/`effect`/`valid_*`/`max_uses` delle tabelle reali; aggiunti `Agent.kind`, invarianti di delega, vocabolario chiuso `MONEY_WRITE`/`ALWAYS_HITL`, criteri 5-7; soglie marcate "proposta da validare"; tolti FastAPI/Pydantic e LangGraph per lo sweeper (non necessari); dipendenze da E1, A5, B2 rese esplicite; aggiunte appendici su stato reale, non verificato e decisioni. Motivo: allineamento allo stato verificato del codice e alle regole dell'utente. |
 | 1.1 | 2026-11-03 | Revisione incrociata ondata 1: esplicitata la dipendenza opzionale da E2 (`prompt_ref`); DA-A1-03 marcata come trasversale perché B1, B2, C1, C3 ed E2 rimandano allo stesso trasporto eventi. Motivo: dipendenze dichiarate in un solo verso e decisione duplicata. |
 | 1.2 | 2026-11-03 | Applicate DX-01/PV-03 (ripartenza da zero): gravya-app trattata come riferimento e non come codice da estendere; Appendice A rinominata "Riferimenti dal sistema precedente" con soluzioni da riprendere e difetti da non ripetere; assunzioni su object storage, bus, audit e tenant riformulate; fase "Mappatura" sostituita da analisi del riferimento; DA-A1-05 chiusa da DX-01; DA-A1-02 riformulata; rischio Beta rimosso; taglia §12 ricalcolata per costruzione da zero. Applicate DX-02/PV-01/PV-02: nessun OpenTelemetry, eventi nel modello DB-native di E1; aggiunta in §7 la voce "Sicurezza e conformità" (GDPR, NIS2, AI Act, osservabilità AI); Neptune marcato come fuori perimetro e DA-A1-01 da riportare all'utente; nuove DA-A1-07 (retention) e DA-A1-08 (base giuridica). Motivo: decisioni dell'utente del 2026-11-03. |
+| 1.3 | 2026-11-03 | Applicate le decisioni dell'utente: DA-A1-01 decisa (PostgreSQL+RLS) in §3, §6, §7, §9, §11, §12 e Appendice C; rimosso il rischio Neptune e sostituito quello Neo4j; taglia §12 fissata a M (l'ipotesi L dipendeva da Neo4j). DA-A1-07 assorbita da DX-09: tolte le retention specifiche, elencate in §7 le classi di dati prodotte. §7 allineata a DX-11 (Gravya responsabile del trattamento; artt. 12/14 AI Act come buona pratica, non obbligo) e a DX-10 (notifica incidenti ad A5, A1 invia segnali); DA-A1-08 resta aperta, inquadrata da DX-11. Vocabolario GenAI semconv e traceparent ammessi senza SDK (DA-E1-05); self-hosting UE (DA-B1-06). Rimossa dall'Appendice B la verifica sui tempi di conservazione. Motivo: decisioni dell'utente del 2026-11-03 registrate in DECISIONS.md. |

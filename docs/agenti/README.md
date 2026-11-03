@@ -1,0 +1,42 @@
+# Agenti di governance del progetto
+
+Versione 1.0, 2026-11-03.
+
+Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un file `.md` di questa cartella. L'intestazione YAML usa lo stesso formato dei subagenti di Claude Code, quindi i file si possono copiare tali e quali in `.claude/agents/` quando servirà.
+
+## Catalogo
+
+| Agente | File | Compito | Scrive | Modalità |
+|---|---|---|---|---|
+| `registrar` | [registrar.md](registrar.md) | Aggiorna `DECISIONS.md`, `index.md`, lo Storico modifiche dei documenti e la memoria di progetto dopo ogni decisione o modifica | `docs/DECISIONS.md`, `docs/index.md`, righe dello Storico, `/mnt/memory/gravya/` | Collaborativa |
+| `plan-auditor` | [plan-auditor.md](plan-auditor.md) | Verifica la coerenza tra principi, decisioni, documenti di dettaglio e master plan | Solo il proprio report | Avversariale |
+| `code-reviewer` | [code-reviewer.md](code-reviewer.md) | Verifica che il codice di una PR implementi il documento di dettaglio, rispetti i criteri di accettazione e i principi | Solo il proprio report | Avversariale |
+| `compliance-auditor` | [compliance-auditor.md](compliance-auditor.md) | Cerca violazioni di GDPR, NIS2, AI Act e osservabilità AI (PV-01) in documenti e codice | Solo il proprio report | Avversariale |
+| `doc-writer` | [doc-writer.md](doc-writer.md) | Redige o aggiorna un documento di dettaglio secondo il template | Solo il file del documento assegnato | Collaborativa |
+
+## Quando si attivano
+
+L'attivazione è deterministica: a ogni evento corrisponde una sequenza fissa, e l'ordine non dipende dal giudizio del momento.
+
+| Evento | Sequenza |
+|---|---|
+| L'utente prende una decisione | `registrar` |
+| Un documento di dettaglio viene creato o modificato | `plan-auditor` e `compliance-auditor` in parallelo, poi `registrar` |
+| Una nuova ondata di documenti | `doc-writer` (uno per documento, in parallelo), poi `plan-auditor` e `compliance-auditor`, poi `registrar` |
+| Una PR di codice | `code-reviewer` e `compliance-auditor` in parallelo, poi `registrar` se emergono divergenze dal piano |
+| Chiusura di un'ondata o di una milestone | `plan-auditor` sull'insieme completo, poi `registrar` |
+
+**Regola di blocco.** Un esito `BLOCCA` di un agente avversariale ferma la sequenza. Il `registrar` registra il blocco e i rilievi, l'orchestratore li riporta all'utente, e si procede solo dopo una correzione o una decisione esplicita dell'utente. Un esito `RIPORTA` non ferma la sequenza, ma il punto finisce in `DECISIONS.md` come "Da riportare".
+
+## Come si invocano
+
+- **In sessione:** l'orchestratore usa il testo del file (dopo l'intestazione YAML) come istruzioni di sistema dell'agente, e il blocco "Task" del file, con le variabili compilate, come brief. Se gli agenti sono più di uno, li lancia con un workflow; il formato di risposta in JSON permette di leggere l'esito nello script.
+- **Nel repository:** quando esisterà la CI di v2, `code-reviewer` e `compliance-auditor` diventano controlli obbligatori sulle PR. Il loro esito `BLOCCA` fa fallire il controllo.
+
+## Regole comuni a tutti gli agenti
+
+1. In caso di conflitto prevalgono, in quest'ordine: `PRINCIPI.md`, poi `DECISIONS.md` (righe decise), poi il documento di dettaglio, poi il master plan.
+2. Non inferire. Ogni rilievo distingue ciò che è stato **verificato** (con file e riga) da ciò che è **dedotto**.
+3. Nessun agente decide al posto dell'utente. Una scelta di merito va riportata, non risolta.
+4. Ogni agente scrive solo nel proprio perimetro. Gli agenti avversariali non modificano mai i file che esaminano.
+5. Si scrive in italiano. Non si salvano segreti o credenziali da nessuna parte.

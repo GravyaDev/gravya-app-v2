@@ -7,7 +7,7 @@
 | ID | E2 |
 | Nome | Prompt registry |
 | Componente padre | E — Osservabilità e Valutazione |
-| Versione documento | 1.2 |
+| Versione documento | 1.3 |
 | Data | 2026-11-03 |
 | Ondata | 1 (walking skeleton) |
 
@@ -18,7 +18,7 @@
 **Cosa NON fa.**
 - Non decide quale prompt usa un agente: il legame agente→prompt sta nel catalogo agenti (master 3.2.1, G4) e, come riferimento `prompt_ref`, nel nodo `Agent` di A1.
 - Non valuta la qualità di una versione: lo fa E3 (offline) ed E4 (online). E2 espone solo l'hook di promozione.
-- Non conserva i testi renderizzati con dati dei clienti: quelli sono tracing (E1), con i vincoli di §7.
+- Non conserva i testi renderizzati con dati dei clienti, né li fa entrare nelle tracce: in produzione i contenuti non si catturano (DA-E1-02, decisa).
 - Non sceglie il modello LLM.
 
 **Perché esiste.** Senza un registry, un cambio di prompt non è tracciabile, confrontabile né reversibile, e il gate di E3 ("a ogni PR che cambia prompt", master §5 Livello 1) non ha un oggetto da bloccare.
@@ -26,16 +26,18 @@
 ## 3. Contesto e dipendenze
 
 **Dipende da:**
-- **F1** (schema applicativo PostgreSQL con `tenant_id` e RLS): tabelle del registry. Ondata successiva; nell'ondata 1 si usa lo schema minimo di E2 (vedi DA-E2-01).
-- **E1** (tracing DB-native, PV-02): ogni render valorizza gli attributi `gravya.prompt.key`/`gravya.prompt.version`/`gravya.prompt.hash` sul record di traccia della chiamata LLM, nel modello dati definito da E1 (vocabolario allineato a E1 §4.1; nessun SDK o esportatore OpenTelemetry).
+- **F1** (schema applicativo PostgreSQL con `tenant_id` e RLS, backend confermato da DA-A1-01): tabelle del registry. Ondata successiva; nell'ondata 1 si usa lo schema minimo di E2 (vedi DA-E2-01).
+- **E1** (tracing DB-native, PV-02): ogni render valorizza gli attributi `gravya.prompt.key`/`gravya.prompt.version`/`gravya.prompt.hash` sul record di traccia della chiamata LLM, nel modello dati definito da E1 (vocabolario allineato a E1 §4.1). Per DA-E1-05 (decisa) E1 può adottare i nomi delle GenAI semantic conventions e il formato traceparent come vocabolario, senza SDK né export OpenTelemetry: se E1 rinomina gli attributi della chiamata LLM, E2 si allinea; i nomi `gravya.prompt.*` restano finché E1 non fissa un equivalente.
 - **E3** (eval offline): hook di promozione, se DA-E2-04 sceglie (b) o (c).
 - **C3** (punto HITL): approvazione umana della promozione, solo se DA-E2-04 sceglie (b).
-- **A3** (runtime enforcement): autorizza le scritture (crea versione, attiva, rollback).
+- **A3** (runtime enforcement): autorizza le scritture (crea versione, attiva, rollback). Fail-closed (DA-A3-07, decisa): se il record di decisione di A3 non si salva, la scrittura è bloccata.
+- **A5** (audit trail, ondata 2): riceve i segnali di sicurezza di E2 ed è responsabile della notifica incidenti NIS2 (DX-10).
 
 **È richiesto da:** B1 (l'agent runtime risolve il prompt da E2), C1 (`prompt_ref` dei nodi `agent`), A1 (`prompt_ref` opzionale del nodo `Agent`), E3 (registra le versioni dei prompt nel report), E4, G4 (registro agenti, mostra versione).
 
+**Fatti decisi:** lo store è PostgreSQL con RLS (DA-A1-01), nessun database dedicato ai prompt; infrastruttura self-hosted nell'UE (DA-B1-06).
+
 **Assunzioni (non verificate per v2):**
-- Lo store è PostgreSQL (master §3). Nessun database dedicato ai prompt.
 - Esiste un'identità di attore (umano/superadmin/agente) fornita da A3.
 
 ## 4. Contratti
@@ -75,6 +77,8 @@ Regole: `prompt_versions` è **immutabile** (nessun UPDATE/DELETE, come trigger 
 3. La promozione esegue l'hook E3 (se DA-E2-04 lo richiede) e, a esito positivo, aggiorna `active_version_id` e scrive `prompt_activations` in una sola transazione.
 4. Emette l'evento; le cache dei runtime si invalidano.
 
+**Fail-closed sulle scritture (DA-A3-07, DA-B2-04, decise).** Creazione, attivazione e rollback avvengono solo se la decisione di A3 e la riga di `prompt_activations` (per attivazione e rollback) sono salvate; se un record non si salva, l'operazione è annullata e il puntatore attivo non cambia.
+
 **Rollback.** Sposta il puntatore a una versione esistente; non crea né cancella versioni. Il seed (v0) è sempre ripristinabile.
 
 **Casi limite.**
@@ -88,11 +92,12 @@ Regole: `prompt_versions` è **immutabile** (nessun UPDATE/DELETE, come trigger 
 
 - **Performance:** `resolve`+`render` da cache p99 < 5 ms; propagazione di un rollback ai runtime ≤ 60 s (allineato alla cache di 60 s esistente; *proposta da validare*).
 - **Sicurezza e conformità (PV-01):**
-  - *Perimetro dati.* Registry interamente in PostgreSQL di Gravya; nessun servizio SaaS di prompt management, eval o tracing (PV-02). Hosting e regione del database non sono definiti qui (F1/infrastruttura): non verificato che siano UE.
-  - *GDPR — minimizzazione.* Il registry conserva template e metadati, mai testi renderizzati con dati dei clienti (quelli restano in E1 con le regole di DA-E1-02). I template non devono contenere dati personali: controllo in validazione su pattern base (email, telefono) con blocco o avviso (*soglia/modalità da definire*). Dati personali trattati dal registry: solo l'identità di chi crea/attiva una versione (`created_by`, `actor`) e il testo libero `change_note`.
-  - *GDPR — base giuridica, retention, diritti.* Per l'identità degli operatori la base ipotizzata è contratto/legittimo interesse (tracciabilità delle modifiche); non verificata. Le versioni sono immutabili per scelta di integrità: il conflitto con cancellazione/retention si risolve registrando un identificativo pseudonimo dell'attore anziché nome o email, così la versione resta e il dato personale si cancella nell'anagrafica. Durata di conservazione di versioni e attivazioni: **DA-E2-06, DA RIPORTARE ALL'UTENTE**. Diritti di accesso: export per attore dalle tabelle `prompt_versions`/`prompt_activations`.
-  - *NIS2 (art. 21).* Controllo accessi e minimo privilegio (A3, RLS per tenant); gestione delle modifiche con traccia append-only (`prompt_activations`) e integrità verificabile (`content_hash`, immutabilità a livello DB); continuità tramite export/import e seed sempre ripristinabile; sicurezza nello sviluppo (gate di promozione, DA-E2-04). Notifica incidenti: una modifica non autorizzata di un prompt attivo è un evento di sicurezza che va inoltrato al processo incidenti (A5/F, non ancora definito); se sia "incidente significativo" ai fini della notifica non lo decide E2.
-  - *AI Act.* Art. 50: gli avvisi di trasparenza verso l'utente finale (contenuto generato da AI, interazione con un sistema AI) non devono dipendere da un prompt modificabile; restano nel preambolo fisso nel codice, insieme al blocco anti-invenzione (DA-E2-03). Sorveglianza umana: attivazione e rollback solo da umani (DA-E2-04). Log: ogni versione e attivazione è registrata con attore e motivo; la classificazione di rischio dei casi d'uso Gravya non è verificata in v2 (le analisi in `gravya-app/docs/compliance` vanno riverificate).
+  - *Perimetro dati.* Registry interamente in PostgreSQL di Gravya, self-hosted su infrastruttura UE (DA-B1-06); nessun servizio SaaS di prompt management, eval o tracing (PV-02, DA-E3-09, DA-C1-05).
+  - *Ruolo GDPR (DX-11).* Gravya tratta i dati come responsabile del trattamento (art. 28 GDPR) per conto delle agenzie.
+  - *GDPR — minimizzazione.* Il registry conserva template e metadati, mai testi renderizzati con dati dei clienti (che in produzione non vengono catturati nemmeno da E1: DA-E1-02). I template non devono contenere dati personali: controllo in validazione su pattern base (email, telefono) con blocco o avviso (*soglia/modalità da definire*). Dati personali trattati dal registry: solo l'identità di chi crea/attiva una versione (`created_by`, `actor`) e il testo libero `change_note`.
+  - *GDPR — base giuridica, retention, diritti.* Base giuridica per l'identità degli operatori: aperta, da confermare nella politica DX-09 (come DA-A1-08 per A1). Retention: si applica la politica unica DX-09 (durate non ancora fissate; override per classe e tenant previsti ma non attivi); E2 non definisce durate proprie. Classi di dati prodotte da E2: (1) versioni dei prompt (`prompt_versions`: template, schema variabili, hash, `change_note`, attore); (2) attivazioni e rollback (`prompt_activations`, append-only); (3) puntatori attivi (`prompts`); (4) eventi `prompt.version.*`; (5) segnali di sicurezza inviati ad A5. Le versioni sono immutabili per integrità: per conciliare immutabilità e cancellazione si registra un identificativo pseudonimo dell'attore anziché nome o email (proposta tecnica, da verificare con la politica DX-09). Diritti di accesso: export per attore da `prompt_versions`/`prompt_activations`.
+  - *NIS2 (art. 21).* Controllo accessi e minimo privilegio (A3, RLS per tenant); gestione delle modifiche con traccia append-only (`prompt_activations`) e integrità verificabile (`content_hash`, immutabilità a livello DB); continuità tramite export/import e seed sempre ripristinabile; sicurezza nello sviluppo (gate di promozione, DA-E2-04). Notifica incidenti (DX-10): la responsabilità è di A5 (ondata 2). E2 invia ad A5 un segnale per ogni tentativo di scrittura non autorizzato e per ogni modifica di prompt attivo fuori dal flusso previsto; la qualificazione come incidente significativo e la notifica spettano ad A5.
+  - *AI Act (DX-11: casi d'uso non ad alto rischio).* Art. 50 (obbligatorio): gli avvisi di trasparenza verso l'utente finale non devono dipendere da un prompt modificabile; restano nel preambolo fisso nel codice, insieme al blocco anti-invenzione (DA-E2-03). Buona pratica, non obbligo (artt. 12 e 14 non applicabili): attivazione e rollback solo da umani (DA-E2-04) e registrazione di ogni versione e attivazione con attore e motivo.
   - *Isolamento e autorizzazione.* RLS per tenant; scritture solo con attore autorizzato da A3.
 - **Portabilità:** template in formato testuale, export completo in file; nessuna dipendenza da servizi SaaS di prompt management.
 - **Osservabilità AI:** ogni chiamata LLM è attribuibile a `prompt_key`+`version`+`content_hash` nel record di traccia DB-native di E1; la cronologia di attivazioni e rollback è interrogabile in SQL e correlabile alle tracce per sapere quale versione ha prodotto ogni output e quando è cambiata.
@@ -108,19 +113,21 @@ Regole: `prompt_versions` è **immutabile** (nessun UPDATE/DELETE, come trigger 
 7. **Nessun prompt nel codice:** check in CI (grep/lint su pattern definiti in DA-E2-03) sui moduli migrati → 0 occorrenze (*elenco moduli da validare*).
 8. **Tracciabilità:** in un test end-to-end, il 100% dei record di traccia delle chiamate LLM (modello E1) ha `gravya.prompt.key` e `gravya.prompt.version` (*soglia proposta da validare*).
 9. **Portabilità:** export → import su DB vuoto → stesso insieme di `content_hash`.
+10. **Fail-closed:** test di integrazione che simula il fallimento del salvataggio del record di decisione A3 o della riga `prompt_activations` → attivazione/rollback rifiutati, `active_version_id` invariato, nessuna versione creata.
+11. **Segnale ad A5:** un tentativo di scrittura non autorizzato produce un segnale verso A5 (o verso il suo stub finché A5 non esiste).
 
 ## 9. Piano di implementazione
 
 **Fasi (ordinate):**
 1. Decisioni DA-E2-01..04.
-2. Schema e migrazioni PostgreSQL con trigger di immutabilità e RLS.
+2. Schema e migrazioni PostgreSQL (DA-A1-01) con trigger di immutabilità e RLS.
 3. Renderer di template (DA-E2-02) e validazione variabili, in TS e Python con test di parità.
 4. API di gestione, diff, rollback; CLI seed/export.
-5. Cache con invalidazione su evento; integrazione attributi su E1.
+5. Cache con invalidazione su evento; integrazione attributi su E1 (vocabolario DA-E1-05); invio segnali ad A5 (DX-10).
 6. Definizione dei seed v2 per i prompt nel perimetro (DA-E2-03), usando i testi di gravya-app solo come riferimento rivisto, e check CI.
-7. Hook di promozione verso E3.
+7. Hook di promozione verso E3 (casi solo sintetici, giudice solo UE: DA-E3-08, DA-E3-09).
 
-**Tecnologie (da master o da decidere):** PostgreSQL con RLS, Redis (cache, master §3; ospitato nel perimetro Gravya), TypeScript e Python, SHA-256. ORM/strumento di migrazione da fissare con F1 (gravya-app usava Drizzle: riferimento, non vincolo). Il motore di template **non** è nel master: DA-E2-02.
+**Tecnologie (da master o da decidere):** PostgreSQL con RLS (deciso, DA-A1-01), Redis (cache, master §3; self-hosted UE, DA-B1-06), TypeScript e Python, SHA-256. ORM/strumento di migrazione da fissare con F1 (gravya-app usava Drizzle: riferimento, non vincolo). Il motore di template **non** è nel master: DA-E2-02.
 
 **Rischi:** vedi §11.
 
@@ -130,7 +137,7 @@ Regole: `prompt_versions` è **immutabile** (nessun UPDATE/DELETE, come trigger 
 - **Integration (PostgreSQL reale):** immutabilità, RLS, rollback, concorrenza.
 - **Parità TS/Python:** stesso template + variabili → stesso output byte-per-byte su un set di casi.
 - **Eval:** la promozione richiama E3 sulla versione candidata; nessuna eval è implementata in E2.
-- **Security:** tentativo di scrittura con attore non autorizzato; template injection (variabile contenente sintassi di template non deve essere rivalutata).
+- **Security:** tentativo di scrittura con attore non autorizzato (con verifica del segnale ad A5); fail-closed con salvataggio del record A3 o dell'attivazione forzato a fallire; template injection (variabile contenente sintassi di template non deve essere rivalutata).
 
 ## 11. Rischi e mitigazioni
 
@@ -139,12 +146,13 @@ Regole: `prompt_versions` è **immutabile** (nessun UPDATE/DELETE, come trigger 
 | Prompt dispersi nel codice (lezione di gravya-app: fallback e prompt hard-coded) | Alto: verità divisa | Un solo punto di risoluzione, nessun fallback hard-coded, check CI (§8.7); DA-E2-03 |
 | Divergenza renderer TS/Python | Medio | Test di parità in CI; motore senza logica (DA-E2-02) |
 | Cache stantia dopo rollback | Medio | Invalidazione su evento + TTL massimo |
-| Prompt con PII nei trace o nei template | Alto (GDPR) | Hash al posto del testo nelle tracce (E1, DA-E1-02); controllo PII sui template (§7) |
+| Prompt con PII nei trace o nei template | Alto (GDPR) | Contenuti mai catturati in produzione, solo hash (DA-E1-02); controllo PII sui template (§7) |
+| Audit non salvato con scrittura riuscita | Alto (NIS2, integrità) | Fail-closed in transazione unica (DA-A3-07, DA-B2-04); test §8.10 |
 | Rottura cache del prefisso prompt (#1781) | Medio: costo | Render deterministico; test di stabilità byte |
 
 ## 12. Stima e priorità
 
-- **Dimensione:** M (costruzione da zero: schema e API semplici; complessità nella doppia libreria TS/Python con parità, nella scrittura dei seed v2 e nei controlli di conformità §7. Non dipendeva dal riuso: senza migrazione dello storico 0322 il lavoro si sposta sulla stesura dei seed).
+- **Dimensione:** M (costruzione da zero: schema e API semplici; complessità nella doppia libreria TS/Python con parità, nella scrittura dei seed v2 e nei controlli di conformità §7. Le decisioni del 2026-11-03 non cambiano la taglia: il fail-closed è una transazione già prevista, la retention passa a DX-09, la notifica incidenti ad A5. Non dipendeva dal riuso: senza migrazione dello storico 0322 il lavoro si sposta sulla stesura dei seed).
 - **Dipendenze critiche:** F1 (o schema minimo), A3 per le autorizzazioni, E1 per gli attributi.
 - **Thin-slice MVP:** **Sì**, ondata 1. Il calendario della Beta di gravya-app (versioning post-Beta, #1801) non vincola più v2 (DX-01).
 
@@ -181,9 +189,8 @@ gravya-app è materiale di riferimento (PV-03): qui ciò che insegna, non ciò c
 - Elenco completo dei prompt hard-coded in `services/agents` di gravya-app (solo `card_analyzer.py` letto): utile solo come inventario di riferimento per i seed v2.
 - Lingua dei prompt v2 (P12 di gravya-app diceva inglese): da confermare.
 - Stato attuale delle issue #1801, #1494, #1781 su GitHub (ora solo come riferimento).
-- Regione di hosting di PostgreSQL e Redis per v2 (F1/infrastruttura).
-- Classificazione AI Act dei casi d'uso v2 e applicabilità dell'art. 12 (log per sistemi ad alto rischio).
-- Base giuridica per il trattamento delle identità degli operatori e durata di conservazione.
+- Base giuridica per il trattamento delle identità degli operatori (da confermare nella politica DX-09).
+- Contratto e interfaccia dei segnali verso A5 (ondata 2).
 - Volumi (numero prompt, versioni, frequenza di render): nessun dato; le soglie §7-§8 sono proposte.
 
 ## Appendice C — Decisioni aperte
@@ -191,10 +198,10 @@ gravya-app è materiale di riferimento (PV-03): qui ciò che insegna, non ciò c
 - **DA-E2-01 — Modello dati (riformulata, DX-01):** (a) tabelle generiche `prompts`/`prompt_versions`/`prompt_activations` come in §4.1; (b) colonne di prompt dentro le entità che li usano (supervisori, esecutori) con tabella di storico, come in gravya-app. Criterio: un'unica verità, immutabilità, rollback. Raccomandazione: (a). Non c'è più migrazione dello storico 0322 (DX-01).
 - **DA-E2-02 — Motore di template:** (a) sostituzione semplice `{{var}}` senza logica, implementata in TS e Python; (b) motore con logica (es. Jinja-compatibile); (c) nessun template, solo concatenazione nel codice. Criterio: parità TS/Python, sicurezza, assenza di lock-in. Raccomandazione: (a).
 - **DA-E2-03 — Perimetro del registry (riformulata, DX-01):** quali prompt v2 stanno nel registry. (a) tutti; (b) supervisori, esecutori e Kloud, con il preambolo fisso (anti-invenzione e avvisi di trasparenza art. 50) escluso e tenuto nel codice; (c) solo un sottoinsieme minimo per lo skeleton. Criterio: un'unica verità, conformità AI Act, master. Raccomandazione: (b). Non è più "quali migrare": i seed si scrivono per v2.
-- **DA-E2-04 — Gate di promozione:** (a) solo umano; (b) E3 obbligatorio + approvazione umana (C3); (c) solo E3. Criterio: sorveglianza umana (PV-01, AI Act) e master §5. Raccomandazione: (b), con criteri di qualità versionati col prompt.
-- **DA-E2-05 — Anticipo rispetto alla Beta:** **chiusa da DX-01**. v2 si costruisce da zero e la Beta di gravya-app non vincola: E2 è nell'ondata 1.
-- **DA-E2-06 — Retention di versioni e attivazioni (nuova) — DA RIPORTARE ALL'UTENTE.** (a) conservazione illimitata (integrità e audit); (b) durata fissa per versioni mai attivate o superate; (c) conservazione illimitata dei template con attore pseudonimizzato e anagrafica cancellabile. Criterio: GDPR (limitazione della conservazione), NIS2 (tracciabilità delle modifiche), AI Act (log). Proposta tecnica: (c). La liceità della durata e la base giuridica non sono verificate: decide l'utente.
-- **DA-E2-07 — Versioni proposte da AI (nuova) — DA RIPORTARE ALL'UTENTE.** Il ciclo di miglioramento (`source=learning_proposal`) può creare versioni candidate? (a) sì, mai attivabili senza umano; (b) no in ondata 1. Criterio: sorveglianza umana e rischio di deriva non controllata. Proposta: (a), ma è una scelta di prodotto e conformità.
+- **DA-E2-04 — Gate di promozione:** (a) solo umano; (b) E3 obbligatorio + approvazione umana (C3); (c) solo E3. Criterio: sorveglianza umana (PV-01; per DX-11 buona pratica, non obbligo AI Act) e master §5. Raccomandazione: (b), con criteri di qualità versionati col prompt.
+- **DA-E2-05 — Anticipo rispetto alla Beta:** **Decisa** (chiusa da DX-01, vedi [DECISIONS.md](DECISIONS.md)). v2 si costruisce da zero e la Beta di gravya-app non vincola: E2 è nell'ondata 1.
+- **DA-E2-06 — Retention di versioni e attivazioni:** **Assorbita da DX-09** (vedi [DECISIONS.md](DECISIONS.md)): si applica la politica di retention unica; durate non ancora fissate. Le classi di dati prodotte da E2 sono elencate in §7.
+- **DA-E2-07 — Versioni proposte da AI (nuova) — DA RIPORTARE ALL'UTENTE.** Il ciclo di miglioramento (`source=learning_proposal`) può creare versioni candidate? (a) sì, mai attivabili senza umano; (b) no in ondata 1. Criterio: sorveglianza umana (buona pratica per DX-11) e rischio di deriva non controllata. Proposta: (a), ma è una scelta di prodotto e conformità.
 - **DA-E2-08 — Testi dei seed (nuova) — DA RIPORTARE ALL'UTENTE.** I seed v2 si scrivono da zero o possono partire dai testi dei prompt di gravya-app rivisti? PV-03 ammette l'ingresso solo se un documento lo prevede. Criterio: qualità già validata contro ripartenza pulita. Proposta: partire dai testi di gravya-app come bozza, rivista e approvata come versione 0; nessuna decisione presa.
 
 ## Storico modifiche
@@ -204,3 +211,4 @@ gravya-app è materiale di riferimento (PV-03): qui ciò che insegna, non ciò c
 | 1.0 | 2026-11-03 | Prima stesura |
 | 1.1 | 2026-11-03 | Revisione incrociata ondata 1: attributi di span allineati a E1 (`gravya.prompt.*`); C3 spostato da "È richiesto da" a "Dipende da" (verso invertito: è E2 a usare C3 per la promozione) e aggiunta la dipendenza condizionale da E3; aggiunti C1 e A1 in "È richiesto da"; corretta l'affermazione che il master citi Redis Stream/Kafka (non li cita) e rimando a DA-A1-03. Motivo: interfacce e dipendenze non allineate, affermazione non supportata. |
 | 1.2 | 2026-11-03 | Applicate DX-01/PV-03 (ripartenza da zero) e DX-02/PV-01/PV-02 (conformità prioritaria, niente OpenTelemetry). Attributi `gravya.prompt.*` su record di traccia DB-native di E1 anziché span; §7 con voce "Sicurezza e conformità" (GDPR, NIS2 art. 21, AI Act art. 50, osservabilità AI); rimossi riuso e migrazione da gravya-app (storico 0322, Drizzle, librerie esistenti) e il vincolo Beta; Appendice A rinominata "Riferimenti dal sistema precedente" (idee e difetti da non ripetere); DA-E2-01 e DA-E2-03 riformulate, DA-E2-05 chiusa da DX-01, nuove DA-E2-06..08 da riportare all'utente; rischio "doppio registry" sostituito; taglia M confermata per costruzione da zero. |
+| 1.3 | 2026-11-03 | Applicate le decisioni dell'utente del 2026-11-03. Diventano scelte del documento: DA-A1-01 (PostgreSQL+RLS), DA-B1-06 (self-hosted UE), DA-E1-02 (contenuti mai in produzione), DA-E1-05 (vocabolario GenAI semconv/traceparent ammesso per E1, senza SDK), DA-A3-07 e DA-B2-04 (fail-closed sulle scritture: nuova regola §6, criterio §8.10, test §10, rischio §11), DA-E3-08/09 e DA-C1-05 (nessun SaaS, eval su dati sintetici con giudice UE). DA-E2-06 assorbita da DX-09: rimossa la retention propria, elencate in §7 le classi di dati prodotte. §7 allineata a DX-10 (notifica incidenti ad A5, E2 invia segnali; nuovo criterio §8.11) e DX-11 (responsabile art. 28; sorveglianza umana e log ridotti a buona pratica, art. 50 confermato). Tolte dall'Appendice B le ipotesi decise (regione hosting, classificazione AI Act). Taglia M invariata. Motivo: allineamento a DECISIONS.md. |

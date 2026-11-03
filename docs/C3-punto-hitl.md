@@ -8,7 +8,7 @@
 | Nome | Punto HITL (Human-in-the-Loop) |
 | Componente padre | C — Orchestrazione |
 | Ondata | 1 (walking skeleton) |
-| Versione documento | 1.2 |
+| Versione documento | 1.3 |
 | Data | 2026-11-03 |
 
 ## 2. Scopo
@@ -31,6 +31,7 @@
 
 **Assunzioni:**
 - v2 si costruisce da zero (DX-01, PV-03): i riferimenti a gravya-app in questo documento indicano idee e lezioni, non codice da portare.
+- Il motore è LangGraph, unico, usato come libreria open source self-hosted, senza LangSmith né LangGraph Platform (DA-C1-01, DA-C1-05 decise). Il deploy è self-hosted su infrastruttura UE (DA-B1-06).
 - Il checkpointer è Postgres (`langgraph-checkpoint-postgres`, come in gravya-app e nel master plan). La scelta definitiva spetta a B5 (vedi DX-08); se B5 sceglie diversamente C3 si riallinea.
 - Il default è "approvazione richiesta" (in gravya-app: `KLOUD_APPROVAL_DEFAULT = true`, `server/src/services/kloud-approval.ts`); v2 lo riprende come requisito.
 
@@ -55,9 +56,9 @@
 | `claimed_at`, `outcome` (`ok`/`refused`/`error` + codice) | garanzia di esecuzione unica |
 | `decided_by_user_id`, `decided_at`, `feedback` | scritti solo da un actor `human` (HSAR) |
 
-Lo schema DB completo di `approvals` in gravya-app non è stato letto riga per riga (vedi Non verificato); serve solo come riferimento. Per `arguments` e `context`, che possono contenere dati personali (destinatari, contenuti di record CRM), valgono minimizzazione e retention di §7 e DA-C3-05.
+Lo schema DB completo di `approvals` in gravya-app non è stato letto riga per riga (vedi Non verificato); serve solo come riferimento. Per `arguments` e `context`, che possono contenere dati personali (destinatari, contenuti di record CRM), valgono la minimizzazione di §7 e la politica di retention unica DX-09.
 
-**4.4 Eventi emessi:** `hitl_requested`, `hitl_approved`, `hitl_denied`, `hitl_input_provided`, `hitl_expired`, `hitl_outcome`. In gravya-app esistono `hitl_denied`, `hitl_input_provided` e `hitl_approved` come `log_event` in `graph.py`. Gli altri nomi sono **proposta da validare**. Nota di revisione: gli altri documenti dell'ondata 1 usano nomi puntati (`tool.*`, `workflow.*`, `policy.*`); la convenzione dei nomi evento è un problema aperto trasversale (vedi `revisione-ondata-1.md`). C1 emette `workflow.run.interrupted` "verso C3", ma C3 non dichiara eventi consumati: in gravya-app il segnale passa per `interrupt()` di LangGraph. Gli eventi sono registrati nel modello dati DB-native di E1 (PV-02), non come span OpenTelemetry.
+**4.4 Eventi emessi:** `hitl_requested`, `hitl_approved`, `hitl_denied`, `hitl_input_provided`, `hitl_expired`, `hitl_outcome`. In gravya-app esistono `hitl_denied`, `hitl_input_provided` e `hitl_approved` come `log_event` in `graph.py`. Gli altri nomi sono **proposta da validare**. Nota di revisione: gli altri documenti dell'ondata 1 usano nomi puntati (`tool.*`, `workflow.*`, `policy.*`); la convenzione dei nomi evento è un problema aperto trasversale (vedi `revisione-ondata-1.md`). C1 emette `workflow.run.interrupted` "verso C3", ma C3 non dichiara eventi consumati: in gravya-app il segnale passa per `interrupt()` di LangGraph. Gli eventi sono registrati nel modello dati DB-native di E1 (PV-02), non come span OpenTelemetry. Per i nomi degli attributi si può usare il vocabolario delle GenAI semantic conventions e il formato `traceparent` per la correlazione, senza SDK né export OTel (DA-E1-05).
 
 ## 5. Interfacce
 
@@ -88,19 +89,20 @@ In ondata 1 la UI di v2 è una card minima che gestisce `approval_required`/`inp
 - **Nessun checkpointer:** in gravya-app `interrupt()` diventa no-op; in v2 deve essere un errore bloccante (§8, AC-2).
 - **Doppio resume:** il secondo claim riceve 409 e la scrittura non viene rieseguita.
 - **Scadenza:** dopo un TTL di 24 h la richiesta `pending` o approvata ma non reclamata diventa `cancelled`. Se c'è un claim senza esito si registra `error/reaped` **senza rieseguire** (comportamento ripreso da gravya-app: `kloud-hitl-expiry-sweeper.ts`, `_ASK_KLOUD_HITL_TIMEOUT_HOURS = 24`).
+- **Audit o traccia della decisione non salvati:** fail-closed (DA-B2-04, DA-A3-07). Se il record della decisione (A5) o il record di decisione della policy non si salva, la ripresa non avviene e la chiamata parcheggiata non viene eseguita; la richiesta resta nello stato precedente.
 - **Rifiuto:** il run si chiude con `rejected:human_denied`.
 - **Scrittura diventata obsoleta** (403/409/412): l'esito viene riportato alla persona e non si riprova.
 
 ## 7. Requisiti non funzionali
 
-- **Sicurezza tecnica:** fail-closed su ogni errore. Le decisioni si scrivono solo con actor `human`, con isolamento per `company_id` e RLS FORCE. Il token HITL è monouso e viene emesso solo dopo il claim.
+- **Sicurezza tecnica:** fail-closed su ogni errore. Le decisioni si scrivono solo con actor `human`, con isolamento per `company_id` e RLS FORCE. Il token HITL è monouso e viene emesso solo dopo il claim. Se il record di audit o di decisione non si salva, l'azione si blocca (DA-B2-04, DA-A3-07).
 - **Idempotenza:** si applica alla riga, non al messaggio, attraverso un UPDATE condizionale.
-- **Osservabilità:** un record di traccia DB-native E1 per ogni transizione di stato (segmento `kind=decision` con `gravya.decision.kind=hitl`, vocabolario E1 §4.1, modello dati definito da E1). Nessun OpenTelemetry, OTLP o collector (PV-02). Il contenuto di prompt e risultati segue DA-E1-02; cosa della chiamata parcheggiata entra nella traccia è DA-C3-06.
+- **Osservabilità:** un record di traccia DB-native E1 per ogni transizione di stato (segmento `kind=decision` con `gravya.decision.kind=hitl`, vocabolario E1 §4.1, modello dati definito da E1). Nessun SDK OpenTelemetry, OTLP o collector (PV-02); i nomi GenAI semantic conventions e il formato `traceparent` sono ammessi come vocabolario (DA-E1-05). I contenuti di prompt e risultati non sono mai catturati in produzione (DA-E1-02); cosa della chiamata parcheggiata entra nella traccia è DA-C3-06.
 - **Sicurezza e conformità (PV-01).**
-  - *GDPR.* Minimizzazione: `arguments` e `context` contengono solo ciò che serve a decidere ed eseguire; la traccia E1 porta identificativi e hash degli argomenti, non i valori (proposta, DA-C3-06). Base giuridica: C3 non introduce trattamenti nuovi, esegue quello del tool approvato; chi sia titolare e chi responsabile (agenzia, cliente finale, Gravya) **non è verificato** ed è da riportare all'utente. Retention: periodo per righe parcheggiate, decisioni e feedback **non deciso** (DA-C3-05, da riportare). Diritti: le righe sono per `company_id` e devono essere trovabili e cancellabili/pseudonimizzabili per interessato, nei limiti dell'obbligo di conservare l'audit (conflitto da risolvere in DA-C3-05).
-  - *NIS2 (art. 21).* Controllo degli accessi (solo actor `human` decide, RLS FORCE), registrazione delle decisioni in A5, token monouso, fail-closed. Un'esecuzione senza approvazione o una decisione forgiata è un incidente di sicurezza da gestire con la procedura di notifica definita a livello di piattaforma (non definita in questo documento; **non verificato** se esista già in v2).
-  - *AI Act.* C3 è la misura di sorveglianza umana sulle azioni degli agenti: la persona vede la chiamata esatta e può rifiutarla. Log: ogni decisione è registrata con autore, momento, argomenti (hash) e esito. Trasparenza art. 50: se le azioni approvate inviano a terzi contenuti generati dall'AI (email, ads), l'obbligo di informativa va valutato nei documenti D1–D3; se C3 debba mostrare all'approvatore o allegare un'etichetta "generato da AI" è un dubbio da riportare all'utente.
-  - *Perimetro dati.* Tutto in PostgreSQL controllato da Gravya; nessun servizio esterno di tracing o di eval.
+  - *GDPR.* Gravya è responsabile del trattamento (art. 28) per conto delle agenzie (DX-11). Minimizzazione: `arguments` e `context` contengono solo ciò che serve a decidere ed eseguire; la traccia E1 porta identificativi e hash degli argomenti, non i valori (proposta, DA-C3-06). C3 non introduce trattamenti nuovi, esegue quello del tool approvato. Se il tool approvato invia dati a terzi o fuori dall'UE valgono la destinazione dichiarata, il deny se manca e l'opt-in del tenant per l'extra-UE (DA-B2-07, applicato da B2). Retention: segue la politica unica DX-09 (durate non ancora fissate). Classi di dati prodotte da C3: righe di scrittura parcheggiata (`arguments`, `context`), decisioni e feedback umani, eventi `hitl_*`/record di traccia E1 delle transizioni, checkpoint del run in pausa (prodotti tramite B5/C1). Diritti: le righe sono per `company_id` e devono essere trovabili e cancellabili/pseudonimizzabili per interessato, nei limiti della conservazione dell'audit stabilita da DX-09.
+  - *NIS2 (art. 21).* Controllo degli accessi (solo actor `human` decide, RLS FORCE), registrazione delle decisioni in A5, token monouso, fail-closed. Un'esecuzione senza approvazione o una decisione forgiata è un incidente di sicurezza: C3 invia il segnale ad A5, responsabile della notifica (DX-10, ondata 2). C3 non gestisce la notifica.
+  - *AI Act.* I casi d'uso v2 non sono ad alto rischio (DX-11): sorveglianza umana e log (artt. 12, 14) non sono obblighi ma buona pratica, che C3 realizza comunque per scelta di progetto (P7, approvazione richiesta): la persona vede la chiamata esatta e può rifiutarla; ogni decisione è registrata con autore, momento, hash degli argomenti ed esito. Trasparenza art. 50 (applicabile): se le azioni approvate inviano a terzi contenuti generati dall'AI (email, ads), l'obbligo di informativa va valutato nei documenti D1–D3; se C3 debba mostrare all'approvatore o allegare un'etichetta "generato da AI" resta un dubbio da riportare all'utente.
+  - *Perimetro dati.* Tutto in PostgreSQL controllato da Gravya su infrastruttura UE (DA-B1-06); nessun servizio esterno di tracing o di eval (DA-C1-05, DA-E3-09).
   - *Cosa rende osservabile sul piano AI:* tasso di richieste, approvazioni, rifiuti, scadenze, input forniti; tempo di decisione; esiti (`ok`/`refused`/`error`) delle chiamate eseguite; correlazione con il run e il prompt versionato (E2) tramite gli identificativi E1.
 - **Performance:** la latenza tra decisione e ripresa del run, esclusa l'esecuzione del tool, deve stare sotto 2 s al p95 (**proposta da validare**).
 
@@ -117,10 +119,11 @@ In ondata 1 la UI di v2 è una card minima che gestisce `approval_required`/`inp
 | AC-7 | Isolamento: l'azienda B non vede né decide le righe dell'azienda A | test RLS, sul modello di gravya-app `approvals-force-rls-services.realpg.test.ts` |
 | AC-8 | Esiste almeno 1 approvazione end-to-end registrata su staging v2 (in gravya-app, secondo kloudify, 0) | query sulla tabella delle richieste HITL con `outcome=ok` |
 | AC-9 | Ogni transizione di stato produce un record di traccia E1 DB-native senza valori in chiaro degli argomenti (salvo esito di DA-C3-06) | test di integrazione sulla tabella delle tracce E1 |
+| AC-10 | Fail-closed: se il record di audit A5 della decisione o il record di decisione A3 non si salva, la chiamata approvata non viene eseguita (DA-B2-04, DA-A3-07) | test di integrazione con scrittura dell'audit forzata in errore: 0 chiamate tool |
 
 ## 9. Piano di implementazione
 
-**Tecnologie:** LangGraph `interrupt()` con checkpointer Postgres (master plan; scelta finale in B5), schema condiviso per i contratti (DA-C3-03), PostgreSQL con RLS, tracce DB-native E1.
+**Tecnologie:** LangGraph (libreria self-hosted, DA-C1-01/DA-C1-05) `interrupt()` con checkpointer Postgres (master plan; scelta finale in B5), schema condiviso per i contratti (DA-C3-03), PostgreSQL con RLS, tracce DB-native E1.
 
 **Fasi ordinate.**
 1. Congelare i contratti di §4 in un unico schema condiviso Python/TS (DA-C3-03).
@@ -130,13 +133,14 @@ In ondata 1 la UI di v2 è una card minima che gestisce `approval_required`/`inp
 5. Implementare sweeper e TTL (DA-C3-04) e il collegamento a C4.
 6. Pubblicare l'interfaccia minima per G2 ed eseguire un test end-to-end su staging (AC-8).
 
-**Rischi:** se C1 (DA-C1-01) prevede più di un motore, il nodo HITL dovrebbe esistere in ciascuno; gravya-app ne aveva due ed è un difetto da non ripetere.
+**Rischi:** con DA-C1-01 decisa (LangGraph motore unico) il rischio di dover replicare il nodo HITL in più motori, difetto di gravya-app, non si presenta.
 
 ## 10. Test e valutazione
 
 - **Unit:** builder dei payload, rami di `node_interrupt_check`, replay.
 - **Integration:** ciclo completo parcheggio → decisione → resume → claim → esito, su Postgres reale.
-- **Eval (E3):** casi golden di "scrittura che deve fermarsi", con soglia 100% di fermate (**proposta da validare**).
+- **Eval (E3):** casi golden di "scrittura che deve fermarsi", costruiti solo con dati sintetici (DA-E3-08), con soglia 100% di fermate (**proposta da validare**).
+- **Fail-closed:** errore forzato sul salvataggio dell'audit/record di decisione durante la ripresa (AC-10).
 - **Security:** decisione forgiata da un actor non umano, resume cross-tenant, replay del token, path traversal su `taskId` (validazione dell'identificativo, come `KLOUD_TASK_ID_RE` in gravya-app).
 
 ## 11. Rischi e mitigazioni
@@ -147,7 +151,8 @@ In ondata 1 la UI di v2 è una card minima che gestisce `approval_required`/`inp
 | Interrupt saltato in silenzio senza checkpointer | AC-2 |
 | Doppia esecuzione dopo un retry | claim condizionale e un unico writer (lo sweeper non riesegue mai) |
 | Due trasporti di resume che divergono | una sola funzione di resume |
-| Dati personali conservati senza limite in righe e tracce HITL | DA-C3-05 e DA-C3-06, AC-9 |
+| Dati personali conservati senza limite in righe e tracce HITL | politica di retention unica DX-09, DA-C3-06, AC-9 |
+| Audit non disponibile che blocca le approvazioni | scelta accettata (fail-closed, DA-B2-04/DA-A3-07): meglio un'azione bloccata che una non registrata; AC-10 |
 | Fatica da approvazione con il default "sempre" | metriche di rifiuto; l'autonomia graduata resta fuori ondata 1 |
 
 ## 12. Stima e priorità
@@ -199,16 +204,16 @@ gravya-app è solo riferimento (DX-01, PV-03): nulla di quanto segue si porta in
 - Contenuto di `c2_hitl_timeout.py` e rapporto tra il suo timeout e lo sweeper.
 - Tutte le soglie numeriche marcate "proposta da validare".
 
-## Appendice C — Decisioni aperte
+## Appendice C — Decisioni
 
 | ID | Titolo | Opzioni | Criterio | Raccomandazione |
 |---|---|---|---|---|
 | DA-C3-01 | Riuso in gravya-app-v2 | — | — | **Chiusa da DX-01**: costruzione da zero, gravya-app come riferimento (Appendice A) |
-| DA-C3-02 | Dove vive il nodo HITL | (a) solo nel motore unico scelto da C1; (b) in più motori se C1 ne prevede più d'uno | esito di DA-C1-01 | (a); (b) solo se C1 lo impone (modificata: in v2 non ci sono due motori ereditati) |
+| DA-C3-02 | Dove vive il nodo HITL | (a) solo nel motore unico scelto da C1; (b) in più motori se C1 ne prevede più d'uno | esito di DA-C1-01 | (a). DA-C1-01 è decisa (LangGraph motore unico), quindi (b) non ha più presupposto; la chiusura formale resta da registrare in DECISIONS.md |
 | DA-C3-03 | Fonte del contratto condiviso | (a) Pydantic come fonte con TS generato; (b) Zod come fonte; (c) JSON Schema neutro | un solo punto di verità e niente drift | (c) proposta da validare |
 | DA-C3-04 | TTL della richiesta | (a) 24 h fisse (come gravya-app); (b) configurabile per azienda | casi d'uso di campagne lunghe | (a) in ondata 1 |
-| DA-C3-05 | Retention di richieste, argomenti, decisioni e feedback HITL | (a) retention breve per gli argomenti con hash permanente nell'audit; (b) stessa retention dell'audit A5; (c) configurabile per azienda | GDPR (limitazione della conservazione, diritti) contro obblighi di audit NIS2/AI Act | **DA RIPORTARE ALL'UTENTE**: liceità e durata non verificate |
-| DA-C3-06 | Cosa della chiamata entra nelle tracce E1 | (a) solo identificativi e hash degli argomenti; (b) argomenti completi | minimizzazione, coerenza con DA-E1-02 | (a), da allineare a DA-E1-02 |
+| DA-C3-05 | Retention di richieste, argomenti, decisioni e feedback HITL | — | — | **Assorbita da DX-09** (vedi `DECISIONS.md`): politica di retention unica; durate non ancora fissate |
+| DA-C3-06 | Cosa della chiamata entra nelle tracce E1 | (a) solo identificativi e hash degli argomenti; (b) argomenti completi | minimizzazione, coerenza con DA-E1-02 | (a), coerente con DA-E1-02 (decisa: contenuti mai in produzione) |
 
 ## Storico modifiche
 
@@ -217,3 +222,4 @@ gravya-app è solo riferimento (DX-01, PV-03): nulla di quanto segue si porta in
 | 1.0 | 2026-11-03 | Prima stesura (ondata 1) |
 | 1.1 | 2026-11-03 | Revisione incrociata ondata 1: aggiunti in "È richiesto da" C1, A3, B2, E3 ed E2 (condizionale), che dichiarano di dipendere da C3; span allineato al tipo `gravya.decision` (kind=hitl) di E1; segnalata la divergenza di convenzione dei nomi evento e l'evento C1 non consumato. Motivo: dipendenze dichiarate in un solo verso e interfacce non combacianti. |
 | 1.2 | 2026-11-03 | Applicate DX-01/PV-03 (ripartenza da zero): riferimenti a gravya-app riformulati come idee e lezioni, Appendice A rinominata "Riferimenti dal sistema precedente" con soluzioni da riprendere e difetti da non ripetere, DA-C3-01 chiusa, DA-C3-02 riformulata, fasi §9 e test §8 riscritti per costruzione da zero, taglia da M a L. Applicate DX-02/PV-01/PV-02: osservabilità su tracce DB-native E1 senza OpenTelemetry, nuova voce "Sicurezza e conformità" in §7 (GDPR, NIS2, AI Act, osservabilità AI), AC-9, nuove DA-C3-05 (retention, da riportare) e DA-C3-06 (contenuto delle tracce). (rev. coerenza) §7 osservabilità: `tipo gravya.decision` → segmento `kind=decision` (E1 §4.2). |
+| 1.3 | 2026-11-03 | Applicate le decisioni dell'utente (DECISIONS.md). DA-C1-01/DA-C1-05/DA-B1-06 recepite come scelte (§3, §7, §9) e rischio dei due motori chiuso; DA-E1-02 e DA-E1-05 in §4.4 e §7 (vocabolario GenAI semconv e `traceparent` ammessi, senza SDK OTel); DA-B2-04/DA-A3-07 fail-closed in §6, §7, nuovo AC-10, test §10 e rischio §11; DA-B2-07 e DA-E3-08 richiamate in §7 e §10. DX-09: DA-C3-05 assorbita, retention specifica rimossa, elencate le classi di dati prodotte. DX-10: notifica incidenti ad A5, C3 invia segnali. DX-11: Gravya responsabile ex art. 28, artt. 12/14 AI Act ridotti a buona pratica, art. 50 mantenuto. Taglia invariata (L). Motivo: decisioni dell'utente del 2026-11-03. |

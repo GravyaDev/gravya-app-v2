@@ -124,3 +124,16 @@ Verifica di coerenza dopo l'applicazione di DX-01/PV-03 (ripartenza da zero) e D
 5. DA-E1-05 (GenAI semantic conventions come solo vocabolario, formato header) DA RIPORTARE ALL'UTENTE.
 
 **Matrice dipendenze:** invariata nelle relazioni; cambia solo la natura dell'arco verso E1, che ora è "scrive segmenti nel modello DB-native E1" per A3, B1, B2, C1, C3, E2 (attributi prompt), E3 (`eval_case`) e lettura diretta delle tabelle per E3. Nessuna dipendenza da OTel.
+
+## Revisione v1.3 (2026-11-03)
+
+Verifica di coerenza dei 9 documenti dopo le decisioni dell'utente del 2026-11-03 (DECISIONS.md, DX-09/10/11 e DA decise). Esito: nessun residuo meccanico da correggere.
+
+- **Retention (DX-09):** nessun documento fissa durate proprie; tutti rimandano a DX-09 ed elencano le classi di dati prodotte. E1 cita le durate della v1.2 solo come ritirate.
+- **DA decise:** DA-A1-01, DA-C1-01, DA-C1-05, DA-B1-06, DA-E3-09, DA-E1-02, DA-E3-08, DA-B2-07, DA-E1-05, DA-B2-04, DA-A3-07 sono indicate come decise nelle Appendici C e trattate come scelte nel testo; le DA di retention risultano «Assorbita da DX-09».
+- **Fail-closed:** coerente tra A3 (allow→deny se il record non si salva, CA9), B2 (`tool.invoked` prima dell'esecuzione, criterio 3), C1 (criterio 8), C3 (AC-10), E2 (transazione unica, test §8.10) ed E3 (record E1 non salvato = exit 2).
+- **Segnali verso A5 (DX-10):** dichiarati da A1, A3, B1, B2, C1, C3, E1, E2, E3.
+- **AI Act (DX-11):** nessun requisito motivato come obbligo da alto rischio; artt. 12/14/19/26 indicati come buona pratica, art. 50 applicabile.
+- **Vocabolario GenAI:** i nomi `gen_ai.*` compaiono solo in E1; gli altri documenti rimandano ai nomi fissati da E1, senza nomi divergenti.
+
+Restano aperti (da non inferire): durate di default DX-09 e relativo responsabile (DX-12); se una coda durevole locale valga come «salvato» e come gestire il fallimento dell'audit di esito dopo l'esecuzione (B2, DA-B2-04); soglia di latenza complessiva di A3 con salvataggio sincrono; DA-A1-08 (base giuridica identificativi admin); campo/etichetta «generato da AI» per l'art. 50 (C1, C3, D1–D4).
