@@ -1,8 +1,8 @@
 # Agenti di governance del progetto
 
-Versione 1.8, 2026-11-03.
+Versione 1.9, 2026-11-03.
 
-Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene questo README e, in `schemi/`, lo schema JSON dello strumento di risposta di ogni agente sulla piattaforma.
+Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
 ## Catalogo
 
@@ -41,7 +41,7 @@ Modello e impegno di ogni agente stanno **solo** nell'intestazione del suo file 
 
 Nel file di ogni agente lo schema della risposta compare due volte: nella `description:` (la legge il coordinatore, che non vede il prompt) e nella sezione "Risposta (JSON)" del corpo (la legge l'agente, che non vede la descrizione). La duplicazione è necessaria: le due copie si modificano sempre insieme, nello stesso commit.
 
-Quelle due copie sono **esempi** di risposta, leggibili da chi scrive o legge il task. Lo strumento di risposta sulla piattaforma (`risposta_{agente}`) richiede invece un JSON Schema vero (`properties`, `required`, `enum`): sta in `schemi/risposta_{agente}.json` e si incolla così com'è. Ogni modifica allo schema di un agente tocca, nello stesso commit, la descrizione, il corpo e il file in `schemi/`.
+L'agente consegna la risposta come messaggio (sulla piattaforma con `send_to_parent`), con solo il JSON. Non esistono strumenti di risposta dedicati: lo schema sta solo nel prompt.
 
 Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Claude Code rispetta quando l'agente sta in `.claude/agents/`. **Agenti configurati sulla piattaforma** (es. l'agente Registrar della sessione di pianificazione): sono una copia fuori dal repository. A ogni modifica di un file in `.claude/agents/` vanno aggiornati a mano (prompt e strumenti).
 
@@ -74,3 +74,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 | 1.6 | 2026-11-03 | Agente rinominato `coordinator` (strumento `risposta_coordinator`), modello Opus: unica eccezione alla regola "niente Opus" (decisione dell'utente). |
 | 1.7 | 2026-11-03 | Il `registrar` non scrive più nella memoria di sessione (evita doppioni di `DECISIONS.md`); la memoria è curata solo dal `coordinator`. |
 | 1.8 | 2026-11-03 | Esito del collaudo degli agenti (decisioni dell'utente): nuovi agenti `code-reader` (Haiku) e `implementer` (Sonnet) con le loro sequenze; JSON Schema degli strumenti di risposta in `schemi/`; correzioni ai prompt: `doc-writer` (lettura completa delle fonti, niente metadati del task nel documento, i punti "da confermare" restano aperti, campo Dossier nel template), `plan-auditor` (lettura completa delle fonti), `registrar` (niente copie o backup, terminazioni di riga conservate). |
+| 1.9 | 2026-11-03 | Tolti gli strumenti di risposta `risposta_*` e i loro schemi (`schemi/`): sulla piattaforma erano strumenti custom aggiunti per errore e bloccavano la sessione; lo schema resta solo nel prompt e nella descrizione, la consegna è il messaggio con il JSON (decisione dell'utente). |

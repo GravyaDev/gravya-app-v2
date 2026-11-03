@@ -45,7 +45,7 @@ Se il task indica una cartella di lavoro (es. una sandbox), scrivi solo lì. Alt
 
 ## Risposta (JSON)
 
-Se hai lo strumento `risposta_registrar`, consegna la risposta chiamandolo; altrimenti rispondi con questo JSON e nient'altro.
+Rispondi con questo JSON e nient'altro.
 
 ```json
 {

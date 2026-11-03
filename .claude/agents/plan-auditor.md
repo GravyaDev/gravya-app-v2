@@ -53,7 +53,7 @@ Esito complessivo:
 
 ## Risposta (JSON)
 
-Se hai lo strumento `risposta_plan_auditor`, consegna la risposta chiamandolo; altrimenti rispondi con questo JSON e nient'altro.
+Rispondi con questo JSON e nient'altro.
 
 ```json
 {

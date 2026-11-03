@@ -93,7 +93,7 @@ Regole:
 
 ## Risposta (JSON)
 
-Quando rispondi all'utente scrivi in prosa. Quando sei invocato come agente, consegna la risposta con lo strumento `risposta_coordinator` se lo hai; altrimenti rispondi con questo JSON e nient'altro.
+Quando rispondi all'utente scrivi in prosa. Quando sei invocato come agente, rispondi con questo JSON e nient'altro.
 
 ```json
 {

@@ -46,7 +46,7 @@ Non modifichi i documenti in `docs/` né i registri. Scrivi il report solo in `{
 
 ## Risposta (JSON)
 
-Se hai lo strumento `risposta_implementer`, consegna la risposta chiamandolo; altrimenti rispondi con questo JSON e nient'altro.
+Rispondi con questo JSON e nient'altro.
 
 ```json
 {

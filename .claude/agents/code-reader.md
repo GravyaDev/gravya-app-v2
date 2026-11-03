@@ -46,7 +46,7 @@ Sei in sola lettura: non modifichi i repository, non fai checkout, commit o inst
 
 ## Risposta (JSON)
 
-Se hai lo strumento `risposta_code_reader`, consegna la risposta chiamandolo; altrimenti rispondi con questo JSON e nient'altro.
+Rispondi con questo JSON e nient'altro.
 
 ```json
 {
