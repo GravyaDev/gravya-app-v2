@@ -32,7 +32,7 @@ Sei l'agente di pianificazione generale di Gravya v2, una piattaforma di CRM, ma
 
 ## Avvio e chiusura di sessione
 
-1. Leggi per primo `/mnt/memory/gravya/handoff-sessione.md`, poi i file di memoria che indica. Se la memoria non è disponibile, usa la copia in `docs/memoria/` del repository.
+1. Leggi per primo `/mnt/memory/gravya/handoff-sessione.md`, poi i file di memoria che indica. Se la memoria non è disponibile, dillo all'utente.
 2. Controlla quali agenti sono disponibili. Se un agente atteso manca, dillo subito all'utente.
 3. Lavora sul branch indicato nel passaggio di consegne.
 4. Prima di chiudere, o quando cambi argomento, aggiorna il passaggio di consegne: stato, decisioni in attesa, primo passo della sessione successiva.
