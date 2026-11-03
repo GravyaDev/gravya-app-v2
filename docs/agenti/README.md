@@ -34,9 +34,9 @@ Per decisione dell'utente (2026-11-03) gli agenti di governance **non usano Opus
 
 | Agente | Modello | Impegno | Motivo |
 |---|---|---|---|
-| `registrar` | `haiku` | Basso | Compito meccanico: aggiorna i registri da input già decisi. Passa a medio se i test mostrano omissioni |
-| `doc-writer` | `sonnet` | Alto | Redazione strutturata con ragionamento sulle dipendenze |
-| `plan-auditor`, `compliance-auditor` | `sonnet` | Alto | Revisione avversariale; la conformità è prioritaria (PV-01) |
+| `registrar` | `haiku` | Medio | Compito meccanico: aggiorna i registri da input già decisi |
+| `doc-writer` | `sonnet` | Medio | Redazione strutturata con ragionamento sulle dipendenze |
+| `plan-auditor`, `compliance-auditor` | `sonnet` | Medio | Revisione avversariale; la conformità è prioritaria (PV-01) |
 | `code-reviewer` | `sonnet` | Alto | Revisione avversariale delle PR; l'impegno non è modificabile per singola PR, quindi alto per tutte |
 
 L'impegno si imposta sulla piattaforma ed è fisso per agente.
@@ -65,4 +65,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 |---|---|---|
 | 1.0 | 2026-11-03 | Prima versione. |
 | 1.1 | 2026-11-03 | Eliminate le copie dei prompt in `docs/agenti/`: fonte unica in `.claude/agents/`, per evitare disallineamenti (decisione dell'utente). Aggiunta la regola di riallineamento degli agenti configurati sulla piattaforma. |
-| 1.2 | 2026-11-03 | Aggiunta la colonna Impegno (registrar basso, gli altri alto), decisione dell'utente. |
+| 1.2 | 2026-11-03 | Aggiunta la colonna Impegno: tutti medio, code-reviewer alto (decisione dell'utente). |
