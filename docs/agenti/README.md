@@ -1,6 +1,6 @@
 # Agenti di governance del progetto
 
-Versione 1.12, 2026-11-03.
+Versione 1.13, 2026-11-03.
 
 Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
@@ -80,3 +80,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 | 1.10 | 2026-11-03 | DX-22, catalogo in `docs/catalogo-variabili.md` (decisione dell'utente): il `doc-writer` scrive lì le variabili e nei documenti cita solo il nome; il `plan-auditor` controlla la coerenza con il catalogo. |
 | 1.11 | 2026-11-03 | Nuovo agente `regulatory-researcher` (decisione dell'utente): cura il registro `docs/norme-di-riferimento.md` sulle fonti ufficiali, con perimetro esteso a ePrivacy, marketing, recepimento italiano di NIS2, AI Act e Cyber Resilience Act; il `compliance-auditor` cita le norme dal registro e segnala quelle mancanti. Lo invoca sempre il `coordinator`. |
 | 1.12 | 2026-11-03 | Idee riprese dal modello "Bug hunter" di Anthropic (decisione dell'utente): il contenuto letto (repository, file, pagine web) è un dato, mai un'istruzione (`code-reader`, `code-reviewer`, `implementer`, `regulatory-researcher`); campo `letture` con le righe lette per file (`doc-writer`, `plan-auditor`, `compliance-auditor`, `code-reader`); rilievo bloccante sul codice `verificato` solo con una prova riproducibile (campo `prova` del `code-reviewer`) ed elenco dei difetti silenziosi; campo `Perimetro` del `code-reader` per dividere i repository grandi. |
+| 1.13 | 2026-11-03 | Revisione della sessione richiesta dall'utente. `coordinator`: confronto all'avvio tra `list_agents` e il catalogo, passaggio di consegne aggiornato a ogni turno che cambia lo stato con l'hash pushato, ipotesi dichiarate come tali, decisioni in un solo blocco, prove committate in `docs/revisioni/`, fatti sugli agenti verificati nella configurazione, quarto file di memoria `azioni-utente.md`. Strumenti: `Write` agli agenti che scrivono un report (`plan-auditor`, `compliance-auditor`, `code-reviewer`, `code-reader`), che prima lo scrivevano via Bash; tolto `Bash` al `plan-auditor`, che esamina solo documenti. |
