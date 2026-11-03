@@ -8,7 +8,16 @@ description: |
     Motivo: {modifica a ... | chiusura ondata N}
     Cartella report: {percorso}
 
-  Risponde in JSON con: esito, rilievi, controllato, report (schema nel prompt, sezione "Risposta").
+  Risponde in JSON con: esito, rilievi, controllato, report.
+  Schema risposta:
+  ```json
+  {
+    "esito": "BLOCCA | RIPORTA | OK",
+    "rilievi": [{"gravita": "bloccante|da_riportare|minore", "dove": "B2 §4.2", "testo_citato": "...", "problema": "...", "fonte_violata": "PV-02 | DA-B2-04 | C3 §4.1", "verifica": "verificato|dedotto"}],
+    "controllato": ["..."],
+    "report": "percorso del report"
+  }
+  ```
 model: sonnet
 effort: medium
 tools: Read, Grep, Glob, Bash

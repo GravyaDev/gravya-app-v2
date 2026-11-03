@@ -10,7 +10,16 @@ description: |
     Data: {AAAA-MM-GG}
     Aggiorna i registri di conseguenza.
 
-  Risponde in JSON con: registri_modificati, righe_aggiornate, documenti_da_aggiornare, conflitti_da_riportare (schema nel prompt, sezione "Risposta").
+  Risponde in JSON con: registri_modificati, righe_aggiornate, documenti_da_aggiornare, conflitti_da_riportare.
+  Schema risposta:
+  ```json
+  {
+    "registri_modificati": ["percorso", "..."],
+    "righe_aggiornate": ["DX-09: Aperta -> Decisa", "..."],
+    "documenti_da_aggiornare": [{"doc": "B2-tool-gateway.md", "motivo": "..."}],
+    "conflitti_da_riportare": ["..."]
+  }
+  ```
 model: haiku
 effort: medium
 tools: Read, Grep, Glob, Edit, Write, Bash

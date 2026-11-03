@@ -11,7 +11,18 @@ description: |
     Operazione: {nuovo | aggiornamento per: motivo}
     File: docs/{ID}-{slug}.md
 
-  Risponde in JSON con: file, versione, decisioni_aperte, dipendenze, non_verificato, variabili (schema nel prompt, sezione "Risposta").
+  Risponde in JSON con: file, versione, decisioni_aperte, dipendenze, non_verificato, variabili.
+  Schema risposta:
+  ```json
+  {
+    "file": "...",
+    "versione": "1.0",
+    "decisioni_aperte": [{"id": "DA-X-01", "titolo": "...", "opzioni": "...", "criterio": "...", "raccomandazione": "...", "da_riportare": false}],
+    "dipendenze": ["..."],
+    "non_verificato": ["..."],
+    "variabili": [{"nome": "...", "default": "...", "modifica": "superadmin|admin_agenzia", "intervallo": "...", "pagina": "..."}]
+  }
+  ```
 model: sonnet
 effort: medium
 tools: Read, Grep, Glob, Edit, Write, Bash

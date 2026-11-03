@@ -1,6 +1,6 @@
 # Agenti di governance del progetto
 
-Versione 1.3, 2026-11-03.
+Versione 1.4, 2026-11-03.
 
 Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
@@ -34,6 +34,8 @@ Per decisione dell'utente (2026-11-03) gli agenti di governance **non usano Opus
 
 Modello e impegno di ogni agente stanno **solo** nell'intestazione del suo file in `.claude/agents/` (campi `model:` ed `effort:`). Questo README non li ripete: a ogni modifica si aggiorna il file dell'agente e, a mano, l'agente sulla piattaforma.
 
+Nel file di ogni agente lo schema della risposta compare due volte: nella `description:` (la legge il coordinatore, che non vede il prompt) e nella sezione "Risposta (JSON)" del corpo (la legge l'agente, che non vede la descrizione). La duplicazione è necessaria: le due copie si modificano sempre insieme, nello stesso commit.
+
 Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Claude Code rispetta quando l'agente sta in `.claude/agents/`. **Agenti configurati sulla piattaforma** (es. l'agente Registrar della sessione di pianificazione): sono una copia fuori dal repository. A ogni modifica di un file in `.claude/agents/` vanno aggiornati a mano (prompt e strumenti).
 
 **Limite noto:** una sessione che gira su Opus e lancia agenti inline (workflow) non può scegliere Sonnet o Haiku: gli agenti ereditano il modello della sessione. Per rispettare questa regola, le sequenze vanno eseguite da una sessione Claude Code aperta nel repository, che usi gli agenti di `.claude/agents/`, oppure da una sessione impostata su Sonnet.
@@ -60,3 +62,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 | 1.1 | 2026-11-03 | Eliminate le copie dei prompt in `docs/agenti/`: fonte unica in `.claude/agents/`, per evitare disallineamenti (decisione dell'utente). Aggiunta la regola di riallineamento degli agenti configurati sulla piattaforma. |
 | 1.2 | 2026-11-03 | Aggiunta la colonna Impegno: tutti medio, code-reviewer alto (decisione dell'utente). |
 | 1.3 | 2026-11-03 | Modello e impegno spostati solo nell'intestazione dei file degli agenti (`model:`, `effort:`), tolta la tabella dal README: un solo punto di verità. |
+| 1.4 | 2026-11-03 | Lo schema della risposta è anche nella descrizione degli agenti; regola di aggiornamento congiunto delle due copie. |

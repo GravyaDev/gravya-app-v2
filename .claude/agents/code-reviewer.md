@@ -8,7 +8,17 @@ description: |
     Documento di dettaglio dichiarato: {ID}
     Cartella report: {percorso}
 
-  Risponde in JSON con: esito, criteri, rilievi, tentativi_di_rottura, report (schema nel prompt, sezione "Risposta").
+  Risponde in JSON con: esito, criteri, rilievi, tentativi_di_rottura, report.
+  Schema risposta:
+  ```json
+  {
+    "esito": "BLOCCA | RIPORTA | OK",
+    "criteri": [{"id": "CA3", "test": "percorso::nome | assente", "verifica_reale": true, "eseguito": "comando ed esito | non eseguito", "note": "..."}],
+    "rilievi": [{"gravita": "bloccante|da_riportare|minore", "file_riga": "...", "problema": "...", "fonte": "B2 §6 | PV-02 | DA-B2-04", "verifica": "verificato|dedotto"}],
+    "tentativi_di_rottura": ["..."],
+    "report": "percorso"
+  }
+  ```
 model: sonnet
 effort: high
 tools: Read, Grep, Glob, Bash
