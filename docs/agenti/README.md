@@ -1,6 +1,6 @@
 # Agenti di governance del progetto
 
-Versione 1.6, 2026-11-03.
+Versione 1.7, 2026-11-03.
 
 Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
@@ -8,8 +8,8 @@ Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno
 
 | Agente | File | Compito | Scrive | Modalità |
 |---|---|---|---|---|
-| `coordinator` | [coordinator.md](../../.claude/agents/coordinator.md) | Pianifica, redige e mantiene i documenti di progetto; orchestra gli altri agenti secondo le sequenze sotto e riporta all'utente | Documenti di progetto, memoria; i registri solo tramite il `registrar` | Orchestratore |
-| `registrar` | [registrar.md](../../.claude/agents/registrar.md) | Aggiorna `DECISIONS.md`, `index.md`, lo Storico modifiche dei documenti e la memoria di progetto dopo ogni decisione o modifica | `docs/DECISIONS.md`, `docs/index.md`, righe dello Storico, `/mnt/memory/gravya/` | Collaborativa |
+| `coordinator` | [coordinator.md](../../.claude/agents/coordinator.md) | Pianifica, redige e mantiene i documenti di progetto; orchestra gli altri agenti secondo le sequenze sotto e riporta all'utente | Documenti di progetto e memoria di sessione (`/mnt/memory/gravya/`); i registri solo tramite il `registrar` | Orchestratore |
+| `registrar` | [registrar.md](../../.claude/agents/registrar.md) | Aggiorna `DECISIONS.md`, `index.md`, lo Storico modifiche dei documenti dopo ogni decisione o modifica | `docs/DECISIONS.md`, `docs/index.md`, righe dello Storico | Collaborativa |
 | `plan-auditor` | [plan-auditor.md](../../.claude/agents/plan-auditor.md) | Verifica la coerenza tra principi, decisioni, documenti di dettaglio e master plan | Solo il proprio report | Avversariale |
 | `code-reviewer` | [code-reviewer.md](../../.claude/agents/code-reviewer.md) | Verifica che il codice di una PR implementi il documento di dettaglio, rispetti i criteri di accettazione e i principi | Solo il proprio report | Avversariale |
 | `compliance-auditor` | [compliance-auditor.md](../../.claude/agents/compliance-auditor.md) | Cerca violazioni di GDPR, NIS2, AI Act e osservabilità AI (PV-01) in documenti e codice | Solo il proprio report | Avversariale |
@@ -66,3 +66,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 | 1.4 | 2026-11-03 | Lo schema della risposta è anche nella descrizione degli agenti; regola di aggiornamento congiunto delle due copie. |
 | 1.5 | 2026-11-03 | Aggiunto l'agente `coordinator` (prompt dell'agente di pianificazione, invocabile). |
 | 1.6 | 2026-11-03 | Agente rinominato `coordinator` (strumento `risposta_coordinator`), modello Opus: unica eccezione alla regola "niente Opus" (decisione dell'utente). |
+| 1.7 | 2026-11-03 | Il `registrar` non scrive più nella memoria di sessione (evita doppioni di `DECISIONS.md`); la memoria è curata solo dal `coordinator`. |
