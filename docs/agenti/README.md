@@ -1,6 +1,6 @@
 # Agenti di governance del progetto
 
-Versione 1.5, 2026-11-03.
+Versione 1.6, 2026-11-03.
 
 Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
@@ -8,7 +8,7 @@ Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno
 
 | Agente | File | Compito | Scrive | Modalità |
 |---|---|---|---|---|
-| `coordinatore` | [coordinatore.md](../../.claude/agents/coordinatore.md) | Pianifica, redige e mantiene i documenti di progetto; orchestra gli altri agenti secondo le sequenze sotto e riporta all'utente | Documenti di progetto, memoria; i registri solo tramite il `registrar` | Orchestratore |
+| `coordinator` | [coordinator.md](../../.claude/agents/coordinator.md) | Pianifica, redige e mantiene i documenti di progetto; orchestra gli altri agenti secondo le sequenze sotto e riporta all'utente | Documenti di progetto, memoria; i registri solo tramite il `registrar` | Orchestratore |
 | `registrar` | [registrar.md](../../.claude/agents/registrar.md) | Aggiorna `DECISIONS.md`, `index.md`, lo Storico modifiche dei documenti e la memoria di progetto dopo ogni decisione o modifica | `docs/DECISIONS.md`, `docs/index.md`, righe dello Storico, `/mnt/memory/gravya/` | Collaborativa |
 | `plan-auditor` | [plan-auditor.md](../../.claude/agents/plan-auditor.md) | Verifica la coerenza tra principi, decisioni, documenti di dettaglio e master plan | Solo il proprio report | Avversariale |
 | `code-reviewer` | [code-reviewer.md](../../.claude/agents/code-reviewer.md) | Verifica che il codice di una PR implementi il documento di dettaglio, rispetti i criteri di accettazione e i principi | Solo il proprio report | Avversariale |
@@ -31,7 +31,7 @@ L'attivazione è deterministica: a ogni evento corrisponde una sequenza fissa, e
 
 ## Modello
 
-Per decisione dell'utente (2026-11-03) gli agenti di governance **non usano Opus**:
+Per decisione dell'utente (2026-11-03) gli agenti di governance **non usano Opus**. Unica eccezione: il `coordinator`, che orchestra e verifica gli altri, usa Opus (decisione dell'utente).
 
 Modello e impegno di ogni agente stanno **solo** nell'intestazione del suo file in `.claude/agents/` (campi `model:` ed `effort:`). Questo README non li ripete: a ogni modifica si aggiorna il file dell'agente e, a mano, l'agente sulla piattaforma.
 
@@ -44,7 +44,7 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 ## Come si invocano
 
 - **In Claude Code (consigliato):** gli agenti si trovano in `.claude/agents/` e vengono invocati per nome; il campo `model:` assicura Sonnet o Haiku.
-- **In una sessione di pianificazione:** solo se la sessione non è su Opus, oppure se l'utente lo autorizza esplicitamente.
+- **In una sessione di pianificazione:** solo gli agenti predefiniti (sulla piattaforma o in `.claude/agents/`), che girano con il proprio modello. Mai agenti creati al volo da una sessione su Opus.
 - **Nel repository:** quando esisterà la CI di v2, `code-reviewer` e `compliance-auditor` diventano controlli obbligatori sulle PR. Il loro esito `BLOCCA` fa fallire il controllo.
 
 ## Regole comuni a tutti gli agenti
@@ -64,4 +64,5 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 | 1.2 | 2026-11-03 | Aggiunta la colonna Impegno: tutti medio, code-reviewer alto (decisione dell'utente). |
 | 1.3 | 2026-11-03 | Modello e impegno spostati solo nell'intestazione dei file degli agenti (`model:`, `effort:`), tolta la tabella dal README: un solo punto di verità. |
 | 1.4 | 2026-11-03 | Lo schema della risposta è anche nella descrizione degli agenti; regola di aggiornamento congiunto delle due copie. |
-| 1.5 | 2026-11-03 | Aggiunto l'agente `coordinatore` (prompt dell'agente di pianificazione, invocabile). |
+| 1.5 | 2026-11-03 | Aggiunto l'agente `coordinator` (prompt dell'agente di pianificazione, invocabile). |
+| 1.6 | 2026-11-03 | Agente rinominato `coordinator` (strumento `risposta_coordinator`), modello Opus: unica eccezione alla regola "niente Opus" (decisione dell'utente). |
