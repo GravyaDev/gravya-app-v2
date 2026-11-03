@@ -1,3 +1,5 @@
+> **Nota di allineamento (v1.1, 2026-11-03).** Documento sorgente dell'utente. Le decisioni prese durante la pianificazione prevalgono sul testo originale (ordine: `docs/PRINCIPI.md`, `docs/DECISIONS.md`, documenti di dettaglio, questo file). Dove il testo è superato, una nota **[→ …]** rimanda alla decisione, senza ripeterne il contenuto: la fonte resta `DECISIONS.md`. **Questo file è un modello di forma, non di contenuto.** Il documento A1 in uso è `docs/A1-grafo-mandati.md`. Non imitare: le stime in settimane (§9; solo taglie S/M/L), i valori fissi come 5 s, 5 minuti, 100 ms (DX-22: vanno resi variabili), Neo4j come scelta (DA-A1-01), il bus Kafka non previsto, le decisioni aperte senza ID `DA-{ID}-NN`.
+
 # A1 — Modello del grafo dei mandati
 
 ## 1. Identità
@@ -45,19 +47,10 @@
 | `Artifact` | `id`, `uri`, `content_hash`, `mime`, `size_bytes`, `owner_tenant_id` | `retention_class`, `unresolved` (bool) |
 | `Delegation` | `id`, `scope`, `expires_at` | `constraints` |
 
-Hai ragione, mi sono interrotto a metà. Ecco il completamento del documento **A1**, che riprende esattamente dalla sezione 4.2.
-
----
-
 ### 4.2 Schema degli edge
 
 | Edge | Da → A | Semantica |
 |---|---|---|
-| `HAS_MANDATE` | `Agent` → `Mandate` | L'agente possiede quel mandato |
-| `OPERATES_IN` | `Mandate` → `Domain` | Il mandato è valido in quel dominio |
-| `PRODUCES` | `Agent` → `Artifact` | L'agente ha prodotto quell'artefatto |
-| `DELEGATES_TO` | `Agent` → `Delegation` | L'agente delega parte del suo scope |
-| `DELEGATION_TARGET` | `Delegation` → `Agent`
 | `HAS_MANDATE` | `Agent` → `Mandate` | L'agente possiede quel mandato |
 | `OPERATES_IN` | `Mandate` → `Domain` | Il mandato è valido in quel dominio |
 | `PRODUCES` | `Agent` → `Artifact` | L'agente ha prodotto quell'artefatto |
@@ -172,4 +165,11 @@ Hai ragione, mi sono interrotto a metà. Ecco il completamento del documento **A
 ---
 *Fine documento A1. Pronto per essere salvato come `A1-grafo-mandati.md`.*
 
-Se vuoi, posso procedere con il prossimo documento dell'ondata 1 (ad esempio `E1 — Tracing distribuito` o `A3 — Runtime di enforcement`) o con i prompt per le altre componenti.
+---
+
+## Storico modifiche
+
+| Versione | Data | Cosa è cambiato e perché |
+|---|---|---|
+| 1.0 | 2026-11-03 | Versione originale caricata dall'utente. |
+| 1.1 | 2026-11-03 | Rimossi i residui di chat (frase di ripresa, offerta finale) e le righe duplicate della tabella degli edge §4.2; aggiunta la nota su cosa non imitare. |

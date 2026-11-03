@@ -29,7 +29,7 @@ Fonti, in ordine di prevalenza:
 1. `/workspace/gravya-app-v2/docs/PRINCIPI.md`
 2. le righe decise di `/workspace/gravya-app-v2/docs/DECISIONS.md`
 3. i documenti di dettaglio `docs/{ID}-{slug}.md`
-4. il master plan e il template (`Piano generale.md`, `Prompt e workflow.md`, in `/mnt/session/uploads/`; se non ci sono, chiedili all'utente e non procedere a memoria)
+4. il master plan e il template (`Piano generale.md`, `Prompt e workflow.md`, in `docs/fonti/`; se mancano, chiedili all'utente e non procedere a memoria)
 
 `gravya-app` e `gravya-app-kloudify` sono solo riferimenti: non sono una fonte di verità per v2 (PV-03).
 

@@ -1,3 +1,5 @@
+> **Nota di allineamento (v1.1, 2026-11-03).** Documento sorgente dell'utente. Le decisioni prese durante la pianificazione prevalgono sul testo originale (ordine: `docs/PRINCIPI.md`, `docs/DECISIONS.md`, documenti di dettaglio, questo file). Dove il testo è superato, una nota **[→ …]** rimanda alla decisione, senza ripeterne il contenuto: la fonte resta `DECISIONS.md`. Vincoli trasversali che valgono per tutto il documento: priorità alla conformità (PV-01), ripartenza da zero (PV-03), nessun valore hardcoded (DX-22).
+
 Per progettare da zero una piattaforma di gestione per un'agenzia di marketing basata sull'AI, la scelta architetturale fondamentale non è "quale LLM usare", ma **come governare l'autonomia degli agenti**. La letteratura 2026 è concorde: il collo di bottiglia non è più la capacità del modello, ma l'affidabilità sotto composizione e la governance sotto autonomia. La piattaforma deve quindi nascere come un **sistema di orchestrazione e verifica**, non come un'applicazione con l'AI "aggiunta".
 
 Ecco un piano completo, dall'architettura all'esploso dettagliato.
@@ -28,12 +30,12 @@ Sopra questo substrato, l'architettura applicativa segue un modello **hub-and-sp
 
 | Layer | Responsabilità | Tecnologia indicativa |
 |---|---|---|
-| **Control Plane** | Grafo di mandati, policy compilation, audit trail | Neo4j/Amazon Neptune + OPA |
+| **Control Plane** | Grafo di mandati, policy compilation, audit trail | Neo4j/Amazon Neptune + OPA **[→ grafo: DA-A1-01; motore di policy: DA-A3-01, aperta]** |
 | **Runtime Agenti** | Esecuzione di job agente in workspace effimeri | Container/VM isolati per tenant |
-| **Orchestrazione** | Grafi di stato, checkpoint, HITL | LangGraph (durable execution) |
+| **Orchestrazione** | Grafi di stato, checkpoint, HITL | LangGraph (durable execution) **[→ DA-C1-01, DA-C1-05]** |
 | **Tool Layer** | Accesso a CRM, ads, email, ecc. | MCP server + API gateway |
 | **Memoria** | Breve termine (thread), lungo termine (vettoriale), episodica | Redis + pgvector/Qdrant |
-| **Osservabilità** | Tracing, valutazione, guardrail telemetry | OpenTelemetry + piattaforma eval |
+| **Osservabilità** | Tracing, valutazione, guardrail telemetry | OpenTelemetry + piattaforma eval **[→ PV-02, DA-E1-05, DA-E3-09]** |
 | **Dati applicativi** | Record CRM, campagne, report | PostgreSQL multi-tenant |
 
 ---
@@ -48,14 +50,14 @@ La scelta del framework determina il modello mentale con cui pensi agli agenti.
 - **CrewAI** è più adatto a **pipeline role-based sequenziali** (ricercatore → copywriter → revisore), con minor complessità di sviluppo per team non esperti di graph modeling.
 - **Microsoft Agent Framework** è il successore raccomandato di AutoGen e Semantic Kernel, con workflow tipizzati e forte integrazione Azure. AutoGen è in maintenance mode: da evitare per nuovi progetti.
 
-**Raccomandazione:** LangGraph come orchestrazione principale, con la possibilità di invocare sub-workflow CrewAI per pipeline creative semplici. Non scegliere un framework per gli "stars" su GitHub, ma per la **debug story**: il tempo per riprodurre e correggere un fallimento in produzione è il vero costo.
+**Raccomandazione:** LangGraph come orchestrazione principale, con la possibilità di invocare sub-workflow CrewAI per pipeline creative semplici. **[→ DA-C1-01: LangGraph motore unico]** Non scegliere un framework per gli "stars" su GitHub, ma per la **debug story**: il tempo per riprodurre e correggere un fallimento in produzione è il vero costo.
 
 ### Osservabilità e valutazione
 
-Non costruire su un solo vendor. Cerca framework compatibili con **OpenTelemetry GenAI semantic conventions**, così i punteggi di valutazione possono essere attaccati agli span e le decisioni di runtime non ti bloccano su un fornitore di eval.
+Non costruire su un solo vendor. **[→ PV-02 e DA-E1-05: tracing DB-native, GenAI semconv solo come vocabolario]** Cerca framework compatibili con **OpenTelemetry GenAI semantic conventions**, così i punteggi di valutazione possono essere attaccati agli span e le decisioni di runtime non ti bloccano su un fornitore di eval.
 
 Lo stack minimo:
-- **Tracing**: ogni chiamata LLM (prompt, completion, token, costo), ogni tool invocation, ogni retrieval, ogni decision point.
+- **Tracing**: ogni chiamata LLM (prompt, completion, token, costo) **[→ DA-E1-02: contenuti mai registrati in produzione]**, ogni tool invocation, ogni retrieval, ogni decision point.
 - **Prompt management**: prompt esterni al codice, versionati, con templating e rollback.
 - **Valutazioni continue**: eval non supervisionate sul traffico di produzione, binarie e specifiche (non "la risposta era buona?", ma "l'agente ha citato informazioni non nei documenti recuperati?").
 - **Guardrail**: pre-LLM (input) e post-LLM (output), trattati come logica di esecuzione di prima classe, non come un afterthought.
@@ -73,7 +75,7 @@ Lo stack minimo:
 
 Il piano segue la logica del **thin-slice MVP**: non partire da una piattaforma completa, ma da **un singolo workflow ad alto volume e basso rischio** (es. triage di richieste interne, bozze di risposta email, summarization di thread), con data contract, eval gate e rollback definiti *prima* di scrivere codice.
 
-### Fase 0 — Fondamenta (2–4 settimane)
+### Fase 0 — Fondamenta (2–4 settimane) **[→ le stime temporali non si usano: solo taglie S/M/L]**
 
 L'obiettivo non è "fare AI", ma costruire il sistema nervoso che rende l'AI governabile.
 
@@ -85,8 +87,8 @@ L'obiettivo non è "fare AI", ma costruire il sistema nervoso che rende l'AI gov
   - 0.1.3 Versione del contratto e politica di breaking change.
 
 - **0.2 Osservabilità minima**
-  - 0.2.1 Struttura di logging: `who/what/when` + input/output per ogni chiamata AI.
-  - 0.2.2 Tracing distribuito (OpenTelemetry) con span per LLM call, tool, retrieval, decisione.
+  - 0.2.1 Struttura di logging: `who/what/when` + input/output per ogni chiamata AI. **[→ DA-E1-02]**
+  - 0.2.2 Tracing distribuito (OpenTelemetry) con span per LLM call, tool, retrieval, decisione. **[→ PV-02]**
   - 0.2.3 Dashboard di costo per tenant e per workflow.
 
 - **0.3 Eval harness**
@@ -145,7 +147,7 @@ Si passa da "funziona" a "funziona in modo affidabile e ripetibile".
 
 - **3.1 Grafo dei mandati (Backbone)**
   - 3.1.1 Modello dati: agenti, mandati, domini, artefatti, deleghe.
-  - 3.1.2 Compilazione policy → OPA/Rego.
+  - 3.1.2 Compilazione policy → OPA/Rego. **[→ DA-A3-01, aperta]**
   - 3.1.3 Validazione round-trip grafo ↔ policy compilate.
 
 - **3.2 Catalogo agenti e tool**
@@ -198,11 +200,12 @@ L'esploso seguente è organizzato per **componenti** e, per ciascuna, in **sotto
 
 | ID | Sottoprodotto | Output concreto |
 |---|---|---|
-| A1 | **Modello del grafo dei mandati** | Schema Neo4j: nodi `Agent`, `Mandate`, `Domain`, `Artifact`, `Delegation`; edge tipizzati |
+| A1 | **Modello del grafo dei mandati** | **[→ DA-A1-01]** Schema Neo4j: nodi `Agent`, `Mandate`, `Domain`, `Artifact`, `Delegation`; edge tipizzati |
 | A2 | **Compilatore policy** | Servizio che traduce il grafo in bundle Rego/OPA, con versione e hash |
 | A3 | **Runtime di enforcement** | Sidecar/OPA agent che valuta `allow/deny` prima di ogni azione dell'agente |
 | A4 | **Validatore round-trip** | Job periodico che confronta policy compilate vs grafo, alert su drift |
-| A5 | **Audit trail dei mandati** | Log append-only di ogni decisione di autorizzazione (chi, cosa, quando, perché) |
+| A5 | **Audit trail dei mandati** | Log append-only di ogni decisione di autorizzazione (chi, cosa, quando, perché) **[→ anche notifica incidenti NIS2: DX-10]** |
+| A6 | **Identità, ruoli e configurazione di piattaforma** **[→ DX-14, nuovo]** | Vedi DX-14; include il catalogo delle variabili (DX-22) |
 
 ### Componente B — Runtime Agenti
 
@@ -238,7 +241,7 @@ L'esploso seguente è organizzato per **componenti** e, per ciascuna, in **sotto
 
 | ID | Sottoprodotto | Output concreto |
 |---|---|---|
-| E1 | **Tracing distribuito** | Strumentazione OpenTelemetry con span per LLM, tool, retrieval, decisione |
+| E1 | **Tracing distribuito** | Strumentazione OpenTelemetry con span per LLM, tool, retrieval, decisione **[→ PV-02: DB-native]** |
 | E2 | **Prompt registry** | Store versionato di prompt con templating, diff e rollback |
 | E3 | **Eval harness offline** | Runner CI che esegue golden dataset e blocca il deploy su regressione |
 | E4 | **Eval online** | Job che valuta trace di produzione con metriche binarie e alert su drift |
@@ -253,7 +256,8 @@ L'esploso seguente è organizzato per **componenti** e, per ciascuna, in **sotto
 | F2 | **Partizione per tenant** | Politica di isolamento (schema separato o database separato) per tenant sensibili |
 | F3 | **Key management** | Vault per chiavi di cifratura per-tenant, rotazione automatica |
 | F4 | **Backup e restore** | Procedura di backup per tenant, con test di restore periodico |
-| F5 | **Data residency** | Configurazione per mantenere i dati in regioni specifiche (EU/US) |
+| F5 | **Data residency** | Configurazione per mantenere i dati in regioni specifiche (EU/US) **[→ DA-B1-06, DA-B2-07: self-hosted UE]** |
+| F6 | **Politica di retention e cancellazione** **[→ DX-12, nuovo]** | Vedi DX-09, DX-12, DX-15, DX-16 |
 
 ### Componente G — Interfaccia utente
 
@@ -279,3 +283,12 @@ L'esploso seguente è organizzato per **componenti** e, per ciascuna, in **sotto
 ## Sintesi
 
 Una piattaforma di gestione per un'agenzia di marketing AI-native si costruisce come un **sistema di orchestrazione governata**, non come un'app con l'AI. L'ordine è: fondamenta di osservabilità e valutazione → thin-slice MVP su un workflow a basso rischio → hardening con guardrail e multi-tenancy → scala con grafo dei mandati e catalogo di agenti. Ogni fase produce sottoprodotti verificabili, e la verifica è continua (eval offline, eval online, revisione umana, metriche di business). Il costo maggiore non è il modello: è il sistema di governance e misurazione che rende il modello affidabile.
+
+---
+
+## Storico modifiche
+
+| Versione | Data | Cosa è cambiato e perché |
+|---|---|---|
+| 1.0 | 2026-11-03 | Versione originale caricata dall'utente. |
+| 1.1 | 2026-11-03 | Note di allineamento alle decisioni (PV-01..03, DX-10, DX-12, DX-14, DX-22, DA-A1-01, DA-C1-01, DA-E1-02, DA-E1-05, ecc.); aggiunti A6 e F6 al WBS. Il testo originale non è stato cancellato, per mantenere la traccia. |
