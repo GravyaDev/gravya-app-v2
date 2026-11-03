@@ -1,0 +1,30 @@
+--- /workspace/gravya-app-v2/docs/DECISIONS.md	2026-11-03 15:28:29.468270166 +0000
++++ /tmp/test-registrar/docs/DECISIONS.md	2026-11-03 15:30:11.362952325 +0000
+@@ -59,7 +59,7 @@
+ | DA-E3-02 | Linguaggio e posizione del runner | Nessuna: dipende dal layout di v2 e da DX-04 | Aperta |
+ | DA-E3-03 | Controlli soggettivi in CI | Nel gate solo controlli deterministici; giudice LLM come segnale non bloccante | Aperta |
+ | DA-E3-04 | Date relative (R1) | Nuovo seed a ogni run | Aperta |
+-| DA-E3-05 | Non determinismo del modello | 1 run per iniziare | Aperta |
++| DA-E3-05 | Non determinismo del modello | Utente (2026-11-03): "confermo 1 run per caso per iniziare. Il numero di run deve essere una variabile configurabile dal superadmin; il valore massimo ammesso non lo so ancora, lo decido più avanti." Scelta: 1 run per caso; numero di run = variabile di piattaforma (DX-13). Valore massimo: da riportare (§4). | **Decisa con riserva (2026-11-03, utente)** |
+ | DA-E3-06 | Collocazione rispetto alla Beta | Chiusa da DX-01 | Decisa (2026-11-03) |
+ | DA-E3-07 | Soglia del gate | 100% sui casi bloccanti, solo report sugli altri | Aperta |
+ | DA-A1-01 | Backend del grafo | PostgreSQL+RLS. Neptune escluso; Neo4j resta alternativa solo se servono traversal pesanti | **Decisa (2026-11-03, utente)** |
+@@ -122,6 +122,7 @@
+ ## 4. Lacune trasversali emerse nella v1.2
+ 
+ - ~~Notifica degli incidenti NIS2~~: assegnata ad A5 (DX-10).
++- **Da riportare. DA-E3-05, valore massimo del numero di run per caso**: l'utente ha confermato 1 run per caso per iniziare e ha stabilito che il numero di run è una variabile di piattaforma configurabile dal superadmin (DX-13). Il valore massimo ammesso non è definito e sarà deciso in seguito. Non inventarlo.
+ - **Da riportare. DA-C3-04, intervallo min/max del TTL HITL**: ripartizione proposta (da confermare): il superadmin fissa default e intervallo, l'admin agenzia sceglie entro l'intervallo (DX-22). Valori min/max non definiti: non inventarli, da fornire.
+ - **Da riportare. DX-22, valori con vincolo di legge** (es. scadenze NIS2 24 h/72 h di DX-10): sono configurabili solo entro limiti che non violano la norma? Da confermare.
+ - **Da riportare. DX-22, credenziali**: la pagina dedicata gestisce i segreti, ma il valore va in un archivio cifrato e non è leggibile in chiaro da UI. Da confermare.
+--- /workspace/gravya-app-v2/docs/index.md	2026-11-03 15:28:29.473102909 +0000
++++ /tmp/test-registrar/docs/index.md	2026-11-03 15:30:11.363443143 +0000
+@@ -21,7 +21,7 @@
+ |---|---|---|---|---|
+ | E1 | [Tracing distribuito](E1-tracing-distribuito.md) | E: Osservabilità e Valutazione | M (L) | DA-E1-01…04 |
+ | E2 | [Prompt registry](E2-prompt-registry.md) | E: Osservabilità e Valutazione | M | DA-E2-01…05 |
+-| E3 | [Eval harness offline](E3-eval-harness-offline.md) | E: Osservabilità e Valutazione | L | DA-E3-01…07 |
++| E3 | [Eval harness offline](E3-eval-harness-offline.md) | E: Osservabilità e Valutazione | L | DA-E3-01…04, DA-E3-05 (decisa con riserva: valore massimo di run da riportare), DA-E3-07 |
+ | A1 | [Modello del grafo dei mandati](A1-grafo-mandati.md) | A: Control Plane | L (M) | DA-A1-01…06 |
+ | A3 | [Runtime di enforcement](A3-runtime-enforcement.md) | A: Control Plane | M (L) | DA-A3-01…05 |
+ | B1 | [Agent runtime isolato](B1-agent-runtime-isolato.md) | B: Runtime Agenti | L | DA-B1-01…05 |
