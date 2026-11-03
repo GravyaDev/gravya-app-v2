@@ -1,0 +1,117 @@
+{
+  "type": "object",
+  "properties": {
+    "esito": {
+      "type": "string",
+      "enum": [
+        "completato",
+        "parziale",
+        "bloccato"
+      ]
+    },
+    "sintesi": {
+      "type": "string"
+    },
+    "modifiche": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "versione": {
+            "type": "string"
+          },
+          "cosa": {
+            "type": "string"
+          },
+          "perche": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "versione",
+          "cosa",
+          "perche"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "agenti_invocati": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "agente": {
+            "type": "string"
+          },
+          "esito": {
+            "type": "string",
+            "description": "BLOCCA | RIPORTA | OK | altro esito dell'agente"
+          },
+          "verificato": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "agente",
+          "esito",
+          "verificato"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "decisioni_richieste": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "domanda": {
+            "type": "string"
+          },
+          "opzioni": {
+            "type": "string"
+          },
+          "raccomandazione": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "domanda",
+          "opzioni",
+          "raccomandazione"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rischi": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "commit": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "hash breve e messaggio"
+      }
+    }
+  },
+  "required": [
+    "esito",
+    "sintesi",
+    "modifiche",
+    "agenti_invocati",
+    "decisioni_richieste",
+    "rischi",
+    "commit"
+  ],
+  "additionalProperties": false
+}

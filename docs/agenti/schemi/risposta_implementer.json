@@ -1,0 +1,120 @@
+{
+  "type": "object",
+  "properties": {
+    "branch": {
+      "type": "string"
+    },
+    "commit": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "hash breve e messaggio"
+      }
+    },
+    "criteri": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "es. AC-6"
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "implementato",
+              "parziale",
+              "non_implementato"
+            ]
+          },
+          "test": {
+            "type": "string",
+            "description": "percorso::nome | assente"
+          },
+          "eseguito": {
+            "type": "string",
+            "description": "comando ed esito | non eseguito"
+          }
+        },
+        "required": [
+          "id",
+          "stato",
+          "test",
+          "eseguito"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "file_modificati": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "decisioni_mancanti": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "punto": {
+            "type": "string"
+          },
+          "riferimento": {
+            "type": "string",
+            "description": "es. DA-C3-04 | DECISIONS §4 | C3 §6"
+          },
+          "cosa_serve": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "punto",
+          "riferimento",
+          "cosa_serve"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "divergenze": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "dove": {
+            "type": "string"
+          },
+          "problema": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "dove",
+          "problema"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "non_verificato": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "report": {
+      "type": "string",
+      "description": "percorso del report"
+    }
+  },
+  "required": [
+    "branch",
+    "commit",
+    "criteri",
+    "file_modificati",
+    "decisioni_mancanti",
+    "divergenze",
+    "non_verificato",
+    "report"
+  ],
+  "additionalProperties": false
+}

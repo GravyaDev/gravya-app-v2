@@ -1,0 +1,119 @@
+{
+  "type": "object",
+  "properties": {
+    "ambito": {
+      "type": "string",
+      "enum": [
+        "storico",
+        "v2"
+      ]
+    },
+    "repository": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "commit": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nome",
+          "commit"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "risposte": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "domanda": {
+            "type": "string",
+            "description": "numero della domanda del task"
+          },
+          "risposta": {
+            "type": "string"
+          },
+          "evidenze": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "file_riga": {
+                  "type": "string",
+                  "description": "es. server/src/x.ts:42"
+                },
+                "citazione": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "file_riga",
+                "citazione"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "verifica": {
+            "type": "string",
+            "enum": [
+              "verificato",
+              "dedotto"
+            ]
+          }
+        },
+        "required": [
+          "domanda",
+          "risposta",
+          "evidenze",
+          "verifica"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "contraddizioni": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tra": {
+            "type": "string",
+            "description": "file_riga A | file_riga B"
+          },
+          "descrizione": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tra",
+          "descrizione"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "non_trovato": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "report": {
+      "type": "string",
+      "description": "percorso del report"
+    }
+  },
+  "required": [
+    "ambito",
+    "repository",
+    "risposte",
+    "contraddizioni",
+    "non_trovato",
+    "report"
+  ],
+  "additionalProperties": false
+}

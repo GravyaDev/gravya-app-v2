@@ -1,0 +1,105 @@
+{
+  "type": "object",
+  "properties": {
+    "file": {
+      "type": "string",
+      "description": "percorso del documento"
+    },
+    "versione": {
+      "type": "string",
+      "description": "es. 1.5"
+    },
+    "decisioni_aperte": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "DA-{ID}-NN"
+          },
+          "titolo": {
+            "type": "string"
+          },
+          "opzioni": {
+            "type": "string"
+          },
+          "criterio": {
+            "type": "string"
+          },
+          "raccomandazione": {
+            "type": "string"
+          },
+          "da_riportare": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "titolo",
+          "opzioni",
+          "criterio",
+          "raccomandazione",
+          "da_riportare"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "dipendenze": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "non_verificato": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "variabili": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "default": {
+            "type": "string"
+          },
+          "modifica": {
+            "type": "string",
+            "enum": [
+              "superadmin",
+              "admin_agenzia"
+            ]
+          },
+          "intervallo": {
+            "type": "string"
+          },
+          "pagina": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "nome",
+          "default",
+          "modifica",
+          "intervallo",
+          "pagina"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "file",
+    "versione",
+    "decisioni_aperte",
+    "dipendenze",
+    "non_verificato",
+    "variabili"
+  ],
+  "additionalProperties": false
+}

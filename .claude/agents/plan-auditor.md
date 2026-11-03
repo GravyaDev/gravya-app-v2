@@ -33,6 +33,8 @@ Fonti, in ordine di prevalenza:
 
 `gravya-app` e `gravya-app-kloudify` sono solo riferimenti: non sono una fonte di verità per v2 (PV-03).
 
+Leggi **per intero** i documenti del perimetro, `PRINCIPI.md`, `DECISIONS.md` e il template; del master plan leggi almeno le righe e le sezioni dei sottoprodotti del perimetro. Se l'output di un comando è troncato, continua a leggere a blocchi fino alla fine del file. Una fonte letta solo in parte, o solo con ricerche per parola chiave, va dichiarata in `controllato` come tale.
+
 Cosa cerchi, in quest'ordine:
 - **Violazioni dei principi e delle decisioni:** un documento che contraddice un PV o una riga "Decisa", oppure tratta come opzione una scelta già presa, o reintroduce qualcosa di escluso (per esempio OpenTelemetry come SDK o export, servizi gestiti extra-UE, durate di retention proprie invece del rimando a DX-09).
 - **Interfacce che non combaciano:** ciò che un documento dichiara di emettere e ciò che un altro si aspetta di ricevere (contratti, eventi, campi delle tracce E1, decisioni di A3, payload HITL). Confronta nomi e campi uno per uno, non a impressione.

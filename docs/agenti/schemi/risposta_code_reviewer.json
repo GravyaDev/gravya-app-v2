@@ -1,0 +1,106 @@
+{
+  "type": "object",
+  "properties": {
+    "esito": {
+      "type": "string",
+      "enum": [
+        "BLOCCA",
+        "RIPORTA",
+        "OK"
+      ]
+    },
+    "criteri": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "es. AC-3"
+          },
+          "test": {
+            "type": "string",
+            "description": "percorso::nome | assente"
+          },
+          "verifica_reale": {
+            "type": "boolean"
+          },
+          "eseguito": {
+            "type": "string",
+            "description": "comando ed esito | non eseguito"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "test",
+          "verifica_reale",
+          "eseguito",
+          "note"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rilievi": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "gravita": {
+            "type": "string",
+            "enum": [
+              "bloccante",
+              "da_riportare",
+              "minore"
+            ]
+          },
+          "file_riga": {
+            "type": "string"
+          },
+          "problema": {
+            "type": "string"
+          },
+          "fonte": {
+            "type": "string",
+            "description": "es. B2 §6 | PV-02 | DA-B2-04"
+          },
+          "verifica": {
+            "type": "string",
+            "enum": [
+              "verificato",
+              "dedotto"
+            ]
+          }
+        },
+        "required": [
+          "gravita",
+          "file_riga",
+          "problema",
+          "fonte",
+          "verifica"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "tentativi_di_rottura": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "report": {
+      "type": "string",
+      "description": "percorso del report"
+    }
+  },
+  "required": [
+    "esito",
+    "criteri",
+    "rilievi",
+    "tentativi_di_rottura",
+    "report"
+  ],
+  "additionalProperties": false
+}

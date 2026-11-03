@@ -1,0 +1,50 @@
+{
+  "type": "object",
+  "properties": {
+    "registri_modificati": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "righe_aggiornate": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "es. DX-09: Aperta -> Decisa"
+      }
+    },
+    "documenti_da_aggiornare": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "doc": {
+            "type": "string"
+          },
+          "motivo": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "doc",
+          "motivo"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "conflitti_da_riportare": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "registri_modificati",
+    "righe_aggiornate",
+    "documenti_da_aggiornare",
+    "conflitti_da_riportare"
+  ],
+  "additionalProperties": false
+}
