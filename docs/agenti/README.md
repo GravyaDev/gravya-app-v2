@@ -1,6 +1,6 @@
 # Agenti di governance del progetto
 
-Versione 1.1, 2026-11-03.
+Versione 1.2, 2026-11-03.
 
 Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
@@ -32,11 +32,14 @@ L'attivazione è deterministica: a ogni evento corrisponde una sequenza fissa, e
 
 Per decisione dell'utente (2026-11-03) gli agenti di governance **non usano Opus**:
 
-| Agente | Modello | Motivo |
-|---|---|---|
-| `registrar` | `haiku` | Compito meccanico: aggiorna i registri da input già decisi |
-| `doc-writer` | `sonnet` | Redazione strutturata con ragionamento sulle dipendenze |
-| `plan-auditor`, `compliance-auditor`, `code-reviewer` | `sonnet` | Revisione avversariale |
+| Agente | Modello | Impegno | Motivo |
+|---|---|---|---|
+| `registrar` | `haiku` | Basso | Compito meccanico: aggiorna i registri da input già decisi. Passa a medio se i test mostrano omissioni |
+| `doc-writer` | `sonnet` | Alto | Redazione strutturata con ragionamento sulle dipendenze |
+| `plan-auditor`, `compliance-auditor` | `sonnet` | Alto | Revisione avversariale; la conformità è prioritaria (PV-01) |
+| `code-reviewer` | `sonnet` | Alto | Revisione avversariale delle PR; l'impegno non è modificabile per singola PR, quindi alto per tutte |
+
+L'impegno si imposta sulla piattaforma ed è fisso per agente.
 
 Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Claude Code rispetta quando l'agente sta in `.claude/agents/`. **Agenti configurati sulla piattaforma** (es. l'agente Registrar della sessione di pianificazione): sono una copia fuori dal repository. A ogni modifica di un file in `.claude/agents/` vanno aggiornati a mano (prompt e strumenti).
 
@@ -62,3 +65,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 |---|---|---|
 | 1.0 | 2026-11-03 | Prima versione. |
 | 1.1 | 2026-11-03 | Eliminate le copie dei prompt in `docs/agenti/`: fonte unica in `.claude/agents/`, per evitare disallineamenti (decisione dell'utente). Aggiunta la regola di riallineamento degli agenti configurati sulla piattaforma. |
+| 1.2 | 2026-11-03 | Aggiunta la colonna Impegno (registrar basso, gli altri alto), decisione dell'utente. |
