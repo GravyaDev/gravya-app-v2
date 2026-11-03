@@ -1,6 +1,6 @@
 # Registro delle decisioni aperte
 
-Ultimo aggiornamento: 2026-11-03, ondata 1. Prevalgono i principi vincolanti in [PRINCIPI.md](PRINCIPI.md).
+Ultimo aggiornamento: 2026-11-03, ondata 1 (conferma dell'utente delle raccomandazioni). Prevalgono i principi vincolanti in [PRINCIPI.md](PRINCIPI.md).
 
 Ogni decisione aperta nasce in un documento di dettaglio, nell'Appendice C, ed è numerata `DA-{ID}-NN`. Qui sono raccolte in un unico punto. Quando una decisione viene presa, si compilano le colonne **Scelta**, **Motivo** e **Data**, e si aggiorna il documento di origine con una nuova riga nello Storico modifiche.
 
@@ -38,7 +38,7 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 | DX-19 | **Visibilità di default del superadmin sui dati dei tenant (R5, DA-E1-08).** | E1, A6, A1, A3 | **Decisa (2026-11-03, utente)** | Di default il superadmin vede solo dati aggregati senza identificativi; la lettura di una singola traccia è ammessa solo su richiesta dell'agenzia o per un incidente, con log degli accessi (DX-18). | Conferma dell'utente delle proposte ("confermo tutte le tue proposte") | 2026-11-03 |
 | DX-20 | **Autenticazione del superadmin (R6).** | A6 | **Decisa (2026-11-03, utente)** | L'autenticazione del superadmin è responsabilità di A6; MFA obbligatoria per superadmin e admin di agenzia. | Conferma dell'utente delle proposte ("confermo tutte le tue proposte") | 2026-11-03 |
 | DX-21 | **Minori del plan-auditor (revisioni/plan-auditor-2026-11-03.md, R5-R8).** | A1, A3, B2, E1, A6, F6 | **Decisa (2026-11-03, utente)** | Nome unico `config_version` per la versione della configurazione, aggiunto alla whitelist del segmento decision di E1; produttore dell'evento `platform.config.changed` è A6; le classi senza durata (nodi ed edge del grafo, `outputs_ref`, contatori di rate limit, esiti idempotency, token consumati) le assegna F6 e vanno citate come tali; l'identità dell'attore è fornita da A6, non da A3. | Conferma dell'utente delle proposte ("confermo tutte le tue proposte") | 2026-11-03 |
-| DX-22 | **Nessun valore hardcoded; catalogo delle variabili.** | Tutti | **Decisa (2026-11-03, utente)** | "TUTTO DEVE ESSERE CONFIGURABILE DA UI SUPERADMIN O ADMIN AGENZIA, NIENTE HARDCODED MAI! Ogni variabile va catalogata e inserita nella sua sezione/pagina dedicata (es. credenziali sarà in una sua pagina/sezione, ecc.)" | Decisione dell'utente. Responsabile del catalogo e del registro versionato: A6 (DX-14). DX-13, DX-16 e DX-17 restano valide. Formato e posizione del catalogo: da definire (§4). | 2026-11-03 |
+| DX-22 | **Nessun valore hardcoded; catalogo delle variabili.** | Tutti | **Decisa (2026-11-03, utente)** | "TUTTO DEVE ESSERE CONFIGURABILE DA UI SUPERADMIN O ADMIN AGENZIA, NIENTE HARDCODED MAI! Ogni variabile va catalogata e inserita nella sua sezione/pagina dedicata (es. credenziali sarà in una sua pagina/sezione, ecc.)" | Decisione dell'utente. Responsabile del catalogo e del registro versionato: A6 (DX-14). DX-13, DX-16 e DX-17 restano valide. Sotto-scelte confermate dall'utente (2026-11-03, conferma della raccomandazione del coordinator): (a) valori con vincolo di legge (es. NIS2 24 h/72 h, DX-10): configurabili solo verso valori più restrittivi della norma; il limite di legge è catalogato come "vincolo normativo" con il riferimento alla norma, modificabile solo dal superadmin con motivazione e audit. (b) Credenziali: pagina dedicata, separata per credenziali di piattaforma (superadmin) e di agenzia (admin agenzia); valori in un archivio cifrato self-hosted nell'UE; da UI solo inserimento o sostituzione, mai rilettura in chiaro (mascherate, con data dell'ultima rotazione); ogni accesso e modifica in audit. (c) Catalogo: opzione (b), documento trasversale `docs/catalogo-variabili.md`, unico punto di verità per nome, default, intervallo, chi modifica e pagina; i documenti di dettaglio citano solo il nome della variabile; il modello (registro, ruoli, pagine) resta in A6. | 2026-11-03 |
 
 ---
 
@@ -76,7 +76,7 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 | DA-B1-01 | Unità di isolamento | Un ambiente per job | Aperta |
 | DA-B1-02 | Container o VM | Container con un profilo di hardening da definire per v2 | Aperta (dipende da DA-B1-06) |
 | DA-B1-03 | Launcher e trasporto | Launcher dedicato chiamato da arq | Aperta |
-| DA-B1-04 | Rete laterale e DNS | Uscita solo verso B2 ed egress-proxy; tunnelling DNS chiuso o accettato? | **Da riportare** |
+| DA-B1-04 | Rete laterale e DNS | Uscita solo verso B2 ed egress-proxy. DNS chiuso: il job non ha un resolver proprio; i nomi si risolvono solo tramite egress-proxy o resolver interno con allowlist | **Decisa (2026-11-03, utente)** |
 | DA-B1-05 | Telemetria del job | Chiusa da DX-02: telemetria DB-native sul modello di E1 | Decisa (2026-11-03) |
 | DA-B2-01 | Base di partenza del gateway | Chiusa da DX-01: gateway nuovo | Decisa (2026-11-03) |
 | DA-B2-02 | Forma del confine | Servizio HTTP separato | Aperta (vedi DX-06) |
@@ -88,9 +88,9 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 | DA-C1-03 | Linguaggio delle condizioni sugli edge | JSON dichiarativo | Aperta |
 | DA-C1-04 | Quando farlo rispetto alla Beta | Chiusa da DX-01 | Decisa (2026-11-03) |
 | DA-C3-01 | Riuso dei moduli HITL in v2 | Chiusa da DX-01 | Decisa (2026-11-03) |
-| DA-C3-02 | Dove vive il nodo HITL | Solo nel motore unico scelto da C1 | Aperta (dipende da DA-C1-01) |
+| DA-C3-02 | Dove vive il nodo HITL | Chiusa da DA-C1-01: il nodo HITL vive solo nel motore unico LangGraph | **Chiusa (2026-11-03, utente)** |
 | DA-C3-03 | Fonte del contratto condiviso | JSON Schema neutro | Aperta (= DX-04) |
-| DA-C3-04 | TTL delle richieste HITL | 24 h come valore di default, configurabile (proposta del coordinatore, da confermare: il superadmin fissa default e intervallo min/max, l'admin agenzia sceglie entro l'intervallo). Min/max da definire (§4) | **Decisa (2026-11-03, utente)** |
+| DA-C3-04 | TTL delle richieste HITL | 24 h come valore di default, configurabile: il superadmin fissa default e intervallo min/max, l'admin agenzia sceglie entro l'intervallo (DX-22). Minimo 1 h, massimo 168 h (proposta del coordinator, confermata dall'utente) | **Decisa (2026-11-03, utente)** |
 
 ## 3. Decisioni aggiunte nella v1.2 (ripartenza da zero e conformità)
 
@@ -101,8 +101,8 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 | DA-E1-07 | Tracce e audit A5: tabelle separate o comuni | Separate, collegate da `trace_id` | Aperta |
 | DA-E1-08 | Accesso degli operatori Gravya alle tracce di più tenant | Chiusa da DX-19: di default solo dati aggregati senza identificativi; singola traccia solo su richiesta dell'agenzia o per incidente, con log degli accessi | Decisa (2026-11-03, utente) |
 | DA-E2-06 | Retention di versioni e attivazioni dei prompt | Confluisce nella politica di retention unica DX-09 | Assorbita da DX-09 |
-| DA-E2-07 | Versioni di prompt proposte dall'AI | Ammesse come candidate, mai attivabili senza un umano | **Da riportare** |
-| DA-E2-08 | Seed dei prompt v2: da zero o dai testi di gravya-app rivisti | Testi di gravya-app come bozza da rivedere | **Da riportare** |
+| DA-E2-07 | Versioni di prompt proposte dall'AI | Ammesse come candidate, mai attivabili senza un umano; attivazione tramite gate E3 e approvazione umana via C3 | **Decisa (2026-11-03, utente)** |
+| DA-E2-08 | Seed dei prompt v2: da zero o dai testi di gravya-app rivisti | Testi di gravya-app come bozza, rivisti contro i contratti v2 e ripuliti dai residui della visione precedente (Paperclip, organigrammi) | **Decisa (2026-11-03, utente)** |
 | DA-E3-08 | Contenuti di produzione nei casi di eval | Solo dati sintetici, mai dati reali dei clienti | **Decisa (2026-11-03, utente)** |
 | DA-E3-09 | Provider del giudice LLM e piattaforme di eval | Niente piattaforme SaaS di eval; giudice LLM solo con elaborazione nell'UE | **Decisa (2026-11-03, utente)** |
 | DA-E3-10 | Retention dei report CI e dei segmenti di eval | Confluisce nella politica di retention unica DX-09 | Assorbita da DX-09 |
@@ -122,11 +122,11 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 ## 4. Lacune trasversali emerse nella v1.2
 
 - ~~Notifica degli incidenti NIS2~~: assegnata ad A5 (DX-10).
-- **Da riportare. DA-C3-04, intervallo min/max del TTL HITL**: ripartizione proposta (da confermare): il superadmin fissa default e intervallo, l'admin agenzia sceglie entro l'intervallo (DX-22). Valori min/max non definiti: non inventarli, da fornire.
-- **Da riportare. DX-22, valori con vincolo di legge** (es. scadenze NIS2 24 h/72 h di DX-10): sono configurabili solo entro limiti che non violano la norma? Da confermare.
-- **Da riportare. DX-22, credenziali**: la pagina dedicata gestisce i segreti, ma il valore va in un archivio cifrato e non è leggibile in chiaro da UI. Da confermare.
-- **Da riportare. DX-22, formato e posizione del catalogo delle variabili**: documento proprio o sezione di A6. Da decidere.
-- **Mutazioni del grafo A1**: non è deciso se diventano segmenti di traccia E1 (con un nuovo kind) o solo eventi di audit.
+- ~~**Da riportare. DA-C3-04, intervallo min/max del TTL HITL**~~: chiusa (2026-11-03, utente, conferma della raccomandazione del coordinator): minimo 1 h, massimo 168 h, default 24 h. Vedi DA-C3-04.
+- ~~**Da riportare. DX-22, valori con vincolo di legge**~~: chiusa (2026-11-03, utente): opzione (a), valori configurabili solo verso valori più restrittivi della norma. Vedi DX-22.
+- ~~**Da riportare. DX-22, credenziali**~~: chiusa (2026-11-03, utente): pagina dedicata, valori in archivio cifrato, solo inserimento o sostituzione da UI, audit. Vedi DX-22.
+- ~~**Da riportare. DX-22, formato e posizione del catalogo delle variabili**~~: chiusa (2026-11-03, utente): opzione (b), documento trasversale `docs/catalogo-variabili.md`. Vedi DX-22.
+- ~~**Mutazioni del grafo A1**~~: chiusa (2026-11-03, utente, conferma della raccomandazione del coordinator): solo eventi di audit (tabella di audit, poi A5), conservazione 12 mesi; se la mutazione avviene dentro un run, collegamento alla traccia tramite `trace_id`. Non diventano segmenti E1.
 - ~~Ruoli GDPR e classificazione di rischio AI Act~~: decisi (DX-11).
 
 ## 5. Durate di default per DX-09

@@ -24,10 +24,10 @@ Stato: **v1.3 (con le decisioni dell'utente del 2026-11-03), in attesa di verifi
 | E3 | [Eval harness offline](E3-eval-harness-offline.md) | E: Osservabilità e Valutazione | L | DA-E3-01…07 |
 | A1 | [Modello del grafo dei mandati](A1-grafo-mandati.md) | A: Control Plane | L (M) | DA-A1-01…06 |
 | A3 | [Runtime di enforcement](A3-runtime-enforcement.md) | A: Control Plane | M (L) | DA-A3-01…05 |
-| B1 | [Agent runtime isolato](B1-agent-runtime-isolato.md) | B: Runtime Agenti | L | DA-B1-01…05 |
+| B1 | [Agent runtime isolato](B1-agent-runtime-isolato.md) | B: Runtime Agenti | L | DA-B1-01…03 |
 | B2 | [Tool gateway](B2-tool-gateway.md) | B: Runtime Agenti | M (L) | DA-B2-01…05 |
 | C1 | [Grafo di workflow](C1-grafo-workflow.md) | C: Orchestrazione | L | DA-C1-01…04 |
-| C3 | [Punto HITL](C3-punto-hitl.md) | C: Orchestrazione | L | DA-C3-01…03 |
+| C3 | [Punto HITL](C3-punto-hitl.md) | C: Orchestrazione | L | DA-C3-03 |
 
 Tra parentesi la taglia alternativa, che dipende da una decisione aperta (vedi §12 di ciascun documento).
 
