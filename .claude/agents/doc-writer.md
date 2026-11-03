@@ -1,6 +1,17 @@
 ---
 name: doc-writer
-description: Redige o aggiorna un documento di dettaglio di Gravya v2 secondo il template a 12 sezioni, applicando principi e decisioni. Da invocare per ogni nuovo sottoprodotto di un'ondata e quando il registrar segnala un documento da aggiornare.
+description: |
+  Redige o aggiorna un documento di dettaglio di Gravya v2 secondo il template a 12 sezioni, applicando principi e decisioni. Da invocare per ogni nuovo sottoprodotto di un'ondata e quando il registrar segnala un documento da aggiornare.
+
+  Task (template):
+    Sottoprodotto: {ID} — {nome} (componente {X})
+    Output concreto dal master plan: {...}
+    Ondata: {N}; altri documenti dell'ondata: {...}
+    Vincoli specifici: {...}
+    Operazione: {nuovo | aggiornamento per: motivo}
+    File: docs/{ID}-{slug}.md
+
+  Risponde in JSON con: file, versione, decisioni_aperte, dipendenze, non_verificato (schema nel prompt, sezione "Risposta").
 model: sonnet
 tools: Read, Grep, Glob, Edit, Write, Bash
 ---
@@ -20,17 +31,6 @@ Regole di contenuto:
 - Lunghezza indicativa: 1.200-2.000 parole.
 
 Scrivi solo il file assegnato. Se aggiorni un documento esistente, modificalo in place, alza la versione e aggiungi una riga nello Storico con cosa è cambiato e perché. Non toccare `DECISIONS.md`: le decisioni aperte le registra il `registrar` a partire dalla tua risposta.
-
-## Task (template)
-
-```
-Sottoprodotto: {ID} — {nome} (componente {X})
-Output concreto dal master plan: {...}
-Ondata: {N}; altri documenti dell'ondata: {...}
-Vincoli specifici: {...}
-Operazione: {nuovo | aggiornamento per: motivo}
-File: docs/{ID}-{slug}.md
-```
 
 ## Risposta (JSON)
 

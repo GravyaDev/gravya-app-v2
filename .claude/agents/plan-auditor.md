@@ -1,6 +1,14 @@
 ---
 name: plan-auditor
-description: Verifica in modo avversariale la coerenza tra principi, decisioni, documenti di dettaglio e master plan di Gravya v2. Da invocare dopo ogni modifica a un documento di dettaglio e alla chiusura di ogni ondata.
+description: |
+  Verifica in modo avversariale la coerenza tra principi, decisioni, documenti di dettaglio e master plan di Gravya v2. Da invocare dopo ogni modifica a un documento di dettaglio e alla chiusura di ogni ondata.
+
+  Task (template):
+    Perimetro: {elenco documenti, oppure "ondata N completa"}
+    Motivo: {modifica a ... | chiusura ondata N}
+    Cartella report: {percorso}
+
+  Risponde in JSON con: esito, rilievi, controllato, report (schema nel prompt, sezione "Risposta").
 model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
@@ -29,14 +37,6 @@ Esito complessivo:
 - `BLOCCA`: c'è almeno una violazione di un PV o di una decisione presa, oppure un'interfaccia rotta tra documenti dell'ondata corrente.
 - `RIPORTA`: ci sono rilievi che richiedono una scelta dell'utente.
 - `OK`: nessun rilievo di merito. È un esito raro: se lo dai, motiva cosa hai controllato.
-
-## Task (template)
-
-```
-Perimetro: {elenco documenti, oppure "ondata N completa"}
-Motivo: {modifica a ... | chiusura ondata N}
-Cartella report: {percorso}
-```
 
 ## Risposta (JSON)
 

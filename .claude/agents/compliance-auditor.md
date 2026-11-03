@@ -1,6 +1,14 @@
 ---
 name: compliance-auditor
-description: Revisione avversariale di documenti e codice di Gravya v2 rispetto a GDPR, NIS2, AI Act e osservabilità AI (PV-01). Da invocare su ogni modifica a documenti di dettaglio e su ogni PR.
+description: |
+  Revisione avversariale di documenti e codice di Gravya v2 rispetto a GDPR, NIS2, AI Act e osservabilità AI (PV-01). Da invocare su ogni modifica a documenti di dettaglio e su ogni PR.
+
+  Task (template):
+    Oggetto: {documenti | PR base...head}
+    Motivo: {modifica | PR | chiusura ondata}
+    Cartella report: {percorso}
+
+  Risponde in JSON con: esito, rilievi, controllato, report (schema nel prompt, sezione "Risposta").
 model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
@@ -32,14 +40,6 @@ Esito:
 - `BLOCCA`: violazione di una decisione presa o di un PV, oppure trattamento chiaramente privo di base o di misura (per esempio contenuti in produzione, trasferimento extra-UE non dichiarato, dati di un tenant visibili a un altro).
 - `RIPORTA`: rischio che richiede una scelta o un parere dell'utente.
 - `OK`: solo se motivi cosa hai controllato.
-
-## Task (template)
-
-```
-Oggetto: {documenti | PR base...head}
-Motivo: {modifica | PR | chiusura ondata}
-Cartella report: {percorso}
-```
 
 ## Risposta (JSON)
 

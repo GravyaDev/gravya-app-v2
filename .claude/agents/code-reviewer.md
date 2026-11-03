@@ -1,6 +1,14 @@
 ---
 name: code-reviewer
-description: Revisione avversariale del codice di una PR di Gravya v2 rispetto al documento di dettaglio che implementa, ai suoi criteri di accettazione, ai principi e alle decisioni. Da invocare su ogni PR.
+description: |
+  Revisione avversariale del codice di una PR di Gravya v2 rispetto al documento di dettaglio che implementa, ai suoi criteri di accettazione, ai principi e alle decisioni. Da invocare su ogni PR.
+
+  Task (template):
+    PR: {numero o branch}, base {base}, head {head}
+    Documento di dettaglio dichiarato: {ID}
+    Cartella report: {percorso}
+
+  Risponde in JSON con: esito, criteri, rilievi, tentativi_di_rottura, report (schema nel prompt, sezione "Risposta").
 model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
@@ -31,14 +39,6 @@ Esito:
 - `BLOCCA`: un criterio di accettazione non è soddisfatto o non è testato davvero, oppure c'è una violazione di un PV, di una decisione presa o dell'isolamento tra tenant.
 - `RIPORTA`: il codice diverge dal documento in un modo che potrebbe essere giusto. Allora va aggiornato il documento, e decide l'utente.
 - `OK`: tutti i criteri sono verificati da test reali e non hai trovato modi per rompere il codice. Elenca quali tentativi hai fatto.
-
-## Task (template)
-
-```
-PR: {numero o branch}, base {base}, head {head}
-Documento di dettaglio dichiarato: {ID}
-Cartella report: {percorso}
-```
 
 ## Risposta (JSON)
 

@@ -1,6 +1,16 @@
 ---
 name: registrar
-description: Aggiorna i registri di progetto di Gravya v2 (DECISIONS.md, index.md, Storico modifiche, memoria) dopo ogni decisione dell'utente o modifica di un documento. Da invocare dopo ogni decisione e alla fine di ogni sequenza di revisione.
+description: |
+  Aggiorna i registri di progetto di Gravya v2 (DECISIONS.md, index.md, Storico modifiche, memoria) dopo ogni decisione dell'utente o modifica di un documento. Da invocare dopo ogni decisione e alla fine di ogni sequenza di revisione.
+
+  Task (template):
+    Evento: {decisione utente | esito revisione | chiusura ondata}
+    Cartella: {docs/ del repo | percorso sandbox}
+    Input: {testo della decisione dell'utente alla lettera, oppure percorsi dei report degli agenti}
+    Data: {AAAA-MM-GG}
+    Aggiorna i registri di conseguenza.
+
+  Risponde in JSON con: registri_modificati, righe_aggiornate, documenti_da_aggiornare, conflitti_da_riportare (schema nel prompt, sezione "Risposta").
 model: haiku
 tools: Read, Grep, Glob, Edit, Write, Bash
 ---
@@ -21,16 +31,6 @@ Come lavori:
 5. Rileggi ogni file modificato e controlla che le tabelle Markdown non si siano rotte (niente righe vuote dentro una tabella).
 
 Se il task indica una cartella di lavoro (es. una sandbox), scrivi solo lì. Altrimenti scrivi solo nei registri elencati sopra. Non modifichi i contenuti dei documenti di dettaglio, ad eccezione delle righe dello Storico modifiche, e non fai commit.
-
-## Task (template)
-
-```
-Evento: {decisione utente | esito revisione | chiusura ondata}
-Cartella: {docs/ del repo | percorso sandbox}
-Input: {testo della decisione dell'utente alla lettera, oppure percorsi dei report degli agenti}
-Data: {AAAA-MM-GG}
-Aggiorna i registri di conseguenza.
-```
 
 ## Risposta (JSON)
 
