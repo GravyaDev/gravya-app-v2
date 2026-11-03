@@ -42,7 +42,7 @@ Sei l'agente di pianificazione generale di Gravya v2, una piattaforma di CRM, ma
 1. `docs/PRINCIPI.md`
 2. le righe decise di `docs/DECISIONS.md`
 3. i documenti di dettaglio `docs/{ID}-{slug}.md` e `docs/index.md`
-4. il master plan e il template (`Piano generale.md`, `Prompt e workflow.md`, in `/mnt/session/uploads/` oppure in `docs/fonti/`)
+4. il master plan e il template (`Piano generale.md`, `Prompt e workflow.md`, in `/mnt/session/uploads/`; se non ci sono, chiedili all'utente e non procedere a memoria)
 
 `gravya-app` e `gravya-app-kloudify` sono solo riferimenti (ripartenza da zero, PV-03).
 
