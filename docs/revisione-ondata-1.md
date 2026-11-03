@@ -99,3 +99,28 @@ Ho controllato le stime temporali in tutti i documenti: non ce ne sono, si usano
 8. **Visione kloudify superata dal codice.** "I tool non vengono mai eseguiti" e "si approva il testo": al commit `349118b11` esistono il ciclo di tool e il parcheggio con replay della chiamata esatta. Resta Non verificato se questi percorsi siano attivi su staging, dove kloudify registra 0 approvazioni.
 9. **Errore nella ricognizione `stato/sviluppo.md`.** Cita `ui/src/lib/hitl.ts` come schema Zod: il file non esiste (verificato).
 10. **Nessuna fonte collega gravya-app-v2 alla Beta.** In kloudify nessun documento cita v2. Il rapporto tra i due repo non si può ricavare dai file: vedi problema aperto 1.
+
+## Revisione v1.2 (2026-11-03)
+
+Verifica di coerenza dopo l'applicazione di DX-01/PV-03 (ripartenza da zero) e DX-02/PV-01/PV-02 (niente OpenTelemetry, conformità prevalente) ai 9 documenti.
+
+**Esito dei controlli (grep su tutti i 9 documenti):**
+- OpenTelemetry/OTel/OTLP/collector: nessun residuo come scelta; le occorrenze rimaste sono esclusioni esplicite, citazioni del sistema precedente in Appendice A o righe di storico.
+- Riuso/porting/Beta: nessuna raccomandazione residua basata su riuso di codice o vincoli Beta; DA-A1-05, DA-A3-05, DA-B2-01, DA-C1-02, DA-C1-04, DA-C3-01, DA-E2-05, DA-E3-06 risultano chiuse da DX-01; Appendice A rinominata in tutti i 9 documenti.
+- §7 "Sicurezza e conformità": presente in tutti i 9 documenti, con GDPR, NIS2, AI Act e osservabilità AI; retention e basi giuridiche dubbie marcate DA RIPORTARE ALL'UTENTE.
+- Tecnologie fuori perimetro: nessuna scelta di default (Neptune, LangSmith/LangGraph Platform, piattaforme eval SaaS, sandbox gestite marcate da riportare).
+
+**Correzioni meccaniche fatte (allineamento al modello E1 §4.1-4.2):**
+- B1: `trace_context` usava `span_id` → `parent_segment_id`.
+- E3: record `gravya.eval.case` → segmento `kind=eval_case`.
+- C1, C3: "tipo `gravya.decision`" → segmento `kind=decision` con `gravya.decision.kind`.
+- A3: `gravya.company_id` come attributo → colonna `company_id` del segmento.
+
+**Problemi aperti residui:**
+1. A1 è elencato da E1 tra gli emettitori, ma E1 §4.2 non ha un `kind` per le mutazioni del grafo (`graph.mandate.*`): va deciso se sono segmenti di traccia (nuovo `kind`) o solo eventi di audit (A5/tabella propria). Decisione di merito, non corretta.
+2. Problemi 7 (convenzione nomi evento, C3 con underscore), 8 (trasporto/audit prima di A5), 9, 10, 12 e 14 della sezione 3 restano aperti; il problema 13 (E3 dipende da OTel) è risolto da DX-02; il problema 11 (nome tenant) è ridotto ma dipende da DX-07.
+3. Fail-closed dell'audit: DA-A3-07 e DA-B2-04 vanno decise insieme.
+4. Owner del processo di notifica incidenti NIS2 (24 h/72 h) non assegnato in nessun documento dell'ondata 1.
+5. DA-E1-05 (GenAI semantic conventions come solo vocabolario, formato header) DA RIPORTARE ALL'UTENTE.
+
+**Matrice dipendenze:** invariata nelle relazioni; cambia solo la natura dell'arco verso E1, che ora è "scrive segmenti nel modello DB-native E1" per A3, B1, B2, C1, C3, E2 (attributi prompt), E3 (`eval_case`) e lettura diretta delle tabelle per E3. Nessuna dipendenza da OTel.

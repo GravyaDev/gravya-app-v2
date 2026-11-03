@@ -7,7 +7,7 @@
 | ID | E3 |
 | Nome | Eval harness offline |
 | Componente padre | E — Osservabilità e Valutazione |
-| Versione documento | 1.1 |
+| Versione documento | 1.2 |
 | Data | 2026-11-03 |
 | Ondata | 1 (walking skeleton) |
 
@@ -18,7 +18,7 @@
 **Cosa NON fa.**
 - Non valuta il traffico di produzione: quello è E4 (Eval online).
 - Non assegna voti su scala tipo 1–5 o "la risposta era buona?". Ogni controllo è una domanda specifica con risposta sì/no (master §2, osservabilità).
-- Non sostituisce i test unitari e di integrazione esistenti, né il gate di conformità sull'output a runtime (`gravya_agent_policies`, slice 1 di #892).
+- Non sostituisce i test unitari e di integrazione di v2, né il controllo di conformità sull'output a runtime (competenza di A3; in gravya-app era `gravya_agent_policies`, slice 1 di #892, citato solo come riferimento).
 
 **Perché esiste.** Il master dice che senza eval non si può concedere autonomia in modo sicuro. La visione in kloudify, invece, registra il set di valutazione come "assente" e afferma che "il set è il primo pezzo da costruire".
 
@@ -26,7 +26,7 @@
 
 **Dipende da:**
 - **E2** (Prompt registry): ogni run deve registrare la versione del prompt e del modello usati, e una PR che cambia un prompt deve far scattare E3.
-- **E1** (Tracing distribuito): gli esiti vengono attaccati agli span OTel (condizionato a DA-E1-01: il codice esistente esclude OTel). Questo lascia aperta la via verso E4 senza lock-in di vendor.
+- **E1** (Tracing distribuito): gli esiti di ogni caso vengono registrati nel modello di tracce DB-native definito da E1 (PV-02: niente OpenTelemetry), con il vocabolario unificato `gravya.*`. I dati restano sotto il controllo diretto di Gravya e la via verso E4 resta aperta senza lock-in di vendor.
 - **B1** (Agent runtime isolato): l'harness esegue il caso dentro il runtime reale e non su un mock.
 - **B2** (Tool gateway): i casi di tipo "Act" e "Refuse" si verificano sull'effetto o sul diniego dei tool.
 - **A3** (Runtime enforcement): i casi di rifiuto verificano i dinieghi.
@@ -35,8 +35,8 @@
 **È richiesto da:** C1 (eval gate prima della pubblicazione di una versione), E2 (hook di promozione, secondo DA-E2-04), E4 (riusa il formato dei controlli binari), il rollout con eval gate attive (master 2.1.2, ondate successive), la suite estesa (master 3.3.1) e il trigger di auto-disable su eval cattive (master 0.4.2, ID non assegnato nel master: Non verificato).
 
 **Assunzioni:**
-- Il workflow del thin-slice non è ancora scelto in modo formale. Questo documento assume come primo bersaglio Kloud, perché in gravya-app esiste già una fixture dedicata (vedi Appendice A). Lo sciolgo in DA-E3-01.
-- La CI resta GitHub Actions sui runner self-hosted esistenti. Regola kloudify (15/10): non proporre runner aggiuntivi su quella macchina.
+- Il workflow del thin-slice non è ancora scelto in modo formale. Per DX-01 la fixture e il runner si costruiscono da zero in v2; gli scenari Kloud di gravya-app (Appendice A) sono usati come contenuto di partenza dei requisiti, non come codice. Il bersaglio si scioglie in DA-E3-01.
+- La CI di v2 si assume su GitHub Actions. Se v2 condivida i 2 runner self-hosted di gravya-app (e quindi la regola kloudify del 15/10 di non aggiungerne) **non è verificato**: va confermato dall'utente (vedi dubbi in DA-E3-02).
 
 ## 4. Contratti
 
@@ -46,14 +46,14 @@
 |---|---|---|
 | `id` | string stabile | es. `R1`, `X4` (convenzione di `kloud-eval-scenarios.md`) |
 | `area` | enum | `read` / `act` / `remember` / `refuse` (dalle 4 aree esistenti) |
-| `persona` | enum | `admin` / `member` / `client` (`EvalPersona` in `kloud-eval-fixture.ts`) |
+| `persona` | enum | `admin` / `member` / `client` (idea ripresa da `EvalPersona` in gravya-app; i ruoli effettivi seguono il modello permessi di v2) |
 | `input` | string o turni | richiesta dell'utente |
 | `checks[]` | lista | ogni controllo: `check_id`, `type` (`deterministic`/`judge`), `assert`, `blocking` (bool) |
 | `origin` | enum | `seed` / `production_failure` / `bug_report` |
-| `origin_ref` | string | trace id (E1) o numero di issue, obbligatorio se `origin` ≠ `seed` |
+| `origin_ref` | string | trace id (E1) o numero di issue, obbligatorio se `origin` ≠ `seed`. È un riferimento, non una copia dei dati della traccia (vedi §7) |
 | `expected_fail_ref` | string opzionale | issue che prevede il fallimento (es. #2489 per X4–X5) |
 
-I valori `deterministic`/`judge` e `block`/`flag` riprendono il vocabolario di `gravya_agent_policies` (migrazione 0375). Non riuso `hitl`, perché in CI non c'è un umano. Lo tratto in DA-E3-03.
+I valori `deterministic`/`judge` e `block`/`flag` riprendono come idea il vocabolario di `gravya_agent_policies` di gravya-app (migrazione 0375), da riallineare con A3. Non si usa `hitl`, perché in CI non c'è un umano. Lo tratto in DA-E3-03.
 
 ### 4.2 Output di un run
 
@@ -61,7 +61,7 @@ I valori `deterministic`/`judge` e `block`/`flag` riprendono il vocabolario di `
 
 ### 4.3 Eventi
 
-L'harness emette uno span `gravya.eval.case` per caso con gli attributi `gravya.eval.case_id` e `gravya.eval.pass` (nomi allineati a E1 §4.1). Non consuma eventi di bus.
+L'harness scrive per ogni caso un segmento `kind=eval_case` nel modello di tracce DB-native di E1, con gli attributi `gravya.eval.case_id` e `gravya.eval.pass` (nomi allineati a E1 §4.1). Nessuno span OpenTelemetry, nessun exporter OTLP o collector (PV-02). La forma fisica del record (tabella, colonne) la definisce E1. Non consuma eventi di bus.
 
 ## 5. Interfacce
 
@@ -72,7 +72,7 @@ L'harness emette uno span `gravya.eval.case` per caso con gli attributi `gravya.
 ## 6. Comportamento
 
 **Flusso principale.**
-1. Prepara la fixture isolata. Il seed esistente è idempotente, rifiuta la produzione e usa `--clean`.
+1. Prepara la fixture isolata con un seed v2 nuovo, idempotente, che rifiuta la produzione e supporta `--clean` (requisiti ripresi dal seed di gravya-app, che li aveva già validati).
 2. Esegue ogni caso con la persona indicata.
 3. Valuta i controlli: risposta, stato del DB e oracolo di memoria per i casi `remember`.
 4. Scrive il report e applica il gate.
@@ -85,12 +85,19 @@ L'harness emette uno span `gravya.eval.case` per caso con gli attributi `gravya.
 - *Ingestione asincrona dei documenti* (R4, R5): l'harness attende `ingestion_status = completed`. Se scade il timeout, l'esito è errore dell'harness e non fail del caso.
 - *Non determinismo del modello*: vedi DA-E3-05.
 - *Errore del giudice LLM o del provider*: l'esito è "non valutato" e il gate è rosso. Il master non lo dice; segue il principio kloudify "un controllo che non gira blocca".
+- *Caso promosso da produzione*: prima di entrare nel dataset l'input va reso sintetico o pseudonimizzato e rivisto in PR; la regola esatta è DA-E3-08 (da riportare all'utente).
 
 ## 7. Requisiti non funzionali
 
-- **Sicurezza**: si esegue solo su un DB non di produzione. Si riusa la guardia `API_ENV` del seed, e nel report non compaiono credenziali (come in `describeDbTarget`). Nessun bypass RLS aggiunto.
+- **Sicurezza e conformità** (PV-01):
+  - *GDPR – minimizzazione e base giuridica*: il dataset seed e la fixture contengono solo dati fittizi (tenant "Kloud Eval SRL" o equivalente del thin-slice). I casi promossi da fallimenti reali (`production_failure`, `bug_report`) non copiano dati personali di clienti: si riscrive l'input in forma sintetica o pseudonimizzata e si conserva solo `origin_ref`. Se e come sia lecito usare contenuti reali (base giuridica, informativa ai clienti, ruolo di titolare/responsabile) è **DA RIPORTARE ALL'UTENTE** (DA-E3-08).
+  - *GDPR – retention e diritti*: report JSON e segmenti `kind=eval_case` contengono solo id, esiti, versioni e `trace_id`, non il testo delle risposte. Durata di conservazione dei report (artefatti CI) e dei record in E1: **DA RIPORTARE ALL'UTENTE** (DA-E3-10). Se un `origin_ref` punta a una traccia soggetta a cancellazione (art. 17), il caso resta valido perché non dipende dai dati della traccia.
+  - *Perimetro dei dati*: nessuna piattaforma SaaS di eval o tracing di default. Il giudice LLM (se adottato, DA-E3-03) invia input e output dei casi a un provider: con soli dati sintetici l'impatto è ridotto, ma la scelta del provider (UE o extra-UE) è **DA RIPORTARE ALL'UTENTE** (DA-E3-09). Gli artefatti CI su GitHub sono anch'essi fuori dal perimetro DB: per questo non devono contenere dati personali né segreti.
+  - *NIS2 (art. 21)*: l'harness gira solo su DB non di produzione (guardia di ambiente, AC7), nessun bypass RLS, nessuna credenziale nel report (requisito ripreso da `describeDbTarget` di gravya-app); i segreti CI stanno nel secret store e i runner sono soggetti alle stesse misure di gestione accessi e patching del resto della CI. Il gate è una misura di sicurezza dello sviluppo (art. 21.2.e). L'harness non tratta dati di produzione, quindi non è di per sé fonte di incidenti notificabili; un fallimento dei casi `refuse` (fuga cross-tenant) scoperto in CI blocca il rilascio e va trattato come vulnerabilità, non come incidente.
+  - *AI Act*: l'harness verifica prima del rilascio che i comportamenti di trasparenza (art. 50, es. l'agente si dichiara AI dove richiesto) e i rifiuti siano rispettati, tramite casi dedicati; conserva per ogni run versioni di prompt e modello (supporto alla documentazione tecnica e ai log). Non sostituisce la sorveglianza umana a runtime (C3).
+  - *Osservabilità AI resa disponibile*: per ogni run `git_sha`, `dataset_version`, versioni prompt (E2), `model_ref`, esito per caso e per controllo, costo del run, tutto interrogabile nel DB di E1 e collegato a `trace_id`.
 - **Isolamento**: la fixture è un tenant dedicato ("Kloud Eval SRL"). I casi `refuse` verificano che nessun dato di un altro tenant compaia.
-- **Costo**: è previsto un tetto di spesa per run (valore: proposta da validare). Va rispettato il limite A6 di $2 e 10 minuti per run agente registrato in kloudify.
+- **Costo**: è previsto un tetto di spesa per run (valore: proposta da validare). Come riferimento, kloudify registra per gravya-app un limite A6 di $2 e 10 minuti per run agente; in v2 il valore va riconfermato.
 - **Osservabilità**: ogni caso ha un `trace_id` E1 navigabile.
 - **Riproducibilità**: il report contiene `git_sha`, `dataset_version` e le versioni dei prompt E2.
 
@@ -111,20 +118,21 @@ L'harness emette uno span `gravya.eval.case` per caso con gli attributi `gravya.
 ## 9. Piano di implementazione
 
 **Fasi ordinate.**
-1. Sciogliere DA-E3-01 e DA-E3-02. Convertire i 20 scenari di `docs/testing/kloud-eval-scenarios.md` nel formato di §4.1, con i controlli DB già scritti nel file.
-2. Scrivere il runner via API che `kloud-eval-scenarios.md` dichiara come "later PRs", riusando seed, fixture e `kloud_memory_oracle.py`.
+1. Sciogliere DA-E3-01 e DA-E3-02. Riscrivere i 20 scenari di `gravya-app/docs/testing/kloud-eval-scenarios.md` nel formato di §4.1, adattando i controlli DB allo schema v2.
+2. Costruire da zero in v2 seed, fixture, runner e oracolo di memoria, prendendo come specifica il seed di gravya-app e `kloud_memory_oracle.py` (riferimento, non codice da portare, DX-01).
 3. Implementare i controlli `deterministic` (stato del DB, presenza o assenza di nomi). Poi i controlli `judge` secondo DA-E3-03.
 4. Aggiungere il job CI con il gate, inizialmente in modalità report-only fino alla soglia di AC4, poi bloccante.
-5. Aggiungere l'aggancio a E1 (span) ed E2 (versioni). Infine il flusso di promozione dei fallimenti.
+5. Aggiungere l'aggancio a E1 (record DB-native) ed E2 (versioni). Infine il flusso di promozione dei fallimenti.
 
-**Tecnologie.** Sono quelle già nel codice: TypeScript/tsx (seed), Python (oracolo, benchmark), vitest/pytest, GitHub Actions self-hosted, OpenTelemetry (master). Il master cita solo una "piattaforma eval" generica: nessun vendor è scelto, ed è coerente con il no lock-in.
+**Tecnologie.** TypeScript o Python secondo DA-E3-02 (e DX-04), vitest/pytest, GitHub Actions, persistenza degli esiti nel modello DB-native di E1. Nessun OpenTelemetry (PV-02). Il master cita una "piattaforma eval" generica: nessuna piattaforma SaaS esterna viene scelta, perché sposterebbe dati fuori dal perimetro (PV-01); un'eventuale adozione è da riportare all'utente (DA-E3-09).
 
 **Rischi.** Sono elencati in §11.
 
 ## 10. Test e valutazione
 
 - **Unit**: validatore dello schema dei casi, calcolo di gate e soglia, guardia `API_ENV`, redazione delle credenziali.
-- **Integration**: run completo su DB effimero (modello realpg esistente: `kloud-eval-seed.realpg.test.ts`).
+- **Integration**: run completo su DB effimero (idea ripresa da `kloud-eval-seed.realpg.test.ts` di gravya-app).
+- **Conformità**: test che il report e i record E1 non contengano testo di risposta né dati personali; validatore che rifiuta casi promossi senza la marcatura di pseudonimizzazione (dopo DA-E3-08).
 - **Eval dell'harness**: "mutation test" del gate, cioè un prompt volutamente rotto deve produrre il rosso (AC3).
 - **Security**: i casi X1–X5 sono essi stessi test di isolamento. In più, nel report non compare alcun segreto.
 
@@ -136,55 +144,60 @@ L'harness emette uno span `gravya.eval.case` per caso con gli attributi `gravya.
 | Il giudice LLM sbaglia | Il giudice è limitato a domande binarie strette; campione rivisto a mano (Livello 3 del master) |
 | Costo della CI | Il gate scatta solo su PR rilevanti (filtro per percorso); tetto di spesa |
 | Il dataset diventa vecchio | `origin` obbligatorio; crescita dai fallimenti; scadenza di R1 gestita |
-| Conflitto con la priorità Beta | DA-E3-06 |
-| Runner CI saturi (2 self-hosted) | Nessun runner nuovo; job serializzato o notturno da decidere in DA-E3-02 |
+| Dati personali reali entrano nel dataset tramite i casi promossi | Riscrittura sintetica obbligatoria con revisione in PR; DA-E3-08 |
+| Dati inviati a provider o piattaforme fuori perimetro | Nessuna piattaforma SaaS di default; provider del giudice DA-E3-09 |
+| Runner CI saturi (se v2 condivide i 2 self-hosted, Non verificato) | Job serializzato o notturno da decidere in DA-E3-02 |
 
 ## 12. Stima e priorità
 
-- **Taglia**: M. La fixture e gli scenari esistono già. Mancano il runner, i controlli, il gate e gli agganci E1/E2.
-- **Dipendenze critiche**: B1 (eseguire davvero gli agenti) ed E2 (versioni). Senza B1 i casi `act` non sono eseguibili. Kloudify registra che l'enforcement è "irraggiungibile finché gli agenti non eseguono i tool"; nota di revisione: il codice al commit `349118b11` ha un ciclo di tool (`_run_tool_loop` in `generic_executor.py`), quindi la frase di kloudify è superata sul codice, mentre resta Non verificato se il percorso sia raggiunto in staging.
+- **Taglia**: L (era M in v1.1). Con la costruzione da zero (DX-01) vanno scritti anche seed, fixture e oracolo di memoria, oltre a runner, controlli, gate e agganci E1/E2, più i controlli di conformità di §7. Resta riutilizzabile come contenuto il testo dei 20 scenari.
+- **Dipendenze critiche**: B1 (eseguire davvero gli agenti) ed E2 (versioni). Senza B1 i casi `act` non sono eseguibili. In v2 i casi `act` dipendono dal ciclo di tool di B1/B2 costruito da zero (in gravya-app esisteva `_run_tool_loop` in `generic_executor.py`, solo riferimento).
 - **Thin-slice MVP**: sì (master 0.3).
 
 ---
 
-## Appendice A — Allineamento con lo stato attuale
+## Appendice A — Riferimenti dal sistema precedente
 
-**Esiste (letto):**
-- `gravya-app/server/scripts/kloud-eval-seed.ts` e `kloud-eval-fixture.ts` (#2523, PR 1): seed idempotente del tenant fittizio "Kloud Eval SRL" (17 clienti, 22 note, 6 documenti KB, 3 persone) passando per le route reali. Ha guardia `API_ENV` e `--clean`. Riusabile così com'è.
-- `gravya-app/docs/testing/kloud-eval-scenarios.md`: 20 scenari pass/fail con esito atteso scritto prima del run (Read R1–R6, Act A1–A5, Remember M1–M4, Refuse X1–X5) e fallimenti previsti (#2069, #2507, #1685, #2489). È già un golden dataset nel senso del master, ma in prosa: manca il formato macchina. Dichiara che il runner via API è una PR successiva.
-- `gravya-app/server/src/__tests__/kloud-eval-db-target.test.ts` e `kloud-eval-seed.realpg.test.ts`. Il secondo è tra i "rossi" dell'onda 4t (409 `record_archived`) secondo `gravya-app-kloudify/.claude/memory.md`, come riportato in `docs/stato/kloudify.md`.
-- `gravya-app/services/agents/src/benchmarks/` (`golden_set.json` con 5 casi, `memory_recall.py` Recall@k/Precision@k) e l'handler `c2_memory_benchmark.py`: benchmark del solo retrieval, a metrica e non binario.
-- `gravya-app/packages/db/src/migrations/0375_gravya_agent_policies.sql`: criteri per agente `deterministic|judge|hitl`, `block|flag`. Riusabile come vocabolario dei controlli.
-- `gravya-app-kloudify/docs/visione/architettura-agenti.md` §2.10: il set di valutazione e il controllo periodico sono marcati "manca".
-- `gravya-app/.github/workflows/`: nessun workflow di eval.
+Per DX-01/PV-03 nulla di quanto segue entra in v2 come codice: è materiale di riferimento.
 
-**Divergenze dal master:**
-1. Il master mette l'eval harness nelle fondamenta (fase 0). La visione kloudify lo vuole come "primo pezzo", ma la regola del 02/11 sposta a post-Beta ciò che non tocca sicurezza o primo cliente, e secondo la ricognizione l'eval è già classificata post-Beta.
-2. Il master prevede un gate CI che blocca il deploy. Oggi non c'è alcun runner automatico, ma solo esecuzione manuale da tester. La CI ha 2 runner self-hosted e la regola vieta di aggiungerne.
-3. Il master prevede eval binarie. Il benchmark di memoria esistente è a metrica (Recall@k): non va usato come gate senza convertirlo.
-4. Il master parla di un golden dataset "per il workflow" del thin-slice. Gli scenari esistenti coprono Kloud (assistente), non un workflow C1 ad alto volume.
+**Soluzioni da riprendere come idea (lette):**
+- `gravya-app/server/scripts/kloud-eval-seed.ts` e `kloud-eval-fixture.ts` (#2523, PR 1): seed idempotente di un tenant fittizio ("Kloud Eval SRL": 17 clienti, 22 note, 6 documenti KB, 3 persone) che passa per le route reali, con guardia `API_ENV` e `--clean`. Da riprendere: dati solo fittizi, passaggio dalle API reali, guardia di produzione, idempotenza.
+- `gravya-app/docs/testing/kloud-eval-scenarios.md`: 20 scenari pass/fail con esito atteso scritto prima del run (Read R1–R6, Act A1–A5, Remember M1–M4, Refuse X1–X5) e fallimenti previsti (#2069, #2507, #1685, #2489). È il contenuto più prezioso: requisiti già formulati in forma binaria, da riscrivere nel formato di §4.1.
+- `gravya-app/packages/db/src/migrations/0375_gravya_agent_policies.sql`: vocabolario `deterministic|judge|hitl`, `block|flag`.
+- `describeDbTarget`: nessuna credenziale nei log.
+- `gravya-app-kloudify/docs/visione/architettura-agenti.md` §2.10: il set di valutazione è marcato "manca" e indicato come primo pezzo da costruire.
+
+**Difetti da non ripetere:**
+- Scenari solo in prosa, senza formato macchina e senza runner automatico: in v2 il formato di §4.1 e il runner nascono insieme.
+- Nessun workflow di eval in `.github/workflows/`: esecuzione solo manuale da tester. In v2 il gate CI è parte del deliverable.
+- Test di integrazione della fixture rimasto rosso (`kloud-eval-seed.realpg.test.ts`, 409 `record_archived`, riportato da kloudify): la fixture deve avere un test verde come criterio d'ingresso.
+- Benchmark di memoria a metrica (`services/agents/src/benchmarks/`, Recall@k): non è un gate binario; in v2 i controlli sono solo sì/no.
+- Scenari centrati sull'assistente Kloud e non su un workflow C1: in v2 il dataset segue il thin-slice (DA-E3-01).
 
 ## Appendice B — Non verificato
 
-- Se esista già, in un branch o PR aperta, il runner via API di #2523 (cercato solo su questa copia di gravya-app).
 - Lo stato attuale delle issue #2523, #2489, #2069, #2507, #1685, #892.
-- Lo stato reale del rosso `kloud-eval-seed.realpg.test.ts` nell'onda 4t (riportato da kloudify, non riprodotto).
+- Lo stato reale del rosso `kloud-eval-seed.realpg.test.ts` (riportato da kloudify, non riprodotto; rilevante solo come lezione).
 - Il contenuto completo di `kloud_memory_oracle.py`, `prompt_improvement_job.py` (REPLAY) e dei validatori in `services/agents/src/compliance/` (non letti per intero).
 - Quale sia il workflow del thin-slice per v2.
 - L'ID del sottoprodotto che implementa l'auto-disable (master 0.4.2).
-- La classificazione post-Beta dell'eval in `docs/visione/`, ripresa dalla ricognizione kloudify e non riletta riga per riga.
+- Se la CI di v2 userà gli stessi runner self-hosted di gravya-app.
+- Dove risiedono fisicamente gli artefatti CI (GitHub, regione) e per quanto tempo vengono conservati.
 
 ## Appendice C — Decisioni aperte
 
 | ID | Titolo | Opzioni | Criterio | Raccomandazione |
 |---|---|---|---|---|
-| DA-E3-01 | Primo bersaglio del dataset | (a) scenari Kloud esistenti; (b) workflow thin-slice di C1; (c) entrambi | riuso contro aderenza al master | (a) subito, (b) appena C1 sceglie il workflow |
-| DA-E3-02 | Linguaggio e posizione del runner | (a) TS in `server/scripts` accanto al seed; (b) Python in `services/agents` accanto all'oracolo | riuso, accesso alle route e agli agenti | (a): il seed importa già le route |
-| DA-E3-03 | Controlli soggettivi in CI | (a) giudice LLM binario; (b) solo deterministici, i soggettivi vanno a revisione umana fuori CI; (c) giudice = supervisore esistente | affidabilità e costo | (b) per il gate, (a) come segnale non bloccante |
+| DA-E3-01 | Primo bersaglio del dataset | (a) scenari Kloud riscritti per v2; (b) workflow thin-slice di C1; (c) entrambi | aderenza al master e disponibilità dei requisiti (non più riuso di codice, DX-01) | (b) come bersaglio del gate; (a) come contenuto di partenza per i casi `refuse`/`remember` trasversali |
+| DA-E3-02 | Linguaggio e posizione del runner, uso dei runner CI | (a) TypeScript accanto alle API v2; (b) Python accanto agli agenti v2 | accesso alle API e al runtime agenti v2, formato contratti (DX-04); capacità CI non verificata | dipende dal layout v2 e da DX-04; nessuna raccomandazione finché non sono decisi. Se la CI v2 condivida i runner di gravya-app: da confermare con l'utente |
+| DA-E3-03 | Controlli soggettivi in CI | (a) giudice LLM binario; (b) solo deterministici, i soggettivi vanno a revisione umana fuori CI | affidabilità, costo, perimetro dei dati del provider (DA-E3-09) | (b) per il gate, (a) come segnale non bloccante solo dopo DA-E3-09 |
 | DA-E3-04 | Date relative (R1) | (a) re-seed a ogni run; (b) data di riferimento fissata | determinismo e durata | (a) |
 | DA-E3-05 | Non determinismo | (a) 1 run, temperatura minima; (b) N run e maggioranza; (c) pass solo se N/N | costo contro instabilità | (a) per iniziare; N da validare |
-| DA-E3-06 | Collocazione rispetto alla Beta del 30/11 | (a) anticipare in v2 come da master; (b) post-Beta come da kloudify | la decide Daniele | escalation; nessuna raccomandazione tecnica |
+| DA-E3-06 | Collocazione rispetto alla Beta del 30/11 | — | — | **Chiusa da DX-01**: la Beta di gravya-app non vincola v2; E3 resta nelle fondamenta (master fase 0, ondata 1) |
 | DA-E3-07 | Soglia del gate | (a) 90% + zero bloccanti; (b) 100% sui bloccanti, solo report sul resto | il master non fissa un valore | (b) finché il dataset è piccolo |
+| DA-E3-08 | Uso di contenuti di produzione nei casi promossi | (a) solo riscrittura sintetica, nessun dato reale; (b) pseudonimizzazione con revisione; (c) dati reali con base giuridica e informativa | GDPR (minimizzazione, base giuridica, ruolo titolare/responsabile) | **DA RIPORTARE ALL'UTENTE**. Proposta tecnica: (a) |
+| DA-E3-09 | Provider del giudice LLM e piattaforma eval | (a) nessun giudice in CI; (b) provider con elaborazione UE; (c) provider extra-UE con soli dati sintetici; (d) piattaforma SaaS di eval | PV-01, perimetro dei dati, trasferimenti extra-UE | **DA RIPORTARE ALL'UTENTE**. (d) esclusa di default; proposta tecnica (a) o (b) |
+| DA-E3-10 | Retention di report CI e segmenti `kind=eval_case` | durata da fissare | GDPR art. 5.1.e, esigenze di audit AI Act/NIS2 | **DA RIPORTARE ALL'UTENTE**: nessun valore proposto, la liceità dipende dal contenuto effettivo (atteso privo di dati personali) |
 
 ## Storico modifiche
 
@@ -192,3 +205,4 @@ L'harness emette uno span `gravya.eval.case` per caso con gli attributi `gravya.
 |---|---|---|
 | 1.0 | 2026-11-03 | Prima stesura (ondata 1) |
 | 1.1 | 2026-11-03 | Revisione incrociata ondata 1: attributi dello span allineati a E1 (`gravya.eval.*`); dipendenza da E1/OTel resa condizionata a DA-E1-01; aggiunti C1 ed E2 in "È richiesto da"; annotata la citazione kloudify superata dal codice. Motivo: interfacce non combacianti e coerenza con B1/B2. |
+| 1.2 | 2026-11-03 | Applicate DX-01/PV-03 (ripartenza da zero): fixture, seed, runner e oracolo si costruiscono in v2, gravya-app solo riferimento; Appendice A rinominata "Riferimenti dal sistema precedente" (idee da riprendere, difetti da non ripetere); taglia M→L; DA-E3-06 chiusa da DX-01; DA-E3-01/02/03 riformulate; rimosso il rischio Beta. Applicate DX-02/PV-01/PV-02: rimossi span OTel e OpenTelemetry dalle tecnologie, esiti come record DB-native di E1 con vocabolario `gravya.*`; aggiunta in §7 la voce "Sicurezza e conformità" (GDPR, NIS2, AI Act, osservabilità AI); nessuna piattaforma SaaS di eval di default; nuove DA-E3-08/09/10 da riportare all'utente. (rev. coerenza) record `gravya.eval.case` rinominato segmento `kind=eval_case` (E1 §4.2) in §4, §7, DA-E3-10. |
