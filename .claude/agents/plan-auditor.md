@@ -10,6 +10,7 @@ description: |
 
   Risponde in JSON con: esito, rilievi, controllato, report (schema nel prompt, sezione "Risposta").
 model: sonnet
+effort: medium
 tools: Read, Grep, Glob, Bash
 ---
 

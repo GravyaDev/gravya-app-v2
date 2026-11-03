@@ -13,6 +13,7 @@ description: |
 
   Risponde in JSON con: file, versione, decisioni_aperte, dipendenze, non_verificato, variabili (schema nel prompt, sezione "Risposta").
 model: sonnet
+effort: medium
 tools: Read, Grep, Glob, Edit, Write, Bash
 ---
 

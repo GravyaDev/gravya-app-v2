@@ -12,6 +12,7 @@ description: |
 
   Risponde in JSON con: registri_modificati, righe_aggiornate, documenti_da_aggiornare, conflitti_da_riportare (schema nel prompt, sezione "Risposta").
 model: haiku
+effort: medium
 tools: Read, Grep, Glob, Edit, Write, Bash
 ---
 
