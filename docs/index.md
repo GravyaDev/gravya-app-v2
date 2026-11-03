@@ -33,7 +33,7 @@ Tra parentesi la taglia alternativa, che dipende da una decisione aperta (vedi Â
 
 ## Ondata 2: MVP completo (da redigere)
 
-A2, A4, A5 (con la notifica incidenti NIS2, DX-10), B3, B4, B5, C2, C4, D1, G2, **F6 Politica di retention e cancellazione** (nuovo, DX-12)
+A2, A4, A5 (con la notifica incidenti NIS2, DX-10), B3, B4, B5, C2, C4, D1, G2, **F6 Politica di retention e cancellazione** (nuovo, DX-12), **A6 IdentitÃ , ruoli e configurazione di piattaforma** (nuovo, DX-14)
 
 ## Ondata 3: scala (da redigere)
 

@@ -7,7 +7,7 @@
 | ID | A3 |
 | Nome | Runtime di enforcement |
 | Componente padre | A — Control Plane (governance) |
-| Versione documento | 1.3 |
+| Versione documento | 1.4 |
 | Data | 2026-11-03 |
 | Ondata | 1 (walking skeleton) |
 
@@ -32,7 +32,9 @@
 - **E1** Tracing DB-native (PV-02): ogni decisione produce un record di traccia nel modello dati definito da E1, con il vocabolario `gravya.*`; dove esiste un nome equivalente nelle GenAI semantic conventions e per il formato `traceparent` di `trace_id`, E1 può adottarli come vocabolario (DA-E1-05 decisa), senza SDK né export OpenTelemetry.
 - **B2** Tool gateway e **B1** Agent runtime: sono i chiamanti, cioè il punto di intercettazione.
 - **C3** Punto HITL: riceve gli esiti `require_approval` e rilascia il token di approvazione.
-- **A5** Audit trail (ondata 2): consuma gli eventi di decisione e riceve i segnali utili alla notifica degli incidenti NIS2 (DX-10).
+- **A5** Audit trail (ondata 2): consuma gli eventi di decisione e riceve i segnali utili alla notifica degli incidenti NIS2 (DX-10). In ondata 1, prima di A5, la conferma del salvataggio la dà una tabella di audit minima che A5 poi assorbe (DECISIONS §6, decisa).
+- **Registro delle variabili di piattaforma** (DX-13, decisa): A3 legge da lì le soglie operative del §6 e la durata di retention. Il sottoprodotto che lo possiede è **proposto** come A6 — Identità, ruoli e configurazione di piattaforma (DX-14, **da riportare all'utente**, non deciso); in alternativa ruoli in A1 e variabili in F6.
+- **F6** Politica di retention e cancellazione (DX-12, ID proposto, ondata 2): applica la scadenza dei record prodotti da A3.
 
 **È richiesto da:** B2, B1 (valutazione all'avvio del job), C1 e C3, E3 (casi di rifiuto), E2 (autorizzazione delle scritture sul registry: vedi problema aperto in `revisione-ondata-1.md`, perché A3 è progettato per azioni di agenti, non di umani). **A4** (ondata 2) confronta l'hash del bundle caricato.
 
@@ -66,7 +68,19 @@
 
 **Eventi emessi:** `policy.decision` (verso A5/E1) e `policy.bundle.loaded` / `policy.bundle.rejected`. Non si mantiene la compatibilità con l'evento `tool.scope.denied` di gravya-app (DX-01): i deny sono `policy.decision` con `result=deny`. Il formato puntato o underscore segue DX-07.
 
-**Eventi consumati:** `policy.bundle.published`, emesso da A2 con versione e hash.
+**Eventi consumati:** `policy.bundle.published`, emesso da A2 con versione e hash; `platform.config.changed` (nome proposto, dipende da DX-07 e dal proprietario del registro, DX-14) per ricaricare le variabili di piattaforma.
+
+**Variabili di piattaforma usate da A3 (DX-13).** Gestite dal superadmin, modificabili senza rilascio; ogni modifica è versionata e auditata. Ogni `Decision` registra la `config_version` in vigore.
+
+| Variabile (nome proposto) | Uso | Default |
+|---|---|---|
+| `a3.bundle.max_age` | oltre questa età il bundle è "scaduto" (§6) | proposta da validare |
+| `a3.eval.timeout_ms` | timeout della valutazione/sidecar (§6) | proposta da validare |
+| `a3.record.persist_timeout_ms` | oltre questo tempo il record si considera non salvato (§6) | proposta da validare |
+| `retention.audit_decisions` | durata dei record di decisione (DX-09, classe "Audit e decisioni") | 12 mesi (DECISIONS §5) |
+| `retention.runtime_events` | eventi `policy.bundle.*` (classe "Eventi di runtime") | 90 giorni (DECISIONS §5) |
+
+**Fail-closed sulla configurazione:** se il registro non è leggibile o una variabile manca o è fuori dall'intervallo ammesso, A3 non usa valori arbitrari: le soglie di sicurezza ricadono sul valore più restrittivo (timeout e età minimi validi) e, se la configurazione non è verificabile, la decisione è `deny`. Il comportamento esatto dipende dal contratto del registro (DX-14).
 
 ## 5. Interfacce
 
@@ -90,21 +104,24 @@
 **Casi limite ed errori:**
 - **Bundle assente, scaduto o con hash non valido:** fail-closed (`deny`), con evento `policy.bundle.rejected`.
 - **Timeout del sidecar:** `deny`, mai `allow`.
-- **Record di decisione non salvato:** fail-closed (DA-A3-07 decisa, coerente con DA-B2-04). Se il record di decisione non risulta salvato, l'azione si blocca: un `allow` diventa `deny` (con `reason` che indica il mancato salvataggio) e B2 non esegue. Vale per ogni azione, non solo per le scritture. Il differente comportamento best-effort di gravya-app non viene ripreso.
+- **Record di decisione non salvato:** fail-closed (DA-A3-07 decisa, coerente con DA-B2-04). "Salvato" significa scritto nella tabella di audit (in ondata 1 la tabella minima, poi A5) oppure in una coda locale **durevole su disco con fsync** confermato; una coda solo in memoria non conta (DECISIONS §6, decisa). Se il record di decisione non risulta salvato, l'azione si blocca: un `allow` diventa `deny` (con `reason` che indica il mancato salvataggio) e B2 non esegue. Vale per ogni azione, non solo per le scritture. Il differente comportamento best-effort di gravya-app non viene ripreso.
+- **Audit dell'esito fallito dopo l'esecuzione:** l'azione non si può annullare; si invia un segnale ad A5 (DX-10) e l'esito entra in una coda di recupero che ritenta il salvataggio (DECISIONS §6, decisa). La coda è di B2; A3 fornisce il `decision_id` per ricollegare l'esito.
 - **Token già usato:** `deny`.
 - **Cambio di bundle durante un run:** vale la versione caricata all'inizio della decisione. Ogni decisione registra `bundle_version`.
 - **Vocabolario `ALWAYS_HITL`/`MONEY_WRITE`:** mai `allow` senza token. È una regola A5 del progetto (kloudify `controlli-e-conformita.md` §3), da non confondere con il sottoprodotto A5.
 
 ## 7. Requisiti non funzionali
 
-- **Latenza:** p99 della valutazione ≤ 5 ms in locale, escluso il trasporto di rete (proposta da validare). Il salvataggio sincrono del record richiesto dal fail-closed (DA-A3-07) è un costo a parte, non incluso in questa soglia: la soglia complessiva è da fissare.
+- **Latenza:** p99 della valutazione ≤ 5 ms in locale, escluso il trasporto di rete (proposta da validare). Il salvataggio sincrono del record richiesto dal fail-closed (DA-A3-07) è un costo a parte, non incluso in questa soglia: la soglia complessiva resta **aperta** (DECISIONS §6, nessuna raccomandazione). Quando sarà fissata diventerà una variabile di piattaforma (DX-13).
 - **Sicurezza:** default-deny e fail-closed, il bundle viene verificato con l'hash prima del caricamento, nessun segreto nell'input.
 - **Scalabilità:** valutazione stateless. Lo stato (token, spesa) è passato nell'input oppure risolto da B2 (**DA-A3-04**; B2 v1.1 registra la dipendenza nel proprio §6).
 - **Osservabilità (DB-native, PV-02):** un record di traccia per decisione nel modello dati di E1, con attributi `gravya.decision.kind=policy`, `gravya.decision.outcome` (= `result`), `gravya.policy.bundle_version`, `gravya.policy.bundle_hash`, con `company_id` come colonna del segmento (E1 §4.1; il nome del tenant segue DX-07). Metriche: `decisions_total{result}` e la latenza, calcolate dagli stessi dati nel DB di Gravya. Nessun SDK, collector o esportatore OpenTelemetry. Se si sceglie OPA, i suoi *decision logs* e la *status/discovery API* verso servizi remoti restano disabilitati: le decisioni escono solo verso E1/A5.
 - **Sicurezza e conformità (PV-01):**
-  - *GDPR.* Minimizzazione: input e record di decisione contengono solo identificativi (agente, run, tool, assi della risorsa), mai contenuti di record CRM né prompt. Gli identificativi di clienti/record possono comunque essere dati personali pseudonimizzati. Ruolo: Gravya tratta questi dati come responsabile del trattamento (art. 28) per conto delle agenzie (DX-11); il log di decisione è una misura di sicurezza (art. 32). La base giuridica degli identificativi nell'audit resta aperta (DA-A1-08). Retention: si applica la politica unica DX-09 (durate non ancora fissate; DA-A3-06 assorbita). Classi di dati prodotte da A3: record di decisione (`policy.decision`, con identificativi di agente, run, tool e assi della risorsa); eventi di bundle (`policy.bundle.loaded` / `policy.bundle.rejected`); metriche aggregate derivate dai record. Diritti degli interessati: i record sono interrogabili per `tenant_id` e identificativo; la cancellazione o anonimizzazione segue la politica di A5 (conflitto possibile tra diritto alla cancellazione e integrità dell'audit, da decidere in A5).
+  - *GDPR.* Minimizzazione: input e record di decisione contengono solo identificativi (agente, run, tool, assi della risorsa), mai contenuti di record CRM né prompt. Gli identificativi di clienti/record possono comunque essere dati personali pseudonimizzati. Ruolo: Gravya tratta questi dati come responsabile del trattamento (art. 28) per conto delle agenzie (DX-11); il log di decisione è una misura di sicurezza (art. 32). Base giuridica (DA-A1-08, decisa): per gli identificativi dei dati delle agenzie è quella del titolare (l'agenzia); per gli utenti di Gravya (superadmin, operatori) è di Gravya. Retention: politica unica DX-09 (DA-A3-06 assorbita) con i default approvati in DECISIONS §5: record di decisione 12 mesi, eventi di bundle 90 giorni, artefatti di configurazione (bundle) per la durata del servizio; le durate sono variabili di piattaforma modificabili dal superadmin (DX-13), applicate da F6. *Accesso cross-tenant:* nessun utente di agenzia vede decisioni di altri tenant; l'accesso cross-tenant ai record di A3 è consentito solo al superadmin, entro le istruzioni del titolare (art. 28) e con log degli accessi (DX-13, DA-E1-08), conservato 12 mesi. Classi di dati prodotte da A3: record di decisione (`policy.decision`, con identificativi di agente, run, tool e assi della risorsa); eventi di bundle (`policy.bundle.loaded` / `policy.bundle.rejected`); metriche aggregate derivate dai record. Diritti degli interessati: i record sono interrogabili per `tenant_id` e identificativo; la cancellazione o anonimizzazione segue la politica di A5 (conflitto possibile tra diritto alla cancellazione e integrità dell'audit, da decidere in A5).
   - *NIS2 (art. 21).* Controllo degli accessi e default-deny, integrità del bundle (hash, firma se A2 la prevede), fail-closed, registrazione di ogni decisione. Picchi di `deny`, `policy.bundle.rejected` e blocchi per mancato salvataggio del record sono segnali che A3 invia ad A5, responsabile della notifica degli incidenti (24 h / 72 h, DX-10). Tutto il runtime gira self-hosted su infrastruttura UE (DA-B1-06 decisa): nessuna dipendenza da servizi gestiti esterni.
   - *AI Act.* I casi d'uso v2 non sono ad alto rischio (DX-11): gli artt. 12 e 14 non sono obblighi. Come buona pratica A3 resta un presidio di sorveglianza umana (le azioni `MONEY_WRITE`/`REQUIRES_HITL` non passano senza approvazione umana, C3) e i record di decisione restano log di osservabilità. La trasparenza art. 50 non riguarda A3 direttamente (non genera contenuti né interagisce con persone).
+    - *Variabili di piattaforma.* Ogni modifica alle soglie di A3 da parte del superadmin è versionata e auditata (DX-13); la `config_version` in vigore è nel record di decisione.
+  - *Opt-in extra-UE del tenant:* dove si registra resta **aperto** (DECISIONS §6); proposta non decisa: configurazione del tenant in A1, compilata da A2 nel bundle A3.
   - *Osservabilità AI.* Rende osservabile, per ogni azione di un agente: chi l'ha chiesta, su quali risorse, con quale versione di policy, con quale esito e perché (`reason`, `axis`), e se è passata da un'approvazione umana.
 
 ## 8. Criteri di accettazione
@@ -118,6 +135,9 @@
 7. Il token monouso viene accettato una volta e rifiutato al secondo uso.
 8. Nessun dato di decisione esce dal perimetro: con OPA, configurazione verificata senza decision logs/status remoti; test che controlla l'assenza di traffico in uscita dal runtime.
 9. Fail-closed sul record (DA-A3-07): con il salvataggio del record di decisione reso impossibile in un test automatico, il 100% delle richieste che sarebbero `allow` risulta `deny` e B2 non produce side effect.
+10. Durevolezza: con una coda locale senza fsync confermato il record è trattato come non salvato (`deny`); con fsync confermato l'azione procede. Test automatico.
+11. Variabili di piattaforma (DX-13): cambiando `a3.eval.timeout_ms` dal registro, senza rilascio, la nuova soglia vale dalla decisione successiva e il record riporta la nuova `config_version`; con il registro non leggibile o un valore fuori intervallo, il test verifica il comportamento fail-closed del §4.
+12. Accesso cross-tenant: una lettura dei record di decisione di un altro tenant fallisce per un admin di agenzia e, per il superadmin, produce una riga nel log degli accessi.
 
 ## 9. Piano di implementazione
 
@@ -126,7 +146,8 @@
 - **F2 — Schema dei contratti:** `DecisionRequest`/`Decision` e bundle fixture scritto da zero; le regole di `_scope_enforcement.py` servono come elenco di requisiti e casi di test, non come codice da tradurre.
 - **F3 — Runtime:** caricamento e verifica del bundle, endpoint di decisione, fail-closed (anche sul mancato salvataggio del record).
 - **F4 — Integrazione:** con B2 (chokepoint) e con C3 (token).
-- **F5 — Osservabilità:** record di traccia DB-native E1 ed eventi verso il futuro A5.
+- **F5 — Osservabilità:** record di traccia DB-native E1, tabella di audit minima di ondata 1 (poi assorbita da A5) ed eventi verso il futuro A5.
+- **F5b — Variabili di piattaforma:** lettura delle soglie dal registro DX-13 (in ondata 1, se il registro non esiste, valori di default versionati nel repo come fixture, con lo stesso schema).
 - **F6 — Casi di riferimento:** i casi coperti dall'enforcer di gravya-app diventano casi di test di A3 (stessi esiti attesi dove la regola resta valida). Niente shadow mode contro il codice esistente, che non gira in v2 (DX-01).
 
 **Tecnologie:**
@@ -145,7 +166,10 @@
   - replay del token;
   - input con `tenant_id` diverso da quello del contesto;
   - fuzz dei campi `resource`;
-  - salvataggio del record di decisione che fallisce o va in timeout: l'azione deve risultare bloccata (DA-A3-07).
+  - salvataggio del record di decisione che fallisce o va in timeout: l'azione deve risultare bloccata (DA-A3-07);
+  - coda locale senza fsync o processo terminato prima dell'fsync: nessun `allow`;
+  - valori manomessi o fuori intervallo nel registro delle variabili: fail-closed;
+  - accesso cross-tenant senza ruolo superadmin: rifiutato e registrato.
 
 ## 11. Rischi e mitigazioni
 
@@ -158,12 +182,14 @@
 | OPA introduce un componente in più da gestire | Valutarlo in DA-A3-01; la Beta di gravya-app non vincola più (DX-01) |
 | Funzioni remote di OPA (decision logs, bundle da servizi esterni) attivate per errore | Configurazione bloccata e CA8 |
 | Log di decisione con dati personali conservati troppo a lungo | Minimizzazione nell'input; retention secondo la politica unica DX-09 |
+| Una soglia modificata male dal superadmin (es. timeout troppo alto) indebolisce il controllo | Intervalli ammessi, versioning e audit delle modifiche, fail-closed su valori invalidi (DX-13); CA11 |
+| Il proprietario del registro delle variabili e dei ruoli non è deciso (DX-14) | Dipendenza dichiarata come proposta; fixture versionata in ondata 1 |
 | Il fail-closed sul record rende un guasto della persistenza un blocco di tutte le azioni degli agenti | Scelta accettata (DA-A3-07, DA-B2-04); il blocco è un segnale inviato ad A5 (DX-10) e il test CA9 ne verifica il comportamento |
 
 ## 12. Stima e priorità
 
 - **Taglia (costruzione da zero):** M con valutatore proprio in libreria; M-L con OPA in sidecar (bundle Rego, configurazione chiusa, gestione del processo). Non c'è più migrazione dell'enforcer esistente. Stima non verificata.
-- **Dipendenze critiche:** B2 (punto di intercettazione), C3 (token), formato del bundle concordato con A2.
+- **Dipendenze critiche:** B2 (punto di intercettazione), C3 (token), formato del bundle concordato con A2, registro delle variabili di piattaforma (DX-13; proprietario proposto A6, DX-14 da riportare).
 - **Thin-slice MVP:** sì, ondata 1.
 
 ---
@@ -200,6 +226,7 @@ Cosa insegna gravya-app (DX-01, PV-03): soluzioni da riprendere come idea e dife
 - Lo stato di gravya-app#998 e l'identità di Kloud sul server.
 - Il formato e la distribuzione dei bundle A2 (A2 non è documentato).
 - La soglia di latenza (5 ms) e il numero di casi di test (30).
+- Nomi, intervalli ammessi e default delle variabili `a3.*` (proposti qui, non derivati da decisioni); contratto e proprietario del registro (DX-14).
 - Le funzioni remote di OPA da disabilitare: elenco da verificare sulla documentazione della versione scelta.
 
 ## Appendice C — Decisioni aperte
@@ -212,7 +239,10 @@ Cosa insegna gravya-app (DX-01, PV-03): soluzioni da riprendere come idea e dife
 | DA-A3-04 | Stato dinamico (spesa, token) | (a) passato nell'input da B2; (b) letto dal runtime | Mantenere stateless la valutazione | (a) |
 | DA-A3-05 | Destino di `_scope_enforcement.py` | — | — | **Chiusa da DX-01**: non entra in v2; resta riferimento per regole e casi di test (F6) |
 | DA-A3-06 | Retention dei record di decisione | — | — | **Assorbita da DX-09** (politica di retention unica; vedi [DECISIONS.md](DECISIONS.md)) |
-| DA-A3-07 | `allow` se il record di decisione non si persiste | — | — | **Decisa** (2026-11-03, utente; vedi [DECISIONS.md](DECISIONS.md)): fail-closed, se il record non si salva l'azione si blocca |
+| DA-A3-07 | `allow` se il record di decisione non si persiste | — | — | **Decisa** (2026-11-03, utente; vedi [DECISIONS.md](DECISIONS.md)): fail-closed, se il record non si salva l'azione si blocca; conta come salvato anche una coda durevole con fsync; tabella di audit minima in ondata 1 |
+| DX-14 | Proprietario di identità, ruoli e registro delle variabili | (a) nuovo A6; (b) ruoli in A1, variabili in F6 | Copertura della lacuna del master plan | (a). **DA RIPORTARE ALL'UTENTE** (registrata in DECISIONS.md) |
+| — | Soglia di latenza complessiva di A3 | — | — | **Aperta** in DECISIONS §6, nessuna raccomandazione |
+| — | Dove si registra l'opt-in extra-UE del tenant | — | — | **Aperta** in DECISIONS §6; proposta: A1 → A2 → bundle A3 |
 
 ## Storico modifiche
 
@@ -222,3 +252,4 @@ Cosa insegna gravya-app (DX-01, PV-03): soluzioni da riprendere come idea e dife
 | 1.1 | 2026-11-03 | Revisione incrociata ondata 1: attributi dello span di decisione allineati ai nomi E1 (`gravya.decision.*`, `gravya.policy.*`, `gravya.company_id`) in §7 e CA6; aggiunti B1, E3, E2 in "È richiesto da" perché quei documenti dichiarano di dipendere da A3; rimando a B2 per `budget_state`. Motivo: interfacce non combacianti tra documenti scritti in parallelo. |
 | 1.2 | 2026-11-03 | Applicate DX-01/PV-03 (ripartenza da zero): eliminati riuso e parità shadow con `_scope_enforcement.py` (DA-A3-05 chiusa), compatibilità con `tool.scope.denied` rimossa, Appendice A rinominata "Riferimenti dal sistema precedente" come lezioni, rischi Beta rimossi, taglia ricalcolata per costruzione da zero. Applicate DX-02/PV-01/PV-02: tracce di decisione DB-native nel modello E1 al posto degli span OTel (§3, §7, CA6, F5), OPA ammessa solo locale con funzioni remote disabilitate (CA8), nuova voce §7 "Sicurezza e conformità" (GDPR, NIS2, AI Act, osservabilità AI). DA-A3-01 riformulata; nuove DA-A3-06 (retention) e DA-A3-07 (allow senza record), da riportare all'utente. Riferimenti a Neo4j resi neutri rispetto al backend A1. (rev. coerenza) §7: `gravya.company_id` come attributo sostituito dalla colonna `company_id` del segmento (E1 §4.1). |
 | 1.3 | 2026-11-03 | Applicate le decisioni dell'utente del 2026-11-03. DA-A3-07 decisa (fail-closed sul record di decisione, coerente con DA-B2-04): §6, nota di latenza §7, CA9, test di sicurezza, F3, nuovo rischio. DA-A3-06 assorbita da DX-09: retention rimandata alla politica unica, elencate le classi di dati prodotte. §7 allineata a DX-10 (segnali ad A5 per la notifica NIS2) e DX-11 (Gravya responsabile art. 28; artt. 12/14 AI Act ridotti a buona pratica); rimossa la relativa voce dall'Appendice B. Recepite DA-A1-01 (PostgreSQL+RLS), DA-B1-06 (self-hosted UE), DA-E1-05 (vocabolario GenAI semconv/traceparent ammesso in E1). CA riordinati (7, 8). Taglia invariata. Motivo: decisioni registrate in DECISIONS.md. |
+| 1.4 | 2026-11-03 | Applicate le decisioni dell'utente del 2026-11-03. DX-09: default di retention di DECISIONS §5 (decisioni 12 mesi, eventi 90 giorni). DX-13: soglie di A3 e durate come variabili di piattaforma gestite dal superadmin (tabella §4, `config_version` nel record, fail-closed sulla configurazione), accesso cross-tenant solo da superadmin con log. DECISIONS §6 decise: coda durevole con fsync conta come salvato, segnale ad A5 e coda di recupero dopo l'esecuzione, tabella di audit minima in ondata 1, base giuridica DA-A1-08. Nuovi CA10-12, test, F5b, rischi; DX-14 citata come dipendenza proposta da riportare; latenza complessiva e opt-in extra-UE restano aperte. Motivo: decisioni registrate in DECISIONS.md. |

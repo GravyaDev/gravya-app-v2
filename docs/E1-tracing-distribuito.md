@@ -8,7 +8,7 @@
 | Nome | Tracing distribuito |
 | Componente padre | E — Osservabilità e Valutazione |
 | Ondata | 1 (walking skeleton) |
-| Versione documento | 1.3 |
+| Versione documento | 1.4 |
 | Data | 2026-11-03 |
 
 ## 2. Scopo
@@ -21,7 +21,7 @@
 
 ## 3. Contesto e dipendenze
 
-**Dipende da:** nessun sottoprodotto per esistere; per popolare i segmenti di tipo specifico serve l'aggancio a B1 (runtime agente), B2 (tool gateway), C1 (grafo workflow), A3 (decisioni di enforcement), C3 (HITL).
+**Dipende da:** nessun sottoprodotto per esistere; F6 (politica di retention, DX-12, ID proposto) per il job di retention; il registro delle variabili di piattaforma e il ruolo superadmin (DX-13), il cui sottoprodotto responsabile è ancora da decidere (DX-14, proposta A6 — Identità, ruoli e configurazione di piattaforma, **DA RIPORTARE**); per popolare i segmenti di tipo specifico serve l'aggancio a B1 (runtime agente), B2 (tool gateway), C1 (grafo workflow), A3 (decisioni di enforcement), C3 (HITL).
 
 **È richiesto da:** B1, B2, C1, A3, C3, A1 (dichiarano di emettere segmenti o eventi tracciati: vedi la tabella 4.1), E3 (eval offline, legge le tracce), E2 (riferimento prompt/versione nei segmenti LLM), E-successivi di guardrail telemetry e valutazione online (ID non assegnati nel master: Non verificato), A5 (audit trail, correlazione per `trace_id`).
 
@@ -38,14 +38,14 @@ Due tabelle, entrambe con `company_id` obbligatorio e Row-Level Security per ten
 
 Tabelle **separate dall'audit legale** (A5, `gravya_event_logs`): hanno scopo, accesso e retention diversi; si correlano tramite `trace_id`, che A5 scrive nei propri eventi (DA-E1-07). Partizionamento per tempo (per mese) per applicare la politica di retention DX-09 con una `DROP PARTITION` e non una cancellazione riga per riga: proposta da validare. Storage: lo stesso PostgreSQL self-hosted in UE del resto di v2 (DA-A1-01, DA-B1-06); DA-E1-03 resta formalmente aperta solo sull'eventuale separazione futura per volume.
 
-**Classi di dati prodotte da E1** (soggette alla politica di retention unica DX-09, durate non ancora fissate): (1) righe di traccia (`gravya_traces`); (2) segmenti di esecuzione con metadati (`gravya_trace_segments`, inclusi i segmenti `decision` con pseudonimo del revisore HITL e i segmenti `eval_case`); (3) log degli accessi cross-tenant degli operatori (§5); (4) contatori di perdita/scarto dei segmenti (metriche).
+**Classi di dati prodotte da E1** (politica di retention unica DX-09; durate di default di DECISIONS.md §5, variabili di piattaforma modificabili dal superadmin, DX-13): (1) righe di traccia (`gravya_traces`): tracce operative, 90 giorni; (2) segmenti di esecuzione con metadati (`gravya_trace_segments`, inclusi i segmenti `decision` con pseudonimo del revisore HITL): 90 giorni; i segmenti `eval_case` e le tracce con `root_kind=eval` (dati sintetici) seguono la classe report di eval, 12 mesi; (3) log degli accessi cross-tenant del superadmin (§5): 12 mesi; (4) contatori di perdita/scarto dei segmenti (metriche): classe tracce operative, 90 giorni (assegnazione proposta da validare). Dati collegati a un incidente aperto da A5: durata del caso + 12 mesi, con sospensione delle altre scadenze (legal hold, meccanismo di F6 e A5). A fine contratto dell'agenzia: restituzione o cancellazione entro 30 giorni.
 
 ### 4.2 Tipi di segmento
 
 | `kind` | Attributi minimi (in `attributes`) | Emesso da |
 |---|---|---|
 | `llm` | `gen_ai.provider.name`, `gen_ai.request.model`, `gen_ai.response.model`, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`, `gravya.prompt.key/version/hash` (E2) | B1 / dispatch LLM |
-| `tool` | `gen_ai.tool.name`, `gen_ai.tool.call.id`, esito; `gravya.tool.destination` (destinazione dichiarata, DA-B2-07) | B2 |
+| `tool` | `gen_ai.tool.name`, `gen_ai.tool.call.id`, esito; `gravya.tool.destination` (destinazione dichiarata, DA-B2-07); `gravya.tool.args_hash` (solo hash degli argomenti, mai il valore) | B2 |
 | `agent` | `gen_ai.agent.id`, `gen_ai.agent.name` | B1 |
 | `retrieval` | sorgente, n. risultati (nessun contenuto) | pipeline memoria |
 | `decision` | `gravya.decision.kind` (policy/hitl/router), `gravya.decision.outcome`; se `kind=policy` anche `gravya.policy.bundle_version`, `gravya.policy.bundle_hash` (A3); se `hitl` l'identificativo del revisore (pseudonimo, non nome) | A3, C3, C1 |
@@ -60,7 +60,7 @@ Sui segmenti di C1 anche `gravya.workflow.node_id`. I nomi `gravya.policy.*`, `g
 | metadati di esecuzione: tempi, esiti, modelli, token, costi, identificativi di prompt/policy/workflow, codici di errore | testo di prompt e risposte, argomenti e risultati dei tool, documenti recuperati, contenuto dei messaggi dei clienti |
 | identificativi pseudonimi (agent, revisore, ticket) | nomi, email, numeri di telefono o altri dati personali in chiaro |
 
-Decisione DA-E1-02: i contenuti **non si catturano mai in produzione**; un eventuale opt-in futuro richiede DPIA e parere legale. Negli ambienti di sviluppo e di eval si usano solo dati sintetici (DA-E3-08).
+Decisione DA-E1-02: i contenuti **non si catturano mai in produzione**; gli argomenti dei tool rientrano nei contenuti esclusi e nelle tracce compaiono solo come hash (decisione di DECISIONS.md §6, DA-C3-06 (a)); vale anche per la chiamata parcheggiata da HITL; un eventuale opt-in futuro richiede DPIA e parere legale. Negli ambienti di sviluppo e di eval si usano solo dati sintetici (DA-E3-08).
 
 ## 5. Interfacce
 
@@ -68,7 +68,8 @@ Decisione DA-E1-02: i contenuti **non si catturano mai in produzione**; un event
 - **Correlazione:** `trace_id` generato da Gravya, propagato in un header interno (es. `x-gravya-trace-id`, con `x-gravya-parent-segment-id`) sulle chiamate HTTP interne e in un campo dei job in coda. Formato: W3C `traceparent` (il `trace_id` UUID reso come 32 cifre esadecimali), senza SDK OTel (DA-E1-05, decisa); nome dell'header da fissare. Lo stesso `trace_id` è scritto negli eventi di audit di A5 (chiamate LLM, invocazioni tool).
 - **Lettura applicativa:** API interna filtrata per tenant (RLS) per la vista Timeline/trace del tenant.
 - **Esportazione verso E3:** E3 legge `gravya_traces`/`gravya_trace_segments` nello stesso perimetro (vista o export interno in formato JSONL versionato), con il filtro tenant applicato. Nessun export verso piattaforme di eval esterne (DA-E3-09, decisa) né verso LangSmith o altri servizi gestiti (DA-C1-05, decisa).
-- **Accesso operatore cross-tenant:** solo tramite route dedicata con ruolo di amministratore di istanza e log dell'accesso (DA-E1-08).
+- **Accesso cross-tenant:** solo il superadmin di istanza (DX-13), distinto dagli admin delle agenzie, tramite route dedicata; l'accesso è consentito solo entro le istruzioni del titolare (art. 28) e ogni accesso è registrato (chi, quando, tenant, traccia o filtro, motivo) nel log degli accessi, retention 12 mesi. Se il log dell'accesso non si salva, l'accesso è negato (fail-closed, proposta coerente con DX-13). Gli admin delle agenzie leggono solo il proprio tenant (RLS).
+- **Variabili di piattaforma (DX-13):** le soglie e le durate di E1 si leggono dal registro delle variabili di piattaforma, modificabili solo dal superadmin senza rilasci; ogni modifica è versionata e auditata, e se il valore non è leggibile o non è valido si applica fail-closed (si mantiene l'ultimo valore valido versionato; il job di retention non cancella nulla su un valore non valido; proposta da validare). Variabili di E1: durate di retention per classe (§4.1), soglia di overhead p95 (default 5 ms, proposta da validare), dimensione del buffer di scrittura e soglia di perdita anomala di segmenti che genera il segnale verso A5 (valori proposti da validare, non fissati).
 
 ## 6. Comportamento
 
@@ -79,7 +80,7 @@ Decisione DA-E1-02: i contenuti **non si catturano mai in produzione**; un event
 4. A fine run la traccia viene chiusa con `ended_at` e `status`; A5 riporta il `trace_id` nei propri eventi.
 
 **Casi limite:**
-- Scrittura delle tracce non riuscita (DB lento, buffer pieno): l'esecuzione prosegue (fail-open, §7), la perdita viene contata in una metrica; la perdita di segmenti non blocca il run. Non vale per l'audit dei tool (DA-B2-04) né per il record di decisione di A3 (DA-A3-07): sono **fail-closed**, se il record non si salva l'azione si blocca. Questi record sono di B2/A3/A5, non di E1; il segmento `decision` di E1 è un riflesso osservabile e la sua perdita non sblocca né blocca nulla.
+- Scrittura delle tracce non riuscita (DB lento, buffer pieno, dimensione variabile di piattaforma): l'esecuzione prosegue (fail-open, §7), la perdita viene contata in una metrica; la perdita di segmenti non blocca il run. Non vale per l'audit dei tool (DA-B2-04) né per il record di decisione di A3 (DA-A3-07): sono **fail-closed**, se il record non si salva l'azione si blocca. Questi record sono di B2/A3/A5, non di E1; il segmento `decision` di E1 è un riflesso osservabile e la sua perdita non sblocca né blocca nulla.
 - Contenuti di prompt/risposta: mai registrati in produzione (DA-E1-02); un payload che li contiene viene scartato dalla whitelist.
 - Segmento senza `company_id` o con attributi fuori whitelist: l'helper lo rifiuta in sviluppo e test (errore) e in produzione lo scarta contando l'evento (proposta da validare).
 - Richiesta di cancellazione di un interessato (GDPR art. 17): poiché i segmenti non contengono dati personali in chiaro, si agisce sugli identificativi pseudonimi; procedura da definire con A5 (Non verificato che basti).
@@ -88,12 +89,12 @@ Decisione DA-E1-02: i contenuti **non si catturano mai in produzione**; un event
 
 - **Multi-tenancy:** ogni traccia e segmento porta `company_id`; RLS in lettura e scrittura (motivo dello scarto di Phoenix, #266).
 - **PII:** minimizzazione a monte (whitelist di attributi per `kind`) e redazione prima della scrittura; `redactAll` di gravya-app è solo key-based e non basta per testo libero, ma con la whitelist il testo libero non entra.
-- **Overhead:** latenza aggiunta p95 < 5 ms per segmento sul percorso del run (scrittura asincrona; proposta da validare).
+- **Overhead:** latenza aggiunta p95 < 5 ms per segmento sul percorso del run (scrittura asincrona; default proposto da validare, variabile di piattaforma DX-13).
 - **Fail-open (solo tracce):** la scrittura delle tracce non blocca le esecuzioni; audit dei tool e record di decisione sono fail-closed (DA-B2-04, DA-A3-07) e fuori da E1.
-- **Retention:** politica unica di default DX-09 (durate non ancora fissate), applicata per partizione; override per classe/tenant previsti ma non attivi. Classi prodotte: §4.1.
+- **Retention:** politica unica di default DX-09 con le durate approvate (DECISIONS.md §5: 90 giorni tracce e segmenti, 12 mesi log degli accessi e report di eval), applicata per partizione; le durate sono variabili di piattaforma del superadmin (DX-13); override per classe/tenant previsti ma non attivi. Classi prodotte: §4.1.
 - **Sicurezza e conformità:**
-  - *GDPR.* Gravya tratta i dati per conto delle agenzie come responsabile del trattamento (art. 28, DX-11). Minimizzazione: solo metadati (§4.3), identificativi pseudonimi, contenuti mai in produzione (DA-E1-02). Base giuridica e istruzioni: quelle del titolare (agenzia) nel contratto art. 28; la finalità dei metadati (sicurezza, qualità, fatturazione) va riportata nel contratto (Non verificato). Retention: politica unica DX-09. Diritti: accesso ed export per tenant tramite API filtrata, a supporto del titolare; cancellazione via pseudonimi e drop di partizione (§6). Dati in UE, nello stesso PostgreSQL self-hosted (DA-B1-06); nessun trasferimento a terzi né a servizi di tracing/eval (DA-E3-09, DA-C1-05).
-  - *NIS2 (art. 21).* Controllo degli accessi (RLS, ruolo di istanza per il cross-tenant con log dell'accesso), cifratura a riposo e in transito ereditata dal DB, integrità (tracce non modificabili dopo la chiusura: append-only, proposta), backup secondo la policy generale. Notifica degli incidenti (24 h/72 h): responsabilità di A5 (DX-10). E1 non notifica: invia ad A5 segnali (es. perdita anomala di segmenti, accessi cross-tenant) e fornisce le tracce per ricostruire l'incidente; il formato del segnale va concordato con A5.
+  - *GDPR.* Gravya tratta i dati per conto delle agenzie come responsabile del trattamento (art. 28, DX-11). Minimizzazione: solo metadati (§4.3), identificativi pseudonimi, contenuti mai in produzione (DA-E1-02). Base giuridica e istruzioni: quelle del titolare (agenzia) nel contratto art. 28; la finalità dei metadati (sicurezza, qualità, fatturazione) va riportata nel contratto (Non verificato). Retention: politica unica DX-09, durate di default di §4.1. Accesso cross-tenant solo del superadmin entro le istruzioni del titolare e con log (DX-13); per gli utenti di Gravya (superadmin) la base giuridica del log è di Gravya, per i dati delle agenzie è del titolare (DECISIONS.md §6). Diritti: accesso ed export per tenant tramite API filtrata, a supporto del titolare; cancellazione via pseudonimi e drop di partizione (§6). Dati in UE, nello stesso PostgreSQL self-hosted (DA-B1-06); nessun trasferimento a terzi né a servizi di tracing/eval (DA-E3-09, DA-C1-05).
+  - *NIS2 (art. 21).* Controllo degli accessi (RLS, superadmin per il cross-tenant con log dell'accesso, DX-13; modifiche alle variabili di piattaforma versionate e auditate), cifratura a riposo e in transito ereditata dal DB, integrità (tracce non modificabili dopo la chiusura: append-only, proposta), backup secondo la policy generale. Notifica degli incidenti (24 h/72 h): responsabilità di A5 (DX-10). E1 non notifica: invia ad A5 segnali (es. perdita anomala di segmenti, accessi cross-tenant) e fornisce le tracce per ricostruire l'incidente; il formato del segnale va concordato con A5.
   - *AI Act.* I casi d'uso v2 non sono ad alto rischio (DX-11). Art. 50 (trasparenza), applicabile: E1 non interagisce con gli utenti, ma registra quale modello e quale prompt hanno prodotto un output, a supporto della marcatura e dell'informativa gestite altrove. Artt. 12/14/19/26: non obbligatori; la registrazione delle esecuzioni e delle decisioni HITL (chi ha approvato, scavalcato o fermato) resta come buona pratica di osservabilità, senza durate minime imposte.
   - *Osservabilità AI resa disponibile:* per ogni run modello richiesto e risposto, token, costo, latenza, versione di prompt, policy e workflow, esiti dei tool, decisioni di policy e HITL, punteggi di eval collegati: tutto interrogabile per tenant e leggibile da E3.
 
@@ -106,23 +107,25 @@ Decisione DA-E1-02: i contenuti **non si catturano mai in produzione**; un event
 5. Scrittura delle tracce non riuscita → l'esecuzione termina con successo e la perdita è contata; nello stesso scenario un mancato salvataggio dell'audit dei tool o del record di decisione blocca l'azione (fail-closed, DA-B2-04/DA-A3-07): test di non regressione, cioè il buffer fail-open di E1 non è usato per quei record.
 6. Overhead p95 < 5 ms/segmento su benchmark (proposta da validare).
 7. `trace_id` presente negli eventi di audit di A5 per il 100% delle chiamate LLM e tool: test.
-8. Una partizione oltre la retention di default DX-09 viene eliminata dal job di retention (durata parametrica, test con valore fittizio finché DX-09 non fissa le durate): test.
+8. Con i default di DECISIONS.md §5, una partizione di tracce oltre 90 giorni viene eliminata dal job di retention e una più recente no; i log degli accessi restano 12 mesi: test con orologio simulato. Cambiando la durata nel registro delle variabili di piattaforma (come superadmin) il job applica il nuovo valore senza rilascio e la modifica risulta versionata e auditata; con un valore non valido il job non cancella nulla (fail-closed): test.
+10. Un admin di agenzia non può usare la route cross-tenant (403); un accesso del superadmin produce una riga nel log degli accessi; se il log non si salva l'accesso è negato: test.
+11. Nei segmenti `tool` gli argomenti compaiono solo come `gravya.tool.args_hash`, mai in chiaro: test con argomenti contenenti PII.
 9. L'header di correlazione rispetta il formato `traceparent` e gli attributi LLM/tool/agente usano i nomi `gen_ai.*` della whitelist: test.
 
 ## 9. Piano di implementazione
 
-1. Fase 0: decisione dell'utente su DA-E1-08; chiudere DA-E1-03, DA-E1-04, DA-E1-07 (con A5); durate di DX-09 (non bloccanti per lo schema, il job è parametrico).
+1. Fase 0: chiudere DA-E1-03, DA-E1-04, DA-E1-07 (con A5); limitazione agli aggregati nell'accesso cross-tenant (residuo di DA-E1-08); responsabile di ruoli e variabili di piattaforma (DX-14, da riportare).
 2. Fase 1: schema `gravya_traces`/`gravya_trace_segments` con RLS e partizioni; helper di scrittura Node e Python con whitelist, redazione, buffer e fail-open.
 3. Fase 2: segmenti LLM nel dispatch LLM di v2 e `trace_id` negli eventi di audit di A5.
 4. Fase 3: segmenti tool in B2; propagazione del `trace_id` su HTTP interno e nei job.
 5. Fase 4: segmenti retrieval e decisione (A3, C1, C3).
-6. Fase 5: API di lettura per tenant, export verso E3, route operatore con log degli accessi, job di retention, test §8.
+6. Fase 5: API di lettura per tenant, export verso E3, route superadmin con log degli accessi, job di retention che legge le durate dal registro delle variabili di piattaforma, test §8.
 
 **Tecnologie:** PostgreSQL+RLS self-hosted in UE (lo stesso del resto di v2: DA-A1-01, DA-B1-06). Vocabolario GenAI semantic conventions e formato `traceparent` (DA-E1-05). Nessun SDK OpenTelemetry, nessun collector, nessun servizio di tracing o eval esterno, niente LangSmith (PV-02, DA-E3-09, DA-C1-05).
 
 ## 10. Test e valutazione
 
-Unit (helper, whitelist, redazione, formato `traceparent`), integrazione su PostgreSQL di test con soli dati sintetici (criteri 1-5, 7-9; il 5 include il caso fail-closed), benchmark overhead (6), test di isolamento tenant (RLS) in lettura e scrittura.
+Unit (helper, whitelist, redazione, formato `traceparent`), integrazione su PostgreSQL di test con soli dati sintetici (criteri 1-5, 7-11; il 5 include il caso fail-closed, l'8 la modifica delle variabili di piattaforma, il 10 il log degli accessi), benchmark overhead (6), test di isolamento tenant (RLS) in lettura e scrittura.
 
 ## 11. Rischi e mitigazioni
 
@@ -134,12 +137,14 @@ Unit (helper, whitelist, redazione, formato `traceparent`), integrazione su Post
 | Confusione tra fail-open delle tracce e fail-closed di audit/decisioni | record fail-closed fuori dal buffer di E1; criterio 5 |
 | Doppia verità tracce vs audit | tabelle separate con scopi distinti, correlate da `trace_id` (DA-E1-07) |
 | Nessun ecosistema di strumenti pronto (viste, flame graph) come con OTel | vista Timeline costruita in v2; costo accettato per PV-02 |
-| Accesso cross-tenant degli operatori | ruolo di istanza, log degli accessi (DA-E1-08) |
+| Accesso cross-tenant fuori dalle istruzioni del titolare | solo superadmin, log degli accessi fail-closed, retention 12 mesi (DX-13); criterio 10 |
+| Modifica errata di una durata di retention (cancellazione prematura) | variabili versionate e auditate, solo superadmin, fail-closed su valore non valido (DX-13); criterio 8 |
+| Responsabile del registro delle variabili e dei ruoli non assegnato | dipendenza DX-14 (proposta A6) da riportare all'utente |
 
 ## 12. Stima e priorità
 
 - **Taglia:** M per una costruzione da zero (schema, due helper, propagazione, job di retention parametrico, API di lettura); invariata dalle decisioni del 2026-11-03 (PostgreSQL self-hosted conferma lo scenario M). Diventa L solo se DA-E1-03 in futuro sceglie uno storage separato.
-- **Dipendenze critiche:** DX-07 (nomi tenant/eventi), DA-E1-08; durate DX-09 (non bloccanti per la costruzione).
+- **Dipendenze critiche:** DX-07 (nomi tenant/eventi); DX-14 (proposta A6, da riportare) per ruolo superadmin e registro delle variabili; F6 per il job di retention.
 - **Thin-slice MVP:** sì, ondata 1.
 
 ## Appendice A — Riferimenti dal sistema precedente
@@ -165,7 +170,9 @@ Cosa insegna `gravya-app` (riferimento, non codice da riusare: DX-01, PV-03). Le
 - Volume atteso delle tracce e sostenibilità sul PostgreSQL operativo.
 - Se la cancellazione via pseudonimi soddisfi l'art. 17 GDPR.
 - ID dei sottoprodotti E di guardrail telemetry/eval online.
-- Soglia overhead 5 ms: proposta da validare.
+- Soglia overhead 5 ms, dimensione del buffer e soglia di perdita anomala: proposte da validare.
+- Chi realizza il registro delle variabili di piattaforma e il ruolo superadmin (DX-14 non decisa).
+- Comportamento fail-closed del registro su valore non leggibile (ultimo valore valido): proposta, non verificata con F6/A6.
 
 ## Appendice C — Decisioni aperte
 
@@ -174,9 +181,9 @@ Cosa insegna `gravya-app` (riferimento, non codice da riusare: DX-01, PV-03). Le
 - **DA-E1-03 — Storage delle tracce.** Aperta. Opzioni: (A) stesse istanze PostgreSQL di v2, schema dedicato e partizionato; (B) database separato self-hosted in UE. Escluse da DA-B1-06/DA-E3-09: servizi SaaS ed extra-UE. Criterio: volume, costo operativo. Raccomandazione: A per l'ondata 1, rivalutare con i volumi reali.
 - **DA-E1-04 — Rappresentazione di retrieval e decisione.** Aperta. Opzioni: (A) `kind` dedicati; (B) attributi su segmenti esistenti. Raccomandazione: A.
 - **DA-E1-05 — GenAI semantic conventions come vocabolario.** **Decisa** (2026-11-03, utente, vedi [DECISIONS.md](DECISIONS.md)): ammessi i nomi GenAI semconv e il formato `traceparent`, senza SDK né export OTel. Adottata in §4.2 e §5.
-- **DA-E1-06 — Retention per classe.** **Assorbita da DX-09** (vedi [DECISIONS.md](DECISIONS.md)): politica unica di default, override per classe/tenant previsti ma non attivi, durate non ancora fissate. Le classi proposte nella v1.2 (90 giorni, ≥6 mesi Allegato III) sono ritirate.
+- **DA-E1-06 — Retention per classe.** **Assorbita da DX-09** (vedi [DECISIONS.md](DECISIONS.md)): politica unica di default con durate approvate (DECISIONS.md §5, 2026-11-03), modificabili dal superadmin (DX-13), override per classe/tenant previsti ma non attivi. Le classi proposte nella v1.2 (90 giorni, ≥6 mesi Allegato III) sono ritirate.
 - **DA-E1-07 — Tracce e audit: tabelle separate o comuni.** Aperta. Opzioni: (A) separate, correlate da `trace_id`; (B) estendere la tabella di audit di A5. Raccomandazione: A (da allineare con A5).
-- **DA-E1-08 — Accesso cross-tenant degli operatori alle tracce.** **DA RIPORTARE ALL'UTENTE.** Opzioni: (A) nessun accesso cross-tenant, solo su richiesta del tenant; (B) ruolo di istanza con log degli accessi; (C) B più accesso solo ad aggregati senza identificativi. Criterio: GDPR art. 28 (Gravya responsabile, DX-11: l'accesso deve rientrare nelle istruzioni dell'agenzia), NIS2 controllo accessi, supporto. Raccomandazione: C.
+- **DA-E1-08 — Accesso cross-tenant degli operatori alle tracce.** **Decisa nell'impianto da DX-13** (2026-11-03, utente): accesso solo del superadmin di istanza, entro le istruzioni del titolare (art. 28), con log degli accessi (12 mesi). Resta aperto il solo residuo dell'opzione C, cioè se limitare il superadmin ai dati aggregati senza identificativi salvo richiesta del tenant: **DA RIPORTARE ALL'UTENTE**. Raccomandazione: sì, aggregati di default, accesso alle singole tracce solo su richiesta o istruzione del tenant.
 
 ## Storico modifiche
 
@@ -186,3 +193,4 @@ Cosa insegna `gravya-app` (riferimento, non codice da riusare: DX-01, PV-03). Le
 | 1.1 | 2026-11-03 | Revisione incrociata ondata 1: sezioni 6-12 riordinate secondo il template (aggiunta §6 Comportamento ricavata dal contenuto esistente; Decisioni aperte spostate dalla §9 all'Appendice C, eliminando il duplicato); aggiunti in §3 i sottoprodotti che dichiarano di emettere span; in §4.1 aggiunti gli attributi che A3, E2, E3 e C1 dichiarano di emettere (`gravya.policy.*`, `gravya.prompt.key/version/hash` al posto di `gravya.prompt.ref`, `gravya.eval.*`, `gravya.workflow.*`). Motivo: allineamento delle interfacce tra documenti scritti in parallelo. |
 | 1.2 | 2026-11-03 | Riprogettazione per DX-02 / PV-01 / PV-02 (niente OpenTelemetry, conformità prevalente sul master plan) e DX-01 / PV-03 (ripartenza da zero). Rimossi OTel, OTLP, collector, `traceparent` come scelta e gli span OTel: §2, §4-6 e §9 ora descrivono un tracing DB-native (tabelle `gravya_traces`/`gravya_trace_segments`, `trace_id` generato da Gravya, RLS per tenant, partizioni per la retention, export interno verso E3); attributi `gen_ai.*` sostituiti da `gravya.llm.*`; aggiunta §4.3 su cosa si cattura e cosa no; aggiunta in §7 la voce "Sicurezza e conformità" (GDPR, NIS2 art. 21, AI Act art. 50 e 12/14/19, osservabilità AI); criteri §8, rischi §11 e taglia §12 ricalcolati per una costruzione da zero; Appendice A rinominata "Riferimenti dal sistema precedente" (idee e difetti, non riuso); Appendice C: DA-E1-01 chiusa da DX-02, DA-E1-02/03/04 riformulate, nuove DA-E1-05..08. |
 | 1.3 | 2026-11-03 | Allineamento alle decisioni dell'utente del 2026-11-03. DA-E1-02 (contenuti mai in produzione) e DA-E1-05 (vocabolario GenAI semconv e formato `traceparent`, senza SDK OTel) diventano scelte: attributi LLM/tool/agente rinominati da `gravya.llm/tool/agent.*` a `gen_ai.*`, header di correlazione in formato `traceparent`. Recepite DA-A1-01 e DA-B1-06 (PostgreSQL self-hosted UE), DA-C1-01/05, DA-E3-08/09, DA-B2-07 (`gravya.tool.destination`). DA-E1-06 assorbita da DX-09: rimosse le durate proposte, elencate in §4.1 le classi di dati prodotte. §7 allineata a DX-10 (notifica NIS2 di A5, E1 invia segnali) e DX-11 (Gravya responsabile art. 28; artt. 12/14/19/26 AI Act solo buona pratica, art. 50 resta); tolte le ipotesi relative dall'Appendice B. Fail-open limitato alle tracce, con distinzione esplicita dal fail-closed di DA-B2-04/DA-A3-07 in §5-§8 e §10. Criteri 5, 8 e nuovo 9 aggiornati; taglia M confermata. |
+| 1.4 | 2026-11-03 | Recepite le decisioni dell'utente del 2026-11-03: durate di default DX-09 (DECISIONS.md §5) in §4.1 e §7 (90 giorni tracce/segmenti, 12 mesi log accessi ed eval); DX-13: ruolo superadmin per l'accesso cross-tenant con log (DA-E1-08 decisa nell'impianto, residuo sugli aggregati da riportare) e soglie/durate come variabili di piattaforma versionate, auditate e fail-closed (§5); riga decisa di DECISIONS.md §6: argomenti dei tool solo come hash (`gravya.tool.args_hash`); base giuridica distinta per superadmin e dati delle agenzie. Dipendenze da F6 e da DX-14 (proposta A6, da riportare). Criterio 8 riscritto, nuovi criteri 10-11, rischi, Fase 0, §12 e Appendici B/C aggiornati. |

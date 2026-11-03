@@ -7,7 +7,7 @@
 | ID | B1 |
 | Nome | Agent runtime isolato |
 | Componente padre | B — Runtime Agenti |
-| Versione documento | 1.3 |
+| Versione documento | 1.4 |
 | Data | 2026-11-03 |
 | Ondata | 1 (walking skeleton) |
 
@@ -34,6 +34,8 @@
 - **C1**: è il chiamante che invoca il job. Ospitare il nodo agente è il compito di B1.
 - **E2**: il runtime risolve il prompt dell'agente dal registry (dipendenza dichiarata da E2 §3 e §5, aggiunta in revisione v1.1; il `JobSpec` non ha ancora un campo per il riferimento al prompt: vedi problemi aperti in `revisione-ondata-1.md`).
 - **B5** (ondata 2): checkpoint per la sospensione HITL e la ripresa (già citato in §12 come dipendenza critica).
+- **Registro delle variabili di piattaforma e ruolo superadmin (DX-13)**: i limiti di default dei job, la concorrenza per host e la quota per tenant si leggono da lì. Il sottoprodotto che lo possiede non è deciso: la proposta è **A6** (DX-14, DA RIPORTARE), con l'alternativa di ruoli in A1 e variabili in F6.
+- **F6** (ondata 2, ID proposto, DX-12): applica la retention DX-09 alle classi di dati prodotte da B1.
 
 **È richiesto da:** C3 (il job si sospende in attesa di HITL, quindi l'ambiente va distrutto e ricreato alla ripresa), B5 (la ripresa da checkpoint avviene in un nuovo ambiente), C4 (retry e DLQ), D1–D5 (i tool girano dentro o dietro B1), E3 (le eval offline devono girare nello stesso runtime).
 
@@ -54,7 +56,7 @@
 | agent_id, executor_kind | string | |
 | policy_bundle_ref | string, con hash | Prodotto da A2/A3 |
 | tool_grant_ref | string | Token di B2 limitato al job |
-| limits | {wall_s, mem_mb, pids, tool_turns, cost_usd} | Valori da fissare in v2. Riferimento dal sistema precedente: limiti A6 di kloudify, 10 min e $2 per run, 8 giri di tool |
+| limits | {wall_s, mem_mb, pids, tool_turns, cost_usd} | I tetti e i valori di default sono variabili di piattaforma gestite dal superadmin (DX-13), lette dal registro a ogni submit; il `JobSpec` può solo restringerli. Valori iniziali da fissare (proposta da validare). Riferimento dal sistema precedente: limiti A6 di kloudify, 10 min e $2 per run, 8 giri di tool |
 | trace_context | string | Identificativi di correlazione (trace_id, parent_segment_id) nel formato del modello DB-native di E1. Il formato traceparent è ammesso come formato (DA-E1-05); la scelta spetta a E1. Nessun SDK né export OTel (PV-02) |
 
 **Output: `JobResult`.** Contiene `status` (`succeeded`, `failed`, `timeout`, `killed`, `suspended_hitl`), `outputs_ref` (URI su object storage, mai payload inline), `usage` (token, costo, durata) ed `exit_reason`.
@@ -86,6 +88,9 @@
 - **Connessione raw verso l'esterno:** viene bloccata ed emette `runtime.egress.denied`.
 - **Record di decisione o audit non salvato:** se A3 non riesce a salvare il record di decisione (DA-A3-07) o B2 l'audit della chiamata a tool (DA-B2-04), l'azione si blocca: il job non parte o la chiamata a tool fallisce, con `exit_reason` esplicito.
 - **Tool con destinazione non dichiarata o extra-UE:** la chiamata è negata da B2 (DA-B2-07); B1 la riceve come errore del tool e non offre canali alternativi.
+- **Egress-proxy e destinazioni dichiarate (deciso, DECISIONS §6):** l'egress-proxy di B1 applica la stessa regola di DA-B2-07. Una destinazione è ammessa solo se dichiarata con giurisdizione e categorie di dati; se la dichiarazione manca, deny; una destinazione extra-UE passa solo con l'opt-in del tenant. Dove si registra l'opt-in è ancora aperto (DECISIONS §6): fino ad allora l'extra-UE è negato. Ogni rifiuto emette `runtime.egress.denied` con il motivo (`undeclared`, `extra_eu_no_optin`, `not_allowlisted`).
+- **Audit fallito dopo l'esecuzione (deciso, DECISIONS §6):** una coda locale conta come "salvato" solo se è durevole su disco con fsync; se il salvataggio dell'esito fallisce dopo che la chiamata a tool è stata eseguita, B2 invia un segnale ad A5 e mette l'esito in una coda di recupero. B1 non ritenta la chiamata e chiude il job con `exit_reason` esplicito. Nell'ondata 1 la conferma viene dalla tabella di audit minima di A3/B2, che A5 poi assorbe.
+- **Variabile di piattaforma non leggibile:** se il registro (DX-13) non risponde o la versione non è valida, il submit fallisce (fail-closed); nessun ripiego su valori hardcoded in produzione.
 
 **Residui da dichiarare:** in gravya-app il tunnelling DNS è accettato come residuo (`firewall-entrypoint.sh`). In v2 va deciso se B1 lo chiude o lo accetta come residuo dichiarato (DA-B1-04); essendo un canale di esfiltrazione, accettarlo è una scelta da riportare all'utente.
 
@@ -93,10 +98,10 @@
 
 - **Sicurezza:** nessuno stato condiviso tra job di tenant diversi (processo, filesystem, segreti). Per l'uscita valgono le regole di §6.
 - **Performance:** overhead di avvio p95 sotto i 3 s (proposta da validare).
-- **Scalabilità:** concorrenza massima per host configurabile, con una quota per tenant contro il noisy neighbour (valori da definire).
+- **Scalabilità:** concorrenza massima per host e quota per tenant contro il noisy neighbour sono variabili di piattaforma gestite dal superadmin (DX-13), modificabili senza rilascio; ogni modifica è versionata e auditata, e il launcher registra negli eventi la versione delle variabili applicata. Valori iniziali da definire (proposta da validare).
 - **Osservabilità:** ogni job ha run_id, company_id e trace_id su tutti gli eventi, registrati nel modello DB-native di E1 (PV-02). Nessun SDK, collector o esportatore OpenTelemetry.
 - **Sicurezza e conformità (PV-01):**
-  - *GDPR.* Minimizzazione: il runtime non persiste nulla; l'ambiente, tmpfs compreso, è distrutto a fine job; gli eventi portano identificativi e misure, non contenuti; gli output stanno solo in `outputs_ref` sull'object storage del perimetro Gravya. Ruolo: Gravya è responsabile del trattamento (art. 28) per conto delle agenzie (DX-11); la base giuridica del trattamento dei dati dei clienti finali è dell'agenzia e non si decide qui. Retention: si applica la politica unica DX-09 (durate non ancora fissate); B1 non fissa durate proprie. Classi di dati prodotte da B1: eventi di runtime (`runtime.job.*`, `runtime.egress.denied`), `JobResult` con `usage` ed `exit_reason`, artefatti di output referenziati da `outputs_ref` sull'object storage. Prompt e risposte non sono mai catturati in produzione (DA-E1-02). Diritti: poiché il runtime non conserva stato, cancellazione e accesso si esercitano su E1 e sull'object storage tramite company_id/run_id; B1 deve solo garantire che ogni artefatto sia indicizzato per tenant e run.
+  - *GDPR.* Minimizzazione: il runtime non persiste nulla; l'ambiente, tmpfs compreso, è distrutto a fine job; gli eventi portano identificativi e misure, non contenuti; gli output stanno solo in `outputs_ref` sull'object storage del perimetro Gravya. Ruolo: Gravya è responsabile del trattamento (art. 28) per conto delle agenzie (DX-11); la base giuridica del trattamento dei dati dei clienti finali è dell'agenzia e non si decide qui. Retention: si applica la politica unica DX-09 con le durate di default approvate (DECISIONS §5), che sono variabili di piattaforma modificabili dal superadmin (DX-13) e applicate da F6; B1 non fissa durate proprie. Default per le classi di B1: eventi di runtime 90 giorni; checkpoint per la ripresa HITL (in B5) 30 giorni dopo la chiusura del run; dati collegati a un incidente aperto da A5 per la durata del caso + 12 mesi (legal hold, meccanismo in F6 e A5). La classe degli artefatti in `outputs_ref` non è nella tabella §5: vedi Appendice B. Classi di dati prodotte da B1: eventi di runtime (`runtime.job.*`, `runtime.egress.denied`), `JobResult` con `usage` ed `exit_reason`, artefatti di output referenziati da `outputs_ref` sull'object storage. Prompt e risposte non sono mai catturati in produzione (DA-E1-02). Diritti: poiché il runtime non conserva stato, cancellazione e accesso si esercitano su E1 e sull'object storage tramite company_id/run_id; B1 deve solo garantire che ogni artefatto sia indicizzato per tenant e run. Accesso cross-tenant: B1 non ne offre; chi consulta eventi o artefatti di più tenant (per esempio per un incidente) lo fa come superadmin (DX-13), solo entro le istruzioni del titolare (art. 28), con log degli accessi conservato 12 mesi (DECISIONS §5).
   - *NIS2 (art. 21).* Misure: isolamento per job e tenant, default-deny di rete, minimo privilegio (non-root, zero capability, rootfs in sola lettura), launcher unico processo privilegiato e non esposto, segreti per tenant iniettati solo nel job, fail-closed. Gestione incidenti: la notifica (allerta 24 h, notifica 72 h) è responsabilità di A5, ondata 2 (DX-10). B1 invia ad A5 come segnali `runtime.egress.denied`, `runtime.job.killed`, i tentativi di escape e i blocchi fail-closed del launcher; il formato del segnale si definisce con A5.
   - *AI Act.* I casi d'uso v2 non sono ad alto rischio (DX-11): log e sorveglianza umana (artt. 12, 14) non sono obblighi ma buona pratica di osservabilità, che B1 mantiene (tracciamento da avvio a fine con esito e motivo, stato `suspended_hitl` esplicito, `cancel(job_id)`). L'art. 50 resta applicabile, ma B1 non produce contenuti per l'utente: la trasparenza si gestisce a monte (C1, E2) e a valle (canali).
   - *Osservabilità AI resa disponibile.* Per ogni job: agente ed executor, riferimento al prompt (quando il `JobSpec` lo avrà), bundle di policy con hash, giri di tool, token, costo, durata, esito ed exit_reason, uscite di rete negate.
@@ -113,6 +118,8 @@
 7. **Isolamento dei dati tra tenant:** un test multi-tenant v2 (ispirato a `test_queue_multi_tenant_isolation` di gravya-app, da riscrivere sul contratto nuovo) verifica che job concorrenti di tenant diversi non vedano segreti, eventi né `outputs_ref` l'uno dell'altro. Esito: 0 fughe.
 8. **Overhead:** avvio p95 sotto i 3 s su 200 job (proposta da validare).
 9. **Fail-closed su decisione e audit:** con lo store dei record di decisione di A3 non scrivibile, il submit fallisce e nessun ambiente viene creato; con lo store di audit di B2 non scrivibile, la chiamata a tool fallisce e nessuna richiesta esce dal job. Esito: 0 azioni eseguite senza record su 100 tentativi.
+10. **Destinazioni dichiarate sull'egress-proxy:** dal job, una richiesta verso una destinazione non dichiarata e una verso una destinazione extra-UE senza opt-in sono negate. Esito: 100% negate, con `runtime.egress.denied` e motivo corretto.
+11. **Variabili di piattaforma:** il superadmin abbassa `wall_s` di default nel registro; il job successivo, senza rilascio, termina entro il nuovo limite e il suo evento riporta la nuova versione delle variabili. Con il registro non leggibile il submit fallisce. Un admin di agenzia che tenta la stessa modifica riceve un rifiuto. Esito: 3 su 3.
 
 ## 9. Piano di implementazione
 
@@ -122,16 +129,16 @@
 1. **Definire i contratti.** `JobSpec` e `JobResult`, più un entrypoint «single-job» che esegue un run e termina, in un'immagine nuova e minima per v2 (l'immagine `services/agents/Dockerfile` di gravya-app è solo riferimento).
 2. **Launcher con un ambiente per job**, con un profilo di hardening definito per v2 (il compose prod di gravya-app, Appendice A, indica le misure da riprendere).
 3. **Rete del job:** default-deny e uscita solo verso B2 ed egress-proxy, riprogettata per v2 senza il traffico laterale aperto che `firewall-entrypoint.sh` di gravya-app ammette.
-4. **Integrazione** con la coda e C1 (trasporto da DX-03), gestione della sospensione HITL e ripresa (B5), con fail-closed anche sul mancato salvataggio dei record di A3 e B2.
-5. **Test di sicurezza** dei criteri 1–7 e 9, misura dell'overhead e verifica che gli eventi arrivino nel modello DB-native di E1.
+4. **Integrazione** con la coda e C1 (trasporto da DX-03), gestione della sospensione HITL e ripresa (B5), con fail-closed anche sul mancato salvataggio dei record di A3 e B2; lettura dei limiti dal registro delle variabili di piattaforma (DX-13) e regola delle destinazioni dichiarate sull'egress-proxy.
+5. **Test di sicurezza** dei criteri 1–7 e 9–11, misura dell'overhead e verifica che gli eventi arrivino nel modello DB-native di E1.
 
 **Rischi principali:** il launcher privilegiato (accesso al runtime dei container) diventa il nuovo punto critico. L'executor e il ciclo di tool vanno costruiti in v2: quello di gravya-app è solo riferimento (Appendice A, punto 5).
 
 ## 10. Test e valutazione
 
 - **Unit:** validazione del `JobSpec` (UUID, limiti), mappatura degli exit code su `status`.
-- **Integration:** ciclo completo submit → started → finished, cancellazione, timeout, sospensione e ripresa HITL.
-- **Security:** criteri 1–3, 6 e 9 (fail-closed), tentativi di escape (scrittura sul rootfs, `iptables -F` da utente non-root, lettura dei segreti di altri tenant), injection che tenta l'uscita raw.
+- **Integration:** ciclo completo submit → started → finished, cancellazione, timeout, sospensione e ripresa HITL; modifica dei limiti da superadmin senza rilascio e registro non disponibile (criterio 11).
+- **Security:** criteri 1–3, 6, 9 e 10 (fail-closed, destinazioni dichiarate), tentativi di escape (scrittura sul rootfs, `iptables -F` da utente non-root, lettura dei segreti di altri tenant), injection che tenta l'uscita raw.
 - **Eval:** le suite di E3 girano dentro B1 con soli dati sintetici (DA-E3-08), scorer nel perimetro Gravya e giudice LLM solo con elaborazione UE, senza piattaforme SaaS di eval (DA-E3-09), e confrontano l'esito con la baseline definita da E3.
 
 ## 11. Rischi e mitigazioni
@@ -144,6 +151,8 @@
 | Tunnelling DNS | DA-B1-04 |
 | Doppio motore Node/Python (lezione da gravya-app) | In v2 B1 isola ogni esecuzione agente, con LangGraph come motore unico usato come libreria (DA-C1-01); nessun executor deve girare fuori da B1 |
 | Tunnelling DNS come canale di esfiltrazione (NIS2, GDPR) | DA-B1-04; accettarlo come residuo va riportato all'utente |
+| Un superadmin alza i limiti (costo, durata) o la quota oltre il sicuro | Modifiche versionate, auditate e fail-closed (DX-13); la versione applicata è negli eventi del job; il `JobSpec` non può superare i tetti |
+| Il proprietario del registro delle variabili e dei ruoli non è deciso (DX-14) | Il launcher dipende solo da un'interfaccia di lettura versionata; fino alla decisione, fail-closed se il registro manca |
 
 ## 12. Stima e priorità
 
@@ -180,6 +189,8 @@ Cosa insegna gravya-app (PV-03): soluzioni da riprendere come idea e difetti da 
 - Il contenuto di `actor_context.py`, `egress/allowlist.py` ed `egress-proxy`.
 - Il backend object storage di v2 e la sua collocazione (in gravya-app S3 o Garage, non verificato); deve stare nel perimetro controllato.
 - Il valore reale dell'overhead di avvio di un ambiente per job.
+- A quale classe di DECISIONS §5 appartengano gli artefatti in `outputs_ref` (output dei run): non sono elencati; da chiarire con F6.
+- L'interfaccia del registro delle variabili di piattaforma, che dipende dal proprietario ancora da decidere (DX-14).
 - La conformità effettiva delle misure: le valutazioni GDPR/NIS2 di §7 (ruolo e classe di rischio ora decisi da DX-11) sono impostazione di progetto, non verificate con le analisi in `gravya-app/docs/compliance/`, da riverificare.
 - I limiti di risorse del servizio `agents-worker` oltre alla memoria di 1G.
 
@@ -193,7 +204,8 @@ Cosa insegna gravya-app (PV-03): soluzioni da riprendere come idea e difetti da 
 | DA-B1-04 | Rete laterale e DNS | (a) accesso a tutta la subnet interna (modello gravya-app); (b) uscita solo verso B2 ed egress-proxy, senza db; DNS: chiuso (resolver interno con allowlist) o residuo dichiarato | Raggio d'azione, esfiltrazione (PV-01) | (b): il job non parla con il db direttamente, ma tramite B2 o API. Accettare il DNS come residuo: DA RIPORTARE ALL'UTENTE |
 | DA-B1-05 | Telemetria del job | — | — | **Chiusa da DX-02 (PV-02):** telemetria DB-native sul modello dati e sul vocabolario `gravya.*` di E1, niente OTel |
 | DA-B1-06 | Piattaforma di esecuzione e deploy | — | — | **Decisa (2026-11-03, utente)**, vedi [DECISIONS.md](DECISIONS.md): self-hosted su infrastruttura UE; sandbox gestite di terzi solo con approvazione esplicita. L'orchestratore resta da scegliere |
-| DA-B1-07 | Retention di eventi di runtime e `outputs_ref` | — | — | **Assorbita da DX-09**, vedi [DECISIONS.md](DECISIONS.md): politica di retention unica, durate non ancora fissate |
+| DA-B1-07 | Retention di eventi di runtime e `outputs_ref` | — | — | **Assorbita da DX-09**, vedi [DECISIONS.md](DECISIONS.md): politica di retention unica; durate di default approvate (eventi di runtime 90 giorni, §5), modificabili dal superadmin (DX-13); classe di `outputs_ref` da chiarire (Appendice B) |
+| — | Grafo LangGraph tutto dentro il job B1 o solo i nodi agente (DECISIONS §6, con C1) | (a) tutto il grafo nel job; (b) solo i nodi agente, orchestrazione in C1 | Raggio d'azione, ripresa da checkpoint | **Aperta**, nessuna raccomandazione decisa |
 
 ## Storico modifiche
 
@@ -203,3 +215,4 @@ Cosa insegna gravya-app (PV-03): soluzioni da riprendere come idea e difetti da 
 | 1.1 | 2026-11-03 | Revisione incrociata ondata 1: aggiunta la riga Ondata in Identità; corretta l'affermazione "oggi non c'è un ciclo di tool" (Appendice A punto 5 e §9), smentita dalla lettura di `generic_executor.py` al commit 349118b11 e in contraddizione con B2; aggiunte in §3 le dipendenze da E2 (dichiarata da E2) e B5 (già in §12). Motivo: affermazione sullo stato del codice non supportata e dipendenze dichiarate in un solo verso. |
 | 1.2 | 2026-11-03 | Applicate DX-01/PV-03 (ripartenza da zero): §2, §3, §9, §10 riformulati senza riuso di immagine, hardening, firewall e test di gravya-app, citati come riferimento; criterio 7 riscritto come test v2; Appendice A rinominata «Riferimenti dal sistema precedente»; taglia in §12 ricalcolata (resta L). Applicate DX-02/PV-01/PV-02 (niente OTel, conformità prioritaria): `trace_context` ed eventi sul modello DB-native di E1; aggiunta in §7 la voce «Sicurezza e conformità» (GDPR, NIS2, AI Act, osservabilità AI); DA-B1-05 chiusa da DX-02; DA-B1-02, 03, 04 riformulate; nuove DA-B1-06 (piattaforma, perimetro dati) e DA-B1-07 (retention), da riportare all'utente. (rev. coerenza) `trace_context`: `span_id` sostituito da `parent_segment_id` (modello E1 §4.1). |
 | 1.3 | 2026-11-03 | Applicate le decisioni dell'utente del 2026-11-03. DA-B1-06 decisa (self-hosted UE): §3, §7, §9, Appendici B e C. DA-B1-07 assorbita da DX-09: in §7 nessuna retention propria, elencate le classi di dati prodotte. DX-10: segnali di sicurezza inviati ad A5. DX-11: ruolo art. 28 confermato, artt. 12/14 AI Act ridotti a buona pratica, art. 50 resta (a monte/valle). Fail-closed (DA-A3-07, DA-B2-04): nuovo caso limite in §6, criterio 9, fasi e test aggiornati. DA-B2-07 in §6; DA-E1-05 (traceparent e nomi GenAI semconv come vocabolario, scelta di E1) in §4; DA-E1-02 in §7; DA-C1-01/05 in §9 e §11; DA-E3-08/09 in §10. Taglia invariata (L). Motivo: allineamento a DECISIONS.md. |
+| 1.4 | 2026-11-03 | Applicate le decisioni dell'utente del 2026-11-03. DX-09 §5: durate di default in §7 (eventi di runtime 90 giorni, checkpoint 30 giorni, legal hold incidenti) e in Appendice C (DA-B1-07). DX-13: limiti di default dei job, concorrenza per host e quota per tenant come variabili di piattaforma gestite dal superadmin (§3, §4, §6, §7), accesso cross-tenant solo come superadmin con log (§7); nuovi criteri 10-11, test e rischi; DX-14 citata come dipendenza proposta (A6, da riportare). Righe decise di DECISIONS §6: egress-proxy con regola delle destinazioni dichiarate (§6, criterio 10); coda durevole con fsync e audit fallito dopo l'esecuzione (§6). La riga aperta su LangGraph nel job B1 è riportata in Appendice C. Motivo: allineamento a DECISIONS.md. |

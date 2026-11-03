@@ -25,10 +25,12 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 | DX-06 | **Topologia dell'enforcement**: sidecar, libreria o servizio. DA-A3-02 e DA-B2-02 vanno decise insieme. | A3, B2, B1 | Aperta | | | |
 | DX-07 | **Convenzione dei nomi** per eventi e tenant. Gli eventi usano nomi puntati (`tool.*`) o underscore (`hitl_*`); il tenant si chiama `tenant_id` o `company_id`. | Tutti | Aperta | | | |
 | DX-08 | **Dipendenze critiche che stanno nell'ondata 2**. B5 (checkpointer) serve a C1, C3 e B1; A2 (compilatore) serve ad A3. Le alternative sono anticiparli all'ondata 1 o accettare per lo skeleton il checkpointer esistente e un bundle fixture. | B1, C1, C3, A3 | Aperta | | | |
-| DX-09 | **Politica di retention unica.** Un'unica politica di default per tutti i dati della piattaforma: tracce, audit, decisioni, HITL, checkpoint, eventi di runtime, report di eval, versioni dei prompt. Va progettata la possibilità di differenziare per classe di dato e per tenant, se servirà. | A1, A3, B1, B2, C1, C3, E1, E2, E3 | **Decisa (struttura)**. Durate da fissare | Politica unica di default, con override per classe e per tenant previsti nel modello ma non attivi. **Le durate di default non sono ancora fissate**: nessuno le ha indicate. Il sottoprodotto responsabile va assegnato (vedi DX-12). | Decisione dell'utente | 2026-11-03 |
+| DX-09 | **Politica di retention unica.** Un'unica politica di default per tutti i dati della piattaforma: tracce, audit, decisioni, HITL, checkpoint, eventi di runtime, report di eval, versioni dei prompt. Va progettata la possibilità di differenziare per classe di dato e per tenant, se servirà. | A1, A3, B1, B2, C1, C3, E1, E2, E3 | **Decisa** | Politica unica di default, con override per classe e per tenant previsti nel modello ma non attivi. Durate di default approvate in §5, modificabili dal superadmin (DX-13). Responsabile: F6 (DX-12). | Decisione dell'utente | 2026-11-03 |
 | DX-10 | **Notifica incidenti NIS2** (allerta entro 24 h, notifica entro 72 h). | A5 e tutti i produttori di segnali (B1, B2, A3, C3, E2) | **Decisa** | La responsabilità è di A5 (audit trail), ondata 2. Gli altri sottoprodotti inviano segnali ad A5. | Decisione dell'utente | 2026-11-03 |
 | DX-11 | **Ruolo GDPR e classe di rischio AI Act.** | Tutti | **Decisa** | Gravya è responsabile del trattamento (art. 28 GDPR) per conto delle agenzie. I casi d'uso v2 non sono ad alto rischio: gli artt. 12, 14, 19 e 26 dell'AI Act non sono obbligatori, e restano come buona pratica di osservabilità. L'art. 50 (trasparenza) resta applicabile. | Decisione dell'utente | 2026-11-03 |
 | DX-12 | **Responsabile della politica di retention DX-09.** | — | **Decisa (2026-11-03, utente)** | Componente F (Dati e multi-tenancy). Proposto il nuovo sottoprodotto **F6 — Politica di retention e cancellazione**, non presente nel master plan, da redigere nell'ondata 2. L'ID F6 è una proposta. | Conferma dell'utente della proposta | 2026-11-03 |
+| DX-13 | **Superadmin e variabili di piattaforma.** I parametri di piattaforma (durate di retention, soglie, limiti) si modificano in piattaforma, senza rilasci. Li gestisce un account superadmin. | F6, E1, A3, B2, E2 e chiunque abbia soglie configurabili | **Decisa (2026-11-03, utente)** | Esiste un ruolo superadmin a livello di istanza SaaS multi-tenant, distinto dagli admin delle agenzie. Gestisce le variabili di piattaforma. Ogni modifica è versionata, auditata e soggetta a fail-closed. L'accesso ai dati dei tenant è consentito solo entro le istruzioni del titolare (art. 28) e con log degli accessi (DA-E1-08). | Decisione dell'utente | 2026-11-03 |
+| DX-14 | **Responsabile di identità, ruoli e superadmin.** | A1, A3, E1, E2, B2, F6 | **Decisa (2026-11-03, utente)** | Nuovo sottoprodotto **A6 — Identità, ruoli e configurazione di piattaforma** (fuori dal master plan), ondata 2. Copre autenticazione, utenti, ruoli (superadmin, admin agenzia, membro), registro versionato delle variabili di piattaforma e configurazione per tenant. | Il master plan non lo prevedeva; conferma dell'utente | 2026-11-03 |
 ---
 
 ## 2. Decisioni per documento
@@ -88,7 +90,7 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 | DA-E1-05 | GenAI semantic conventions e formato traceparent usati solo come vocabolario, senza SDK OTel | Ammesso il vocabolario (nomi GenAI semconv, formato traceparent) senza SDK né export OTel | **Decisa (2026-11-03, utente)** |
 | DA-E1-06 | Retention per classe di traccia | Confluisce nella politica di retention unica DX-09 | Assorbita da DX-09 |
 | DA-E1-07 | Tracce e audit A5: tabelle separate o comuni | Separate, collegate da `trace_id` | Aperta |
-| DA-E1-08 | Accesso degli operatori Gravya alle tracce di più tenant | Ruolo di istanza con log degli accessi, solo dati aggregati | **Da riportare** |
+| DA-E1-08 | Accesso degli operatori Gravya alle tracce di più tenant | Impianto deciso in DX-13 (superadmin con log degli accessi). Resta aperto se limitare il superadmin di default ai soli dati aggregati | **Da riportare** |
 | DA-E2-06 | Retention di versioni e attivazioni dei prompt | Confluisce nella politica di retention unica DX-09 | Assorbita da DX-09 |
 | DA-E2-07 | Versioni di prompt proposte dall'AI | Ammesse come candidate, mai attivabili senza un umano | **Da riportare** |
 | DA-E2-08 | Seed dei prompt v2: da zero o dai testi di gravya-app rivisti | Testi di gravya-app come bozza da rivedere | **Da riportare** |
@@ -96,7 +98,7 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 | DA-E3-09 | Provider del giudice LLM e piattaforme di eval | Niente piattaforme SaaS di eval; giudice LLM solo con elaborazione nell'UE | **Decisa (2026-11-03, utente)** |
 | DA-E3-10 | Retention dei report CI e dei segmenti di eval | Confluisce nella politica di retention unica DX-09 | Assorbita da DX-09 |
 | DA-A1-07 | Retention dei mandati scaduti e del loro audit | Confluisce nella politica di retention unica DX-09 | Assorbita da DX-09 |
-| DA-A1-08 | Base giuridica per gli identificativi degli admin nell'audit | Inquadrata da DX-11 (Gravya responsabile del trattamento); base giuridica proposta da confermare nella politica DX-09 | Aperta |
+| DA-A1-08 | Base giuridica per gli identificativi degli admin nell'audit | Per i dati delle agenzie la base giuridica è del titolare; per gli utenti di Gravya è di Gravya (§6) | **Decisa (2026-11-03, utente)** |
 | DA-A3-06 | Retention dei record di decisione | Confluisce nella politica di retention unica DX-09 | Assorbita da DX-09 |
 | DA-A3-07 | Allow quando il record di decisione non viene salvato | Fail-closed: se il record di decisione non si salva, l'azione si blocca | **Decisa (2026-11-03, utente)** |
 | DA-B1-06 | Piattaforma di esecuzione e deploy | Self-hosted su infrastruttura UE; sandbox gestite di terzi solo con approvazione esplicita | **Decisa (2026-11-03, utente)** |
@@ -106,7 +108,7 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 | DA-C1-05 | LangGraph senza servizi gestiti (LangSmith, Platform) | Solo la libreria open source; niente LangSmith né LangGraph Platform | **Decisa (2026-11-03, utente)** |
 | DA-C1-06 | Retention di stato e checkpoint dei run | Confluisce nella politica di retention unica DX-09 | Assorbita da DX-09 |
 | DA-C3-05 | Retention dei dati HITL | Confluisce nella politica di retention unica DX-09 | Assorbita da DX-09 |
-| DA-C3-06 | Cosa della chiamata parcheggiata entra nelle tracce | Solo identificativi e hash | Aperta |
+| DA-C3-06 | Cosa della chiamata parcheggiata entra nelle tracce | Solo identificativi e hash degli argomenti (§6) | **Decisa (2026-11-03, utente)** |
 
 ## 4. Lacune trasversali emerse nella v1.2
 
@@ -114,9 +116,9 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 - **Mutazioni del grafo A1**: non è deciso se diventano segmenti di traccia E1 (con un nuovo kind) o solo eventi di audit.
 - ~~Ruoli GDPR e classificazione di rischio AI Act~~: decisi (DX-11).
 
-## 5. Proposta di durate per DX-09 (da validare)
+## 5. Durate di default per DX-09
 
-**Stato: proposta da validare** al termine dell'esame dell'ondata 1, con verifica legale e sui contratti con le agenzie. Le durate non derivano da nessuna norma che fissi un valore preciso per questi dati. Sono scelte di minimizzazione (GDPR art. 5(1)(e)) bilanciate con le esigenze di indagine sugli incidenti (NIS2 art. 21 e 23). Il riferimento di 6 mesi dell'AI Act (art. 19) qui è solo buona pratica (DX-11). Si applicano come unica politica di default; il modello prevede override per classe e per tenant, non attivi.
+**Stato: approvate dall'utente (2026-11-03)** come valori di default. Si possono modificare in piattaforma dal superadmin (DX-13). Resta consigliata una verifica legale e sui contratti con le agenzie. Le durate non derivano da nessuna norma che fissi un valore preciso per questi dati. Sono scelte di minimizzazione (GDPR art. 5(1)(e)) bilanciate con le esigenze di indagine sugli incidenti (NIS2 art. 21 e 23). Il riferimento di 6 mesi dell'AI Act (art. 19) qui è solo buona pratica (DX-11). Si applicano come unica politica di default. Le durate sono variabili di piattaforma modificabili dal superadmin (DX-13); il modello prevede override per classe e per tenant, non attivi.
 
 | Classe di dati | Esempi (documento) | Durata proposta | Motivo |
 |---|---|---|---|
@@ -133,18 +135,20 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 
 **Da verificare nella validazione:** compatibilità con i contratti con le agenzie; obblighi di conservazione di settore dei clienti (per esempio fiscali), che restano a carico del titolare; conflitto tra cancellazione su richiesta dell'interessato e audit di 12 mesi, con proposta di pseudonimizzare l'attore e conservare solo l'hash.
 
-## 6. Punti aperti emersi nella v1.3
+## 6. Punti emersi nella v1.3
+
+**Stato: l'utente ha confermato tutte le raccomandazioni annotate (2026-11-03).** Le righe senza raccomandazione restano aperte.
 
 | Punto | Documenti | Nota |
 |---|---|---|
-| Il fail-closed vale anche per l'audit delle mutazioni di A1? | A1, A5 | Proposta: audit nella stessa transazione, rollback se fallisce |
-| Fail-closed: una coda durevole locale conta come "salvato"? E cosa fare se fallisce l'audit dell'esito dopo che l'azione è stata eseguita? | B2, A3, C1 | Proposta: la coda conta solo se è durevole su disco con fsync; dopo l'esecuzione, segnale ad A5 e coda di recupero |
-| Chi conferma il salvataggio nell'ondata 1, prima che esista A5 | A3, B2 | Tabella di audit minima già in ondata 1, che A5 poi assorbe |
-| Soglia di latenza complessiva di A3, compreso il salvataggio sincrono | A3 | Da fissare |
-| L'egress-proxy di B1 segue la regola delle destinazioni dichiarate (DA-B2-07)? | B1, B2 | Proposta: sì, oppure il proxy va eliminato |
-| Dove si registra l'opt-in del tenant per l'extra-UE | B2, A1, A3 | Da definire |
-| Base giuridica degli identificativi degli admin (DA-A1-08) | A1, A3, E2 | Con DX-11 la base giuridica è del titolare (l'agenzia); per i dati degli utenti propri di Gravya è di Gravya. Da riformulare |
-| Etichetta "generato da AI" (art. 50) negli output e nelle approvazioni | C1, C3, D1–D4 | Da coordinare nell'ondata 2 |
-| Il grafo LangGraph gira tutto dentro il job B1, o solo i nodi agente? | B1, C1 | Da decidere |
-| Gli argomenti dei tool rientrano nei "contenuti" esclusi da DA-E1-02? | C3, E1 | Proposta: sì, nelle tracce solo hash (DA-C3-06 (a)) |
-| Report CI su GitHub e perimetro UE | E3 | Proposta: report minimi su GitHub senza dati personali, oppure CI self-hosted |
+| Il fail-closed vale anche per l'audit delle mutazioni di A1? | A1, A5 | **Decisa**: audit nella stessa transazione, rollback se fallisce |
+| Fail-closed: una coda durevole locale conta come "salvato"? E cosa fare se fallisce l'audit dell'esito dopo che l'azione è stata eseguita? | B2, A3, C1 | **Decisa**: la coda conta solo se è durevole su disco con fsync; dopo l'esecuzione, segnale ad A5 e coda di recupero |
+| Chi conferma il salvataggio nell'ondata 1, prima che esista A5 | A3, B2 | **Decisa**: tabella di audit minima già in ondata 1, che A5 poi assorbe |
+| Soglia di latenza complessiva di A3, compreso il salvataggio sincrono | A3 | **Raccomandazione (da confermare)**: budget separati, tutti proposte da validare con misura. Valutazione p99 ≤ 5 ms; salvataggio sincrono del record p99 ≤ 20 ms; totale per azione p99 ≤ 25 ms. Per evitare una doppia scrittura, record di decisione A3 e audit `tool.invoked` di B2 vanno in un'unica transazione eseguita da B2. Le soglie sono variabili di piattaforma (DX-13) usate per gli alert, non per bloccare |
+| L'egress-proxy di B1 segue la regola delle destinazioni dichiarate (DA-B2-07)? | B1, B2 | **Decisa**: l'egress-proxy segue la stessa regola delle destinazioni dichiarate |
+| Dove si registra l'opt-in del tenant per l'extra-UE | B2, A1, A3 | **Raccomandazione (da confermare)**: nella configurazione per tenant di A6 (DX-14), impostata dall'admin dell'agenzia, versionata e auditata; A2 la compila in policy, A3 la valuta, B2 la applica. Il superadmin non può attivarla al posto dell'agenzia |
+| Base giuridica degli identificativi degli admin (DA-A1-08) | A1, A3, E2 | **Decisa**: per i dati delle agenzie la base giuridica è del titolare (l'agenzia); per gli utenti di Gravya (superadmin, operatori) è di Gravya |
+| Etichetta "generato da AI" (art. 50) negli output e nelle approvazioni | C1, C3, D1–D4 | **Raccomandazione (da confermare)**: nel contratto di output dei nodi agent (C1) un campo obbligatorio `ai_generated` con `model` e `prompt_ref`; C3 lo mostra all'approvatore; i connettori D1–D4 applicano la disclosure o la marcatura per canale (metadati e testo per email e post, marcatura leggibile da macchina per le immagini). Attiva di default e non disattivabile dal tenant per i contenuti verso terzi; eventuali eccezioni previste dall'art. 50 solo dopo verifica legale |
+| Il grafo LangGraph gira tutto dentro il job B1, o solo i nodi agente? | B1, C1 | **Raccomandazione (da confermare)**: dentro B1 girano solo i nodi agente, con il loro ciclo di tool: un job effimero per nodo. Il grafo C1 gira nel servizio di orchestrazione, con il checkpointer B5. Motivi: workflow di giorni e attese HITL non stanno in container effimeri; il job non deve accedere al DB (DA-B1-04); l'isolamento serve dove esegue codice guidato dall'LLM |
+| Gli argomenti dei tool rientrano nei "contenuti" esclusi da DA-E1-02? | C3, E1 | **Decisa**: sì, nelle tracce solo hash (DA-C3-06 (a)) |
+| Report CI su GitHub e perimetro UE | E3 | **Decisa**: report minimi su GitHub senza dati personali (con dati sintetici), oppure CI self-hosted |

@@ -7,7 +7,7 @@
 | ID | E2 |
 | Nome | Prompt registry |
 | Componente padre | E — Osservabilità e Valutazione |
-| Versione documento | 1.3 |
+| Versione documento | 1.4 |
 | Data | 2026-11-03 |
 | Ondata | 1 (walking skeleton) |
 
@@ -32,13 +32,15 @@
 - **C3** (punto HITL): approvazione umana della promozione, solo se DA-E2-04 sceglie (b).
 - **A3** (runtime enforcement): autorizza le scritture (crea versione, attiva, rollback). Fail-closed (DA-A3-07, decisa): se il record di decisione di A3 non si salva, la scrittura è bloccata.
 - **A5** (audit trail, ondata 2): riceve i segnali di sicurezza di E2 ed è responsabile della notifica incidenti NIS2 (DX-10).
+- **F6** (politica di retention e cancellazione, ID proposto, ondata 2; DX-12): applica le durate DX-09 alle classi di dati di E2.
+- **Registro delle variabili di piattaforma e ruolo superadmin** (DX-13, decisa): E2 legge da lì le proprie soglie (§7). Il sottoprodotto che lo possiede non è deciso: proposta **A6 — Identità, ruoli e configurazione di piattaforma** (DX-14, *da riportare*); in alternativa ruoli in A1 e variabili in F6. Finché DX-14 non è decisa, la dipendenza è indicata come proposta.
 
-**È richiesto da:** B1 (l'agent runtime risolve il prompt da E2), C1 (`prompt_ref` dei nodi `agent`), A1 (`prompt_ref` opzionale del nodo `Agent`), E3 (registra le versioni dei prompt nel report), E4, G4 (registro agenti, mostra versione).
+**È richiesto da:** F6 (classi di dati da sottoporre a retention), B1 (l'agent runtime risolve il prompt da E2), C1 (`prompt_ref` dei nodi `agent`), A1 (`prompt_ref` opzionale del nodo `Agent`), E3 (registra le versioni dei prompt nel report), E4, G4 (registro agenti, mostra versione).
 
 **Fatti decisi:** lo store è PostgreSQL con RLS (DA-A1-01), nessun database dedicato ai prompt; infrastruttura self-hosted nell'UE (DA-B1-06).
 
 **Assunzioni (non verificate per v2):**
-- Esiste un'identità di attore (umano/superadmin/agente) fornita da A3.
+- Esiste un'identità di attore (umano/superadmin/agente) fornita da A3; il ruolo superadmin esiste per DX-13, ma il sottoprodotto che gestisce identità e ruoli dipende da DX-14 (da riportare).
 
 ## 4. Contratti
 
@@ -86,26 +88,29 @@ Regole: `prompt_versions` è **immutabile** (nessun UPDATE/DELETE, come trigger 
 - Prompt di tenant assente → si usa il globale; se manca anche quello → errore, nessun fallback hard-coded.
 - Promozione concorrente → lock sulla riga `prompts`; il secondo riceve `409`.
 - Versione referenziata da un'attivazione o da un trace → mai cancellabile.
+- Superadmin (DX-13): può ripristinare il seed dei prompt globali e operare sui prompt di un tenant solo entro le istruzioni del titolare (art. 28 GDPR). Ogni accesso o scrittura cross-tenant passa da A3, registra l'attore superadmin in `prompt_activations` e scrive una riga nel log degli accessi (DA-E1-08); se il log non si salva, l'operazione è rifiutata (fail-closed). Gli admin delle agenzie restano confinati al proprio tenant da RLS.
+- Variabile di piattaforma (§7) non leggibile o non valida → si usa l'ultima versione valida registrata; se non ne esiste nessuna, le scritture di E2 sono rifiutate (fail-closed, DX-13); il render resta disponibile.
 - Azione riservata a umani (attivazione e rollback; principio ripreso da HSAR/P16 di gravya-app, Appendice A, da confermare per v2 con DA-E2-04) → scrittura AI rifiutata.
 
 ## 7. Requisiti non funzionali
 
 - **Performance:** `resolve`+`render` da cache p99 < 5 ms; propagazione di un rollback ai runtime ≤ 60 s (allineato alla cache di 60 s esistente; *proposta da validare*).
+- **Variabili di piattaforma (DX-13).** Le soglie che E2 usa non sono costanti nel codice: sono variabili di piattaforma modificabili dal superadmin senza rilascio, con modifica versionata, auditata e fail-closed. Elenco: `e2.cache.max_ttl_s` (default 60, *proposta da validare*), `e2.rollback.propagation_max_s` (default 60, *proposta da validare*), `e2.template.pii_check_mode` (`block`/`warn`, default `block`, *proposta da validare*), le durate di retention delle classi di E2 (default DX-09 §5, sotto). La latenza p99 < 5 ms resta un requisito di progetto, non una variabile.
 - **Sicurezza e conformità (PV-01):**
   - *Perimetro dati.* Registry interamente in PostgreSQL di Gravya, self-hosted su infrastruttura UE (DA-B1-06); nessun servizio SaaS di prompt management, eval o tracing (PV-02, DA-E3-09, DA-C1-05).
   - *Ruolo GDPR (DX-11).* Gravya tratta i dati come responsabile del trattamento (art. 28 GDPR) per conto delle agenzie.
-  - *GDPR — minimizzazione.* Il registry conserva template e metadati, mai testi renderizzati con dati dei clienti (che in produzione non vengono catturati nemmeno da E1: DA-E1-02). I template non devono contenere dati personali: controllo in validazione su pattern base (email, telefono) con blocco o avviso (*soglia/modalità da definire*). Dati personali trattati dal registry: solo l'identità di chi crea/attiva una versione (`created_by`, `actor`) e il testo libero `change_note`.
-  - *GDPR — base giuridica, retention, diritti.* Base giuridica per l'identità degli operatori: aperta, da confermare nella politica DX-09 (come DA-A1-08 per A1). Retention: si applica la politica unica DX-09 (durate non ancora fissate; override per classe e tenant previsti ma non attivi); E2 non definisce durate proprie. Classi di dati prodotte da E2: (1) versioni dei prompt (`prompt_versions`: template, schema variabili, hash, `change_note`, attore); (2) attivazioni e rollback (`prompt_activations`, append-only); (3) puntatori attivi (`prompts`); (4) eventi `prompt.version.*`; (5) segnali di sicurezza inviati ad A5. Le versioni sono immutabili per integrità: per conciliare immutabilità e cancellazione si registra un identificativo pseudonimo dell'attore anziché nome o email (proposta tecnica, da verificare con la politica DX-09). Diritti di accesso: export per attore da `prompt_versions`/`prompt_activations`.
+  - *GDPR — minimizzazione.* Il registry conserva template e metadati, mai testi renderizzati con dati dei clienti (che in produzione non vengono catturati nemmeno da E1: DA-E1-02). I template non devono contenere dati personali: controllo in validazione su pattern base (email, telefono) con blocco o avviso (modalità: variabile `e2.template.pii_check_mode`, sopra). Dati personali trattati dal registry: solo l'identità di chi crea/attiva una versione (`created_by`, `actor`) e il testo libero `change_note`.
+  - *GDPR — base giuridica, retention, diritti.* Base giuridica (decisa, DECISIONS.md §6): per gli attori che sono utenti delle agenzie la base giuridica è del titolare (l'agenzia); per gli utenti di Gravya (superadmin, operatori) è di Gravya. Retention: si applica la politica unica DX-09 con i default approvati (DECISIONS.md §5), modificabili dal superadmin (DX-13); override per classe e tenant previsti ma non attivi; applicazione in F6. Classi di dati prodotte da E2 e default: (1) versioni dei prompt (`prompt_versions`: template, schema variabili, hash, `change_note`, attore pseudonimo) → artefatti di configurazione, per tutta la durata del servizio; (2) attivazioni e rollback (`prompt_activations`, append-only) → audit e decisioni, 12 mesi; (3) puntatori attivi (`prompts`) → artefatti di configurazione, durata del servizio; (4) eventi `prompt.version.*` → eventi di runtime, 90 giorni (*attribuzione alla classe proposta da validare*: §5 non li elenca); (5) segnali di sicurezza inviati ad A5 → retention di A5, e se collegati a un incidente aperto valgono le evidenze di incidente (durata del caso + 12 mesi, legal hold); (6) log degli accessi cross-tenant del superadmin → 12 mesi. Dati del tenant a fine contratto: restituzione o cancellazione entro 30 giorni (art. 28(3)(g)), compreso l'export §5. Le versioni sono immutabili per integrità: per conciliare immutabilità e cancellazione si registra un identificativo pseudonimo dell'attore anziché nome o email (proposta tecnica, da verificare con la politica DX-09). Diritti di accesso: export per attore da `prompt_versions`/`prompt_activations`.
   - *NIS2 (art. 21).* Controllo accessi e minimo privilegio (A3, RLS per tenant); gestione delle modifiche con traccia append-only (`prompt_activations`) e integrità verificabile (`content_hash`, immutabilità a livello DB); continuità tramite export/import e seed sempre ripristinabile; sicurezza nello sviluppo (gate di promozione, DA-E2-04). Notifica incidenti (DX-10): la responsabilità è di A5 (ondata 2). E2 invia ad A5 un segnale per ogni tentativo di scrittura non autorizzato e per ogni modifica di prompt attivo fuori dal flusso previsto; la qualificazione come incidente significativo e la notifica spettano ad A5.
   - *AI Act (DX-11: casi d'uso non ad alto rischio).* Art. 50 (obbligatorio): gli avvisi di trasparenza verso l'utente finale non devono dipendere da un prompt modificabile; restano nel preambolo fisso nel codice, insieme al blocco anti-invenzione (DA-E2-03). Buona pratica, non obbligo (artt. 12 e 14 non applicabili): attivazione e rollback solo da umani (DA-E2-04) e registrazione di ogni versione e attivazione con attore e motivo.
-  - *Isolamento e autorizzazione.* RLS per tenant; scritture solo con attore autorizzato da A3.
+  - *Isolamento e autorizzazione.* RLS per tenant; scritture solo con attore autorizzato da A3. Accesso cross-tenant solo come superadmin (DX-13), entro le istruzioni del titolare e con log degli accessi.
 - **Portabilità:** template in formato testuale, export completo in file; nessuna dipendenza da servizi SaaS di prompt management.
 - **Osservabilità AI:** ogni chiamata LLM è attribuibile a `prompt_key`+`version`+`content_hash` nel record di traccia DB-native di E1; la cronologia di attivazioni e rollback è interrogabile in SQL e correlabile alle tracce per sapere quale versione ha prodotto ogni output e quando è cambiata.
 
 ## 8. Criteri di accettazione
 
 1. **Immutabilità:** test di integrazione che tenta UPDATE e DELETE su `prompt_versions` → entrambi falliscono a livello DB.
-2. **Rollback:** test che attiva v2, esegue rollback, e verifica che `resolve` restituisca v1 entro 60 s (*soglia proposta da validare*) e che `prompt_activations` abbia 2 righe.
+2. **Rollback:** test che attiva v2, esegue rollback, e verifica che `resolve` restituisca v1 entro `e2.rollback.propagation_max_s` (default 60 s, *proposta da validare*) e che `prompt_activations` abbia 2 righe.
 3. **Seed ripristinabile:** `rollback to_version=0` restituisce testo byte-identico al file seed del repo (confronto hash).
 4. **Isolamento:** test con due tenant: il tenant A non legge né modifica versioni del tenant B (0 righe, `403/404`).
 5. **Template fail-closed:** render con variabile mancante → errore; test unitario.
@@ -115,6 +120,9 @@ Regole: `prompt_versions` è **immutabile** (nessun UPDATE/DELETE, come trigger 
 9. **Portabilità:** export → import su DB vuoto → stesso insieme di `content_hash`.
 10. **Fail-closed:** test di integrazione che simula il fallimento del salvataggio del record di decisione A3 o della riga `prompt_activations` → attivazione/rollback rifiutati, `active_version_id` invariato, nessuna versione creata.
 11. **Segnale ad A5:** un tentativo di scrittura non autorizzato produce un segnale verso A5 (o verso il suo stub finché A5 non esiste).
+12. **Accesso cross-tenant:** test di integrazione: una lettura o un rollback del superadmin su un prompt di tenant produce 1 riga nel log degli accessi; con il log forzato a fallire l'operazione è rifiutata; un admin di agenzia riceve `403/404` sullo stesso prompt.
+13. **Variabili di piattaforma:** test che cambia `e2.rollback.propagation_max_s` e `e2.template.pii_check_mode` senza rilascio e verifica che E2 applichi il nuovo valore e che la modifica sia versionata e auditata; con il registro non leggibile e nessun valore valido, le scritture di E2 sono rifiutate.
+14. **Retention:** query di verifica che ogni tabella di E2 sia associata a una classe DX-09 con la durata di default di §7 (test con F6 o con il suo stub).
 
 ## 9. Piano di implementazione
 
@@ -123,9 +131,10 @@ Regole: `prompt_versions` è **immutabile** (nessun UPDATE/DELETE, come trigger 
 2. Schema e migrazioni PostgreSQL (DA-A1-01) con trigger di immutabilità e RLS.
 3. Renderer di template (DA-E2-02) e validazione variabili, in TS e Python con test di parità.
 4. API di gestione, diff, rollback; CLI seed/export.
-5. Cache con invalidazione su evento; integrazione attributi su E1 (vocabolario DA-E1-05); invio segnali ad A5 (DX-10).
-6. Definizione dei seed v2 per i prompt nel perimetro (DA-E2-03), usando i testi di gravya-app solo come riferimento rivisto, e check CI.
-7. Hook di promozione verso E3 (casi solo sintetici, giudice solo UE: DA-E3-08, DA-E3-09).
+5. Lettura delle variabili di piattaforma (DX-13; registro secondo DX-14) e log degli accessi cross-tenant.
+6. Cache con invalidazione su evento; integrazione attributi su E1 (vocabolario DA-E1-05); invio segnali ad A5 (DX-10).
+7. Definizione dei seed v2 per i prompt nel perimetro (DA-E2-03), usando i testi di gravya-app solo come riferimento rivisto, e check CI.
+8. Hook di promozione verso E3 (casi solo sintetici, giudice solo UE: DA-E3-08, DA-E3-09).
 
 **Tecnologie (da master o da decidere):** PostgreSQL con RLS (deciso, DA-A1-01), Redis (cache, master §3; self-hosted UE, DA-B1-06), TypeScript e Python, SHA-256. ORM/strumento di migrazione da fissare con F1 (gravya-app usava Drizzle: riferimento, non vincolo). Il motore di template **non** è nel master: DA-E2-02.
 
@@ -137,7 +146,7 @@ Regole: `prompt_versions` è **immutabile** (nessun UPDATE/DELETE, come trigger 
 - **Integration (PostgreSQL reale):** immutabilità, RLS, rollback, concorrenza.
 - **Parità TS/Python:** stesso template + variabili → stesso output byte-per-byte su un set di casi.
 - **Eval:** la promozione richiama E3 sulla versione candidata; nessuna eval è implementata in E2.
-- **Security:** tentativo di scrittura con attore non autorizzato (con verifica del segnale ad A5); fail-closed con salvataggio del record A3 o dell'attivazione forzato a fallire; template injection (variabile contenente sintassi di template non deve essere rivalutata).
+- **Security:** tentativo di scrittura con attore non autorizzato (con verifica del segnale ad A5); fail-closed con salvataggio del record A3 o dell'attivazione forzato a fallire; template injection (variabile contenente sintassi di template non deve essere rivalutata); accesso cross-tenant del superadmin con e senza log salvato (§8.12); admin di agenzia che tenta l'accesso a un altro tenant.
 
 ## 11. Rischi e mitigazioni
 
@@ -148,12 +157,14 @@ Regole: `prompt_versions` è **immutabile** (nessun UPDATE/DELETE, come trigger 
 | Cache stantia dopo rollback | Medio | Invalidazione su evento + TTL massimo |
 | Prompt con PII nei trace o nei template | Alto (GDPR) | Contenuti mai catturati in produzione, solo hash (DA-E1-02); controllo PII sui template (§7) |
 | Audit non salvato con scrittura riuscita | Alto (NIS2, integrità) | Fail-closed in transazione unica (DA-A3-07, DA-B2-04); test §8.10 |
+| Abuso dell'accesso superadmin ai prompt dei tenant | Alto (GDPR art. 28, NIS2) | Accesso solo entro le istruzioni del titolare, passaggio da A3, log degli accessi fail-closed (§8.12), segnale ad A5 per accessi fuori flusso |
+| Variabile di piattaforma modificata male (es. TTL eccessivo) | Medio | Modifica versionata e auditata, valori validati, fail-closed (DX-13); test §8.13 |
 | Rottura cache del prefisso prompt (#1781) | Medio: costo | Render deterministico; test di stabilità byte |
 
 ## 12. Stima e priorità
 
 - **Dimensione:** M (costruzione da zero: schema e API semplici; complessità nella doppia libreria TS/Python con parità, nella scrittura dei seed v2 e nei controlli di conformità §7. Le decisioni del 2026-11-03 non cambiano la taglia: il fail-closed è una transazione già prevista, la retention passa a DX-09, la notifica incidenti ad A5. Non dipendeva dal riuso: senza migrazione dello storico 0322 il lavoro si sposta sulla stesura dei seed).
-- **Dipendenze critiche:** F1 (o schema minimo), A3 per le autorizzazioni, E1 per gli attributi.
+- **Dipendenze critiche:** F1 (o schema minimo), A3 per le autorizzazioni, E1 per gli attributi, registro delle variabili di piattaforma (DX-13; proprietario secondo DX-14, da riportare). Taglia M invariata: lettura di variabili e log degli accessi sono aggiunte contenute.
 - **Thin-slice MVP:** **Sì**, ondata 1. Il calendario della Beta di gravya-app (versioning post-Beta, #1801) non vincola più v2 (DX-01).
 
 ---
@@ -189,7 +200,9 @@ gravya-app è materiale di riferimento (PV-03): qui ciò che insegna, non ciò c
 - Elenco completo dei prompt hard-coded in `services/agents` di gravya-app (solo `card_analyzer.py` letto): utile solo come inventario di riferimento per i seed v2.
 - Lingua dei prompt v2 (P12 di gravya-app diceva inglese): da confermare.
 - Stato attuale delle issue #1801, #1494, #1781 su GitHub (ora solo come riferimento).
-- Base giuridica per il trattamento delle identità degli operatori (da confermare nella politica DX-09).
+- Sottoprodotto proprietario di identità, ruoli e registro delle variabili (DX-14, da riportare) e quindi la sua interfaccia di lettura.
+- Classe DX-09 degli eventi `prompt.version.*` (non elencati in DECISIONS.md §5).
+- Compatibilità delle durate con i contratti delle agenzie (verifica legale consigliata da DECISIONS.md §5).
 - Contratto e interfaccia dei segnali verso A5 (ondata 2).
 - Volumi (numero prompt, versioni, frequenza di render): nessun dato; le soglie §7-§8 sono proposte.
 
@@ -200,7 +213,7 @@ gravya-app è materiale di riferimento (PV-03): qui ciò che insegna, non ciò c
 - **DA-E2-03 — Perimetro del registry (riformulata, DX-01):** quali prompt v2 stanno nel registry. (a) tutti; (b) supervisori, esecutori e Kloud, con il preambolo fisso (anti-invenzione e avvisi di trasparenza art. 50) escluso e tenuto nel codice; (c) solo un sottoinsieme minimo per lo skeleton. Criterio: un'unica verità, conformità AI Act, master. Raccomandazione: (b). Non è più "quali migrare": i seed si scrivono per v2.
 - **DA-E2-04 — Gate di promozione:** (a) solo umano; (b) E3 obbligatorio + approvazione umana (C3); (c) solo E3. Criterio: sorveglianza umana (PV-01; per DX-11 buona pratica, non obbligo AI Act) e master §5. Raccomandazione: (b), con criteri di qualità versionati col prompt.
 - **DA-E2-05 — Anticipo rispetto alla Beta:** **Decisa** (chiusa da DX-01, vedi [DECISIONS.md](DECISIONS.md)). v2 si costruisce da zero e la Beta di gravya-app non vincola: E2 è nell'ondata 1.
-- **DA-E2-06 — Retention di versioni e attivazioni:** **Assorbita da DX-09** (vedi [DECISIONS.md](DECISIONS.md)): si applica la politica di retention unica; durate non ancora fissate. Le classi di dati prodotte da E2 sono elencate in §7.
+- **DA-E2-06 — Retention di versioni e attivazioni:** **Assorbita da DX-09** (vedi [DECISIONS.md](DECISIONS.md)): si applica la politica di retention unica con le durate di default approvate (§5 di DECISIONS.md: versioni per la durata del servizio, attivazioni 12 mesi), modificabili dal superadmin (DX-13). Le classi di dati prodotte da E2 sono elencate in §7.
 - **DA-E2-07 — Versioni proposte da AI (nuova) — DA RIPORTARE ALL'UTENTE.** Il ciclo di miglioramento (`source=learning_proposal`) può creare versioni candidate? (a) sì, mai attivabili senza umano; (b) no in ondata 1. Criterio: sorveglianza umana (buona pratica per DX-11) e rischio di deriva non controllata. Proposta: (a), ma è una scelta di prodotto e conformità.
 - **DA-E2-08 — Testi dei seed (nuova) — DA RIPORTARE ALL'UTENTE.** I seed v2 si scrivono da zero o possono partire dai testi dei prompt di gravya-app rivisti? PV-03 ammette l'ingresso solo se un documento lo prevede. Criterio: qualità già validata contro ripartenza pulita. Proposta: partire dai testi di gravya-app come bozza, rivista e approvata come versione 0; nessuna decisione presa.
 
@@ -212,3 +225,4 @@ gravya-app è materiale di riferimento (PV-03): qui ciò che insegna, non ciò c
 | 1.1 | 2026-11-03 | Revisione incrociata ondata 1: attributi di span allineati a E1 (`gravya.prompt.*`); C3 spostato da "È richiesto da" a "Dipende da" (verso invertito: è E2 a usare C3 per la promozione) e aggiunta la dipendenza condizionale da E3; aggiunti C1 e A1 in "È richiesto da"; corretta l'affermazione che il master citi Redis Stream/Kafka (non li cita) e rimando a DA-A1-03. Motivo: interfacce e dipendenze non allineate, affermazione non supportata. |
 | 1.2 | 2026-11-03 | Applicate DX-01/PV-03 (ripartenza da zero) e DX-02/PV-01/PV-02 (conformità prioritaria, niente OpenTelemetry). Attributi `gravya.prompt.*` su record di traccia DB-native di E1 anziché span; §7 con voce "Sicurezza e conformità" (GDPR, NIS2 art. 21, AI Act art. 50, osservabilità AI); rimossi riuso e migrazione da gravya-app (storico 0322, Drizzle, librerie esistenti) e il vincolo Beta; Appendice A rinominata "Riferimenti dal sistema precedente" (idee e difetti da non ripetere); DA-E2-01 e DA-E2-03 riformulate, DA-E2-05 chiusa da DX-01, nuove DA-E2-06..08 da riportare all'utente; rischio "doppio registry" sostituito; taglia M confermata per costruzione da zero. |
 | 1.3 | 2026-11-03 | Applicate le decisioni dell'utente del 2026-11-03. Diventano scelte del documento: DA-A1-01 (PostgreSQL+RLS), DA-B1-06 (self-hosted UE), DA-E1-02 (contenuti mai in produzione), DA-E1-05 (vocabolario GenAI semconv/traceparent ammesso per E1, senza SDK), DA-A3-07 e DA-B2-04 (fail-closed sulle scritture: nuova regola §6, criterio §8.10, test §10, rischio §11), DA-E3-08/09 e DA-C1-05 (nessun SaaS, eval su dati sintetici con giudice UE). DA-E2-06 assorbita da DX-09: rimossa la retention propria, elencate in §7 le classi di dati prodotte. §7 allineata a DX-10 (notifica incidenti ad A5, E2 invia segnali; nuovo criterio §8.11) e DX-11 (responsabile art. 28; sorveglianza umana e log ridotti a buona pratica, art. 50 confermato). Tolte dall'Appendice B le ipotesi decise (regione hosting, classificazione AI Act). Taglia M invariata. Motivo: allineamento a DECISIONS.md. |
+| 1.4 | 2026-11-03 | Applicate le decisioni dell'utente del 2026-11-03. DX-09: durate di default di DECISIONS.md §5 assegnate alle classi di dati di E2 in §7 (versioni e puntatori per la durata del servizio, attivazioni 12 mesi, eventi 90 giorni da validare, log accessi 12 mesi, evidenze di incidente), DA-E2-06 aggiornata, criterio §8.14. DX-13: soglie di E2 (TTL cache, propagazione rollback, modalità controllo PII, durate) diventano variabili di piattaforma del superadmin, versionate, auditate e fail-closed (§7, §6, §8.2, §8.13, rischio §11); accesso cross-tenant solo come superadmin entro le istruzioni del titolare e con log degli accessi fail-closed (§6, §7, §8.12, §10, rischio §11). DECISIONS.md §6 decisa: base giuridica degli identificativi degli attori (agenzia per i suoi utenti, Gravya per superadmin e operatori), tolta dall'Appendice B. Dipendenze aggiunte: F6 (DX-12) e registro delle variabili, con proprietario A6 solo proposto (DX-14 da riportare). Le altre righe della §6 non citano E2. Taglia M invariata. Motivo: allineamento a DECISIONS.md. |

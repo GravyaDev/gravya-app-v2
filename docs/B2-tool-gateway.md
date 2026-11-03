@@ -7,7 +7,7 @@
 | ID | B2 |
 | Nome | Tool gateway |
 | Componente padre | B — Runtime Agenti |
-| Versione documento | 1.3 |
+| Versione documento | 1.4 |
 | Data | 2026-11-03 |
 | Ondata | 1 (walking skeleton) |
 
@@ -25,7 +25,7 @@
 
 ## 3. Contesto e dipendenze
 
-**Dipende da:** A3 (decisione allow/deny), A1 e A2 (indirettamente, tramite A3), B1 (identità del run e confine di rete), E1 (traccia DB-native per ogni chiamata a un tool, con il vocabolario `gravya.*` e il modello dati definiti da E1; niente OpenTelemetry, PV-02), A5 (destinazione degli eventi di audit e destinatario dei segnali di incidente, DX-10; ondata successiva: fino ad allora l'audit è scritto in modo fail-closed nel database di Gravya, DA-B2-04).
+**Dipende da:** A3 (decisione allow/deny), A1 e A2 (indirettamente, tramite A3), B1 (identità del run e confine di rete), E1 (traccia DB-native per ogni chiamata a un tool, con il vocabolario `gravya.*` e il modello dati definiti da E1; niente OpenTelemetry, PV-02), A5 (destinazione degli eventi di audit e destinatario dei segnali di incidente, DX-10; ondata 2: nell'ondata 1 l'audit è scritto in modo fail-closed in una tabella di audit minima nel database di Gravya, che A5 poi assorbe; DA-B2-04, DECISIONS §6), DX-13 (variabili di piattaforma e ruolo superadmin), F6 (politica di retention DX-09, ID proposto, ondata 2). **Dipendenza proposta, non decisa:** il sottoprodotto che possiede identità, ruoli e registro delle variabili di piattaforma (DX-14, proposta A6, DA RIPORTARE ALL'UTENTE).
 
 **È richiesto da:** E3 (casi `act`/`refuse`), B1 (gli agenti chiamano i tool solo da qui), C1 (i nodi tool del workflow), C3 (riprende la chiamata dopo l'approvazione), D1–D4 (si registrano come tool dietro il gateway), D5 (MCP sopra il gateway), E5 ed E6 (telemetria e costi per tool).
 
@@ -61,7 +61,8 @@
 
 - `GET /tools` — elenco dei tool autorizzati per il run, con gli schemi. È l'elenco filtrato da A3, non il catalogo intero; esclude i tool senza destinazione dichiarata e quelli extra-UE per i tenant senza opt-in (DA-B2-07).
 - `POST /tools/{tool_id}/invoke` — invocazione con il contratto §4.
-- Interfaccia amministrativa del catalogo, riservata al superadmin.
+- Interfaccia amministrativa del catalogo, riservata al superadmin di istanza (DX-13), distinto dagli admin delle agenzie. Ogni modifica del catalogo è versionata e auditata; se l'audit della modifica non si salva, la modifica non si applica (fail-closed).
+- Variabili di piattaforma lette da B2 (DX-13), modificabili dal superadmin senza rilascio, ognuna versionata e auditata: limiti di rate limit di default (per agente, tool, tenant), durate di retention delle classi di dati di B2 (default DX-09 §5, vedi §7). Se una variabile non è leggibile o non è valida, il gateway applica il comportamento fail-closed: nessuna esecuzione (`error`) per i limiti, nessuna cancellazione anticipata per la retention. Il registro delle variabili è del sottoprodotto proposto in DX-14 (A6, da riportare).
 - Trasporto (HTTP interno, processo separato o libreria nel runtime): DA-B2-02.
 - Origine dell'elenco autorizzato (grafo A1, tabella dedicata o policy A3): DA-B2-05.
 
@@ -74,7 +75,8 @@
 - Tool assente dal catalogo o non presente nell'elenco del run: `denied`, senza rivelare se il tool esiste.
 - `require_approval`: risposta `approval_required` e richiesta a C3; alla ripresa serve un `approval_token` monouso, valido per una sola chiamata.
 - `money_write` con budget illeggibile: deny (fail-closed, principio ripreso da gravya-app come lezione).
-- Scrittura dell'audit fallita: **l'azione si blocca** (fail-closed, DA-B2-04 decisa): se `tool.invoked` non si salva il tool non viene eseguito e la risposta è `error`. In gravya-app il codice va avanti e salta l'audit: difetto da non ripetere. Il caso in cui fallisce l'audit di esito *dopo* un'esecuzione già avvenuta resta da definire (vedi Appendice C, DA-B2-04).
+- Scrittura dell'audit fallita: **l'azione si blocca** (fail-closed, DA-B2-04 decisa): se `tool.invoked` non si salva il tool non viene eseguito e la risposta è `error`. Conta come «salvato» solo la scrittura nella tabella di audit o in una coda locale **durevole su disco con fsync** completato; una coda in memoria non conta (DECISIONS §6). In gravya-app il codice va avanti e salta l'audit: difetto da non ripetere.
+- Audit di esito (`completed`/`failed`) fallito *dopo* un'esecuzione già avvenuta: l'azione non si può annullare; il gateway mette l'evento in una coda di recupero durevole, che lo riscrive fino a riuscirci, e invia un segnale di incidente ad A5 (DX-10). La risposta all'agente riporta l'esito reale dell'esecuzione (DECISIONS §6).
 - Tool senza destinazione dichiarata in catalogo: `denied`. Tool con destinazione extra-UE e tenant senza opt-in: `denied` (DA-B2-07).
 - Superamento del rate limit: `rate_limited` con `retry_after` e nessuna esecuzione.
 - Retry con la stessa `idempotency_key`: restituisce il primo esito e non riesegue.
@@ -82,13 +84,13 @@
 ## 7. Requisiti non funzionali
 
 - **Esecuzione:** self-hosted su infrastruttura UE (DA-B1-06).
-- **Sicurezza:** l'agente non ha credenziali dei sistemi esterni; queste restano al gateway. L'egress di B1 è consentito solo verso il gateway e i peer interni.
-- **Isolamento tenant:** il tenant viene solo dal token; ogni accesso ai dati dei tool è in contesto RLS del tenant.
+- **Sicurezza:** l'agente non ha credenziali dei sistemi esterni; queste restano al gateway. L'egress di B1 è consentito solo verso il gateway e i peer interni; l'egress-proxy di B1 applica la stessa regola delle destinazioni dichiarate di DA-B2-07 (DECISIONS §6).
+- **Isolamento tenant:** il tenant viene solo dal token; ogni accesso ai dati dei tool è in contesto RLS del tenant. L'unico accesso cross-tenant (audit e tracce di B2, per supporto o indagine) è del superadmin, solo entro le istruzioni del titolare (art. 28), con un log degli accessi (chi, quando, quale tenant, quale dato, motivo) conservato 12 mesi (DX-13, DA-E1-08, DX-09 §5).
 - **Performance:** overhead del gateway (escluso il tool) p95 < 50 ms (proposta da validare).
 - **Osservabilità:** una traccia E1 DB-native per ogni invocazione, collegata al run tramite `trace_id`/`run_id`, scritta nel database di Gravya. Nessun SDK, collector o esportatore OpenTelemetry (PV-02); ammessi come vocabolario i nomi GenAI semantic conventions e il formato `traceparent` (DA-E1-05).
 - **Redazione:** le anteprime di argomenti e risultati sono redatte prima della persistenza.
 - **Sicurezza e conformità (PV-01):**
-  - *GDPR.* Minimizzazione: l'evento di audit conserva identificativi (tenant, agente, run, tool, `decision_id`) e un'anteprima **redatta** degli argomenti, non il payload completo né il risultato. Ruolo: Gravya è responsabile del trattamento (art. 28) per conto delle agenzie (DX-11); i dati personali che transitano nei tool (record CRM dei clienti dell'agenzia) sono trattati su istruzione del tenant; l'audit serve a sicurezza e accountability (art. 5.2, 32). Retention: si applica la politica unica DX-09 (durate non ancora fissate). Classi di dati prodotte da B2: eventi di audit dei tool (identificativi ed esito), anteprime redatte di argomenti e risultati, tracce E1 delle invocazioni, contatori di rate limit, esiti memorizzati per `idempotency_key`, token di approvazione consumati, catalogo dei tool e sue versioni. Diritti: l'anteprima redatta e gli identificativi devono essere ricercabili per soggetto, in modo che A5 possa rispondere ad accesso/cancellazione; come conciliare cancellazione e audit append-only è un tema di A5, segnalato qui. Trasferimenti (capo V): ogni tool dichiara destinazione, giurisdizione e categorie di dati; senza dichiarazione la chiamata è negata; le destinazioni extra-UE richiedono l'opt-in esplicito del tenant (DA-B2-07).
+  - *GDPR.* Minimizzazione: l'evento di audit conserva identificativi (tenant, agente, run, tool, `decision_id`) e un'anteprima **redatta** degli argomenti, non il payload completo né il risultato. Ruolo: Gravya è responsabile del trattamento (art. 28) per conto delle agenzie (DX-11); i dati personali che transitano nei tool (record CRM dei clienti dell'agenzia) sono trattati su istruzione del tenant; l'audit serve a sicurezza e accountability (art. 5.2, 32). Retention: si applica la politica unica DX-09, con i default approvati (DECISIONS §5), variabili di piattaforma modificabili dal superadmin (DX-13): audit dei tool 12 mesi; anteprime redatte di argomenti e risultati 30 giorni dopo l'esecuzione, poi nell'audit resta solo l'hash; tracce E1 delle invocazioni 90 giorni (nelle tracce gli argomenti compaiono solo come hash, DECISIONS §6); catalogo e sue versioni per la durata del servizio; dati legati a un incidente aperto da A5 sospesi per la durata del caso + 12 mesi. La cancellazione è eseguita dal meccanismo di F6; durate per contatori di rate limit, esiti per `idempotency_key` e token di approvazione consumati non sono fissate da §5 (Appendice B). Base giuridica: per i dati delle agenzie è del titolare (l'agenzia); per gli identificativi degli utenti di Gravya (superadmin, operatori) nel log degli accessi è di Gravya (DECISIONS §6). Classi di dati prodotte da B2: eventi di audit dei tool (identificativi ed esito), anteprime redatte di argomenti e risultati, tracce E1 delle invocazioni, contatori di rate limit, esiti memorizzati per `idempotency_key`, token di approvazione consumati, catalogo dei tool e sue versioni. Diritti: l'anteprima redatta e gli identificativi devono essere ricercabili per soggetto, in modo che A5 possa rispondere ad accesso/cancellazione; come conciliare cancellazione e audit append-only è un tema di A5, segnalato qui. Trasferimenti (capo V): ogni tool dichiara destinazione, giurisdizione e categorie di dati; senza dichiarazione la chiamata è negata; le destinazioni extra-UE richiedono l'opt-in esplicito del tenant (DA-B2-07).
   - *NIS2 (art. 21).* Controllo degli accessi e minimo privilegio (elenco tool filtrato, default-deny, fail-closed su A3), gestione dei segreti (le credenziali dei sistemi esterni restano al gateway, mai all'agente), sicurezza della catena di fornitura (destinazioni dei tool dichiarate in catalogo), registrazione degli eventi per rilevare incidenti. Gli eventi `tool.denied` ripetuti, i tentativi di bypass e i token falsificati sono segnali che alimentano la gestione incidenti; la notifica (art. 23) è responsabilità di A5 (DX-10): B2 invia ad A5 i segnali e le evidenze, incluso il fallimento della scrittura dell'audit.
   - *AI Act.* B2 è il punto in cui un sistema AI agisce sul mondo: i casi d'uso v2 non sono ad alto rischio (DX-11), quindi gli artt. 12 e 14 non sono obblighi: la registrazione di ogni azione dell'agente e la sorveglianza umana tramite `require_approval` e token monouso di C3 restano come buona pratica (e, per l'audit, come requisito di sicurezza e accountability GDPR/NIS2). La trasparenza verso le persone (art. 50) riguarda i contenuti generati e non è di B2, salvo i tool che pubblicano o inviano contenuti: per questi il catalogo deve indicare se l'output è generato da AI (requisito per D1–D4).
   - *Osservabilità AI.* Rende osservabili: quale tool ha chiamato quale agente in quale run, con quale decisione e versione della policy di A3, esito, durata, eventuale approvazione umana e costo (per E5/E6).
@@ -99,7 +101,9 @@
 2. **Nessun bypass:** un test da dentro B1 che tenta di importare o chiamare direttamente un tool o un host esterno fallisce; il 100% delle chiamate a tool nei test e2e ha un evento di audit con lo stesso `run_id`.
 3. **Fail-closed:** con A3 spento, 0 chiamate eseguite su 100 tentativi; con la scrittura dell'audit resa impossibile (DB di audit non disponibile), 0 chiamate eseguite su 100 tentativi e ogni risposta è `error` (DA-B2-04).
 9. **Destinazione dichiarata:** un tool senza destinazione in catalogo è `denied` e assente da `GET /tools`; un tool extra-UE è `denied` per un tenant senza opt-in e consentito per un tenant con opt-in (DA-B2-07).
-4. **Rate limit:** con limite N/minuto, N+1 chiamate producono esattamente 1 `rate_limited` (N=10 nel test, proposta da validare).
+4. **Rate limit:** con limite N/minuto, N+1 chiamate producono esattamente 1 `rate_limited` (N=10 nel test, proposta da validare). Cambiando N come variabile di piattaforma (DX-13) il nuovo valore si applica senza riavvio, la modifica ha un evento di audit con versione precedente e nuova; con variabile illeggibile 0 chiamate eseguite su 100.
+10. **Coda durevole e recupero:** in un test con tabella di audit non disponibile e coda locale con fsync attivo, la chiamata è eseguita e l'evento compare in tabella al ripristino; con coda senza fsync (o in memoria) 0 chiamate eseguite. Con l'audit di esito reso impossibile dopo l'esecuzione, l'evento entra nella coda di recupero, viene scritto al ripristino e A5 (o la tabella minima nell'ondata 1) riceve 1 segnale di incidente.
+11. **Retention e accessi cross-tenant:** un job di test con orologio simulato elimina le anteprime redatte oltre 30 giorni lasciando l'hash, e l'audit oltre 12 mesi; un accesso del superadmin all'audit di un altro tenant produce 1 riga nel log degli accessi; un admin di agenzia che tenta lo stesso accesso riceve un rifiuto.
 5. **Approvazione monouso:** due chiamate con lo stesso `approval_token` → la seconda è `denied`.
 6. **Isolamento:** un token del tenant A con un `record_id` del tenant B → `denied` o nessun risultato, mai dati di B.
 7. **Audit completo:** per ogni esito di §4 esiste un test che verifica 1 evento con i campi obbligatori.
@@ -125,7 +129,8 @@
 
 - **Unit:** validazione degli schemi degli argomenti, mappatura degli esiti A3, contatori del rate limit, consumo del token monouso, redazione.
 - **Integration:** gateway + A3 + DB con due tenant; ripresa dopo l'approvazione C3; idempotenza.
-- **Fail-closed:** audit non scrivibile → nessuna esecuzione; A3 non raggiungibile → nessuna esecuzione.
+- **Fail-closed:** audit non scrivibile → nessuna esecuzione; coda con fsync → conta come salvato; audit di esito fallito dopo l'esecuzione → coda di recupero e segnale ad A5; A3 non raggiungibile → nessuna esecuzione; variabile di piattaforma illeggibile → nessuna esecuzione.
+- **Superadmin e retention:** modifica versionata e auditata delle variabili, log degli accessi cross-tenant, cancellazione per classe secondo i default DX-09.
 - **Security:** tentativi di bypass da B1 (import diretto, egress diretto), token falsificato, tenant spoofing via `args`, prompt injection nel risultato di un tool, tool senza destinazione o extra-UE senza opt-in.
 - **Eval:** le regressioni dei golden set E3 che usano tool passano dal gateway.
 
@@ -134,7 +139,10 @@
 | Rischio | Impatto | Mitigazione |
 |---|---|---|
 | Logica di permesso che rientra nel codice dei tool (difetto di gravya-app) | Alto | Un solo punto di decisione: A3. I tool non contengono controlli di autorizzazione; revisione del codice e test di bypass |
-| Audit fail-closed riduce la disponibilità quando il DB di audit non risponde | Medio | Scelta accettata (DA-B2-04); monitoraggio della scrittura dell'audit e segnale ad A5; criterio 3 |
+| Audit fail-closed riduce la disponibilità quando il DB di audit non risponde | Medio | Scelta accettata (DA-B2-04); coda locale durevole con fsync; monitoraggio e segnale ad A5; criteri 3 e 10 |
+| Azione eseguita senza audit di esito | Alto | Coda di recupero durevole e segnale di incidente ad A5; criterio 10 |
+| Variabile di piattaforma errata (limite o retention) | Medio | Modifiche solo dal superadmin, versionate e auditate, fail-closed se non valide (DX-13); criterio 4 |
+| Abuso dell'accesso cross-tenant del superadmin | Alto (GDPR art. 28) | Accesso solo su istruzioni del titolare, log degli accessi 12 mesi; criterio 11 |
 | Latenza del salto di rete | Medio | DA-B2-02; criterio 8 |
 | Cache dell'elenco tool non allineata alla policy | Alto | Invalidazione su evento A2/A3; in caso di dubbio decide A3 a ogni invocazione |
 | Dati personali verso destinazioni di tool non controllate | Alto (GDPR/NIS2) | Destinazione obbligatoria in catalogo, deny se manca, opt-in del tenant per l'extra-UE (DA-B2-07); criterio 9 |
@@ -178,17 +186,20 @@ Per DX-01/PV-03 nulla di quanto segue si porta in v2: è materiale da cui ripren
 - Il contratto di decisione di A3 e il formato del token di B1.
 - Lo stato attuale delle issue citate (#998, #1801).
 - Tutte le soglie numeriche marcate «proposta da validare».
+- Le durate di retention per contatori di rate limit, esiti di idempotenza e token di approvazione consumati: §5 di DECISIONS non le cita; da fissare in F6.
+- Il meccanismo di legal hold (F6, A5) e il formato del log degli accessi cross-tenant (DA-E1-08).
 
 ## Appendice C — Decisioni (aperte e decise)
 
 - **DA-B2-01 — Base di partenza.** **Chiusa da DX-01:** gateway nuovo in v2; `_scope_enforcement.py`, `_audit.py` e il caricatore di gravya-app sono solo riferimento (tassonomia degli assi e casi di test come idea, Appendice A).
 - **DA-B2-02 — Forma del confine.** Opzioni: (a) servizio HTTP separato (FastAPI) raggiungibile da B1 solo via rete; (b) libreria in-process con A3 come sidecar; (c) endpoint dentro il server Express. Criterio: isolamento architetturale (vincolo del master), latenza. Raccomandazione: (a); (b) non soddisfa l'isolamento.
 - **DA-B2-03 — Archivio dei contatori di rate limit.** Opzioni: (a) Redis (già nello stack); (b) PostgreSQL. Criterio: atomicità e latenza. Raccomandazione: (a).
-- **DA-B2-04 — Audit fail-open o fail-closed.** **Decisa** (2026-11-03, utente; vedi DECISIONS.md): fail-closed, se l'audit non si salva l'azione si blocca. Resta aperto, perché la decisione non lo specifica: se una coda durevole locale (ex opzione c) conti come «salvato», e cosa fare quando fallisce l'audit di esito dopo un'esecuzione già avvenuta.
+- **DA-B2-04 — Audit fail-open o fail-closed.** **Decisa** (2026-11-03, utente; vedi DECISIONS.md): fail-closed, se l'audit non si salva l'azione si blocca. Completata dall'utente il 2026-11-03 (DECISIONS §6): una coda locale conta come «salvato» solo se durevole su disco con fsync; se l'audit di esito fallisce dopo l'esecuzione, segnale ad A5 e coda di recupero. Nell'ondata 1 conferma il salvataggio una tabella di audit minima, che A5 poi assorbe.
 
 - **DA-B2-05 — Origine dell'allowlist dei tool per agente** (aggiunta in revisione v1.1 perché DA-A1-04 rinvia la scelta a B2, che non la trattava). Opzioni: (a) edge `CAN_USE` nel grafo A1, compilato da A2; (b) tabella dedicata in v2 agente→tool (sul modello di `gravya_executor_tools` di gravya-app, solo come riferimento); (c) solo policy A3. Criterio: una sola fonte di verità. Raccomandazione: nessuna; da decidere insieme a DA-A1-02 (che con DX-01 non riguarda più la proiezione da gravya-app).
 - **DA-B2-06 — Retention dell'audit dei tool e delle anteprime redatte.** **Assorbita da DX-09** (vedi DECISIONS.md): politica di retention unica; classi di dati prodotte elencate in §7.
-- **DA-B2-07 — Tool che inviano dati a terzi o fuori dall'UE.** **Decisa** (2026-11-03, utente; vedi DECISIONS.md): ogni tool dichiara destinazione, giurisdizione e categorie di dati; deny se manca; opt-in del tenant per l'extra-UE.
+- **DA-B2-07 — Tool che inviano dati a terzi o fuori dall'UE.** **Decisa** (2026-11-03, utente; vedi DECISIONS.md): ogni tool dichiara destinazione, giurisdizione e categorie di dati; deny se manca; opt-in del tenant per l'extra-UE. Anche l'egress-proxy di B1 segue questa regola (DECISIONS §6). **Resta aperto** dove si registra l'opt-in del tenant (DECISIONS §6, nessuna raccomandazione confermata; proposta: configurazione del tenant in A1, compilata da A2 in policy A3). DA RIPORTARE ALL'UTENTE.
+- **DX-14 — Proprietario di identità, ruoli e variabili di piattaforma.** Da riportare (non deciso): proposta A6, in alternativa ruoli in A1 e variabili in F6. B2 ne dipende per il ruolo superadmin e il registro delle variabili.
 
 ---
 
@@ -200,3 +211,4 @@ Per DX-01/PV-03 nulla di quanto segue si porta in v2: è materiale da cui ripren
 | 1.1 | 2026-11-03 | Revisione incrociata ondata 1: catalogo tool esteso con `domain`, `creates_new` e mappa degli assi, richiesti dal `DecisionRequest` di A3; descritto come il gateway costruisce il `DecisionRequest` e segnalata la fonte mancante di `budget_state` (DA-A3-04); aggiunta DA-B2-05 (allowlist), rinviata qui da DA-A1-04 ma assente; rimando a DA-A1-03 per il trasporto eventi; aggiunto E3 in "È richiesto da". Motivo: interfacce non combacianti. |
 | 1.2 | 2026-11-03 | Adeguamento a DX-01/PV-03 (ripartenza da zero) e DX-02/PV-01/PV-02 (conformità prioritaria, niente OpenTelemetry). DA-B2-01 chiusa da DX-01; rimossi assunzione e rischio sulla Beta; tecnologie, fasi e taglia §12 riformulate per costruzione da zero (resta M, senza migrazione di tool); Appendice A rinominata «Riferimenti dal sistema precedente» (idee da riprendere, difetti da non ripetere); span E1 sostituiti da tracce DB-native; aggiunta in §7 la voce «Sicurezza e conformità» (GDPR, NIS2, AI Act, osservabilità AI); DA-B2-04 raccomandazione rivista verso fail-closed e riportata all'utente; DA-B2-05 riformulata senza tabella esistente; nuove DA-B2-06 (retention audit) e DA-B2-07 (destinazioni dei tool fuori perimetro). |
 | 1.3 | 2026-11-03 | Recepite le decisioni dell'utente del 2026-11-03. DA-B2-04 decisa (fail-closed): §6 scrive `tool.invoked` prima dell'esecuzione e blocca se fallisce, criterio 3 e test estesi, rischio §11 riformulato. DA-B2-07 decisa: destinazione/giurisdizione/categorie obbligatorie in catalogo, deny se mancano, opt-in extra-UE per tenant (§4-§6, §7, criterio 9, fase 5b, §11). DA-B2-06 assorbita da DX-09: rimossa la retention specifica, elencate in §7 le classi di dati prodotte. §7 allineata a DX-10 (notifica NIS2 ad A5, B2 invia segnali) e DX-11 (Gravya responsabile art. 28; artt. 12/14 AI Act come buona pratica). Recepite DA-B1-06 (self-hosted UE) e DA-E1-05 (vocabolario GenAI semconv e `traceparent` senza SDK/export OTel). Taglia §12 resta M con perimetro esteso. Motivo: decisioni dell'utente registrate in DECISIONS.md. |
+| 1.4 | 2026-11-03 | Recepite le decisioni dell'utente del 2026-11-03: default di retention DX-09 §5 in §7 (audit 12 mesi, anteprime 30 giorni poi hash, tracce 90 giorni, args solo hash nelle tracce) come variabili di piattaforma; DX-13: superadmin di istanza per catalogo e variabili (limiti di rate limit, retention), modifiche versionate, auditate e fail-closed, accesso cross-tenant solo da superadmin con log; DECISIONS §6: coda con fsync conta come salvato, coda di recupero e segnale A5 per l'audit di esito fallito, tabella di audit minima in ondata 1, egress-proxy B1 con la stessa regola DA-B2-07, base giuridica per gli utenti di Gravya. Nuovi criteri 10-11, test e rischi; DA-B2-04 completata; opt-in extra-UE e DX-14 (A6) restano aperti/da riportare. Motivo: decisioni registrate in DECISIONS.md. |
