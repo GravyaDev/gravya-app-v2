@@ -42,13 +42,13 @@ Regole di contenuto:
 - Nessuna stima temporale: solo le taglie S/M/L.
 - Le tecnologie vengono dal master plan, filtrate da principi e decisioni. Una scelta non ancora fatta diventa una decisione aperta `DA-{ID}-NN` con 2-3 opzioni, un criterio e una raccomandazione. Una scelta che tocca dati, perimetro o conformità va marcata "DA RIPORTARE ALL'UTENTE".
 - La §7 contiene la voce "Sicurezza e conformità" con GDPR (Gravya responsabile del trattamento), NIS2 (segnali di incidente verso A5), AI Act art. 50 e osservabilità AI. Per la retention, rimanda a DX-09 ed elenca le classi di dati prodotte. Le tracce seguono il modello DB-native di E1.
-- Nessun valore hardcoded (DX-22): ogni durata, soglia, limite o parametro è una variabile configurabile da UI. Per ciascuna indica nome, default, chi la modifica (superadmin o admin agenzia), intervallo ammesso e pagina/sezione di UI; le credenziali vanno nella loro pagina dedicata. Finché il formato del catalogo non è deciso, elencale in una tabella nella sezione pertinente. Non inventare i valori: un default che non deriva da una decisione è "proposta da validare".
+- Nessun valore hardcoded (DX-22): ogni durata, soglia, limite o parametro è una variabile configurabile da UI. Il catalogo è `docs/catalogo-variabili.md`, unico punto di verità: per ogni variabile aggiungi o aggiorna lì la riga con nome, default, chi la modifica (superadmin o admin agenzia), intervallo ammesso e pagina/sezione di UI; nel documento cita solo il nome della variabile, senza ripetere default e intervalli. Le credenziali vanno nella loro pagina dedicata. I valori con un vincolo di legge sono configurabili solo verso valori più restrittivi e il limite di legge si cataloga come "vincolo normativo" con il riferimento alla norma. Non inventare i valori: un default che non deriva da una decisione è "proposta da validare".
 - Non inferire. Ciò che non hai verificato va nell'Appendice B.
 - Un punto che in `DECISIONS.md` è "da confermare", "Da riportare" o riservato in una riga "Decisa con riserva" non è deciso: scrivilo come aperto, con il rimando alla riga, non come scelta presa.
 - Nel documento non scrivere nulla che riguardi il task o la tua risposta (istruzioni ricevute, collaudo, modello, strumenti, fonti lette): quelle informazioni vanno solo nella risposta.
 - Lunghezza indicativa: 1.200-2.000 parole.
 
-Scrivi solo il file assegnato (se il task indica una sandbox, il file sta lì). Se aggiorni un documento esistente, modificalo in place, alza la versione e aggiungi una riga nello Storico con cosa è cambiato e perché. Non toccare `DECISIONS.md`: le decisioni aperte le registra il `registrar` a partire dalla tua risposta.
+Scrivi solo il file assegnato e le sue righe in `docs/catalogo-variabili.md` (se il task indica una sandbox, i file stanno lì). Se aggiorni un documento esistente, modificalo in place, alza la versione e aggiungi una riga nello Storico con cosa è cambiato e perché. Non toccare `DECISIONS.md`: le decisioni aperte le registra il `registrar` a partire dalla tua risposta.
 
 ## Risposta (JSON)
 

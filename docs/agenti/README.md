@@ -1,6 +1,6 @@
 # Agenti di governance del progetto
 
-Versione 1.9, 2026-11-03.
+Versione 1.10, 2026-11-03.
 
 Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
@@ -13,7 +13,7 @@ Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno
 | `plan-auditor` | [plan-auditor.md](../../.claude/agents/plan-auditor.md) | Verifica la coerenza tra principi, decisioni, documenti di dettaglio e master plan | Solo il proprio report | Avversariale |
 | `code-reviewer` | [code-reviewer.md](../../.claude/agents/code-reviewer.md) | Verifica che il codice di una PR implementi il documento di dettaglio, rispetti i criteri di accettazione e i principi | Solo il proprio report | Avversariale |
 | `compliance-auditor` | [compliance-auditor.md](../../.claude/agents/compliance-auditor.md) | Cerca violazioni di GDPR, NIS2, AI Act e osservabilità AI (PV-01) in documenti e codice | Solo il proprio report | Avversariale |
-| `doc-writer` | [doc-writer.md](../../.claude/agents/doc-writer.md) | Redige o aggiorna un documento di dettaglio secondo il template | Solo il file del documento assegnato | Collaborativa |
+| `doc-writer` | [doc-writer.md](../../.claude/agents/doc-writer.md) | Redige o aggiorna un documento di dettaglio secondo il template | Solo il file del documento assegnato e le sue righe in `docs/catalogo-variabili.md` | Collaborativa |
 | `code-reader` | [code-reader.md](../../.claude/agents/code-reader.md) | Risponde a domande precise sul codice, con citazioni: ambito "storico" (gravya-app, kloudify, solo riferimento) o "v2" (stato reale rispetto ai documenti) | Solo il proprio report | Ricognizione, sola lettura |
 | `implementer` | [implementer.md](../../.claude/agents/implementer.md) | Implementa codice e test di un documento approvato, un perimetro alla volta, su un branch dedicato; non fa merge | Codice e test sul proprio branch, il proprio report | Collaborativa |
 
@@ -75,3 +75,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 | 1.7 | 2026-11-03 | Il `registrar` non scrive più nella memoria di sessione (evita doppioni di `DECISIONS.md`); la memoria è curata solo dal `coordinator`. |
 | 1.8 | 2026-11-03 | Esito del collaudo degli agenti (decisioni dell'utente): nuovi agenti `code-reader` (Haiku) e `implementer` (Sonnet) con le loro sequenze; JSON Schema degli strumenti di risposta in `schemi/`; correzioni ai prompt: `doc-writer` (lettura completa delle fonti, niente metadati del task nel documento, i punti "da confermare" restano aperti, campo Dossier nel template), `plan-auditor` (lettura completa delle fonti), `registrar` (niente copie o backup, terminazioni di riga conservate). |
 | 1.9 | 2026-11-03 | Tolti gli strumenti di risposta `risposta_*` e i loro schemi (`schemi/`): sulla piattaforma erano strumenti custom aggiunti per errore e bloccavano la sessione; lo schema resta solo nel prompt e nella descrizione, la consegna è il messaggio con il JSON (decisione dell'utente). |
+| 1.10 | 2026-11-03 | DX-22, catalogo in `docs/catalogo-variabili.md` (decisione dell'utente): il `doc-writer` scrive lì le variabili e nei documenti cita solo il nome; il `plan-auditor` controlla la coerenza con il catalogo. |
