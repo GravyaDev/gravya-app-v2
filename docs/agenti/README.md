@@ -1,6 +1,6 @@
 # Agenti di governance del progetto
 
-Versione 1.10, 2026-11-03.
+Versione 1.11, 2026-11-03.
 
 Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
@@ -12,10 +12,11 @@ Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno
 | `registrar` | [registrar.md](../../.claude/agents/registrar.md) | Aggiorna `DECISIONS.md`, `index.md`, lo Storico modifiche dei documenti dopo ogni decisione o modifica | `docs/DECISIONS.md`, `docs/index.md`, righe dello Storico | Collaborativa |
 | `plan-auditor` | [plan-auditor.md](../../.claude/agents/plan-auditor.md) | Verifica la coerenza tra principi, decisioni, documenti di dettaglio e master plan | Solo il proprio report | Avversariale |
 | `code-reviewer` | [code-reviewer.md](../../.claude/agents/code-reviewer.md) | Verifica che il codice di una PR implementi il documento di dettaglio, rispetti i criteri di accettazione e i principi | Solo il proprio report | Avversariale |
-| `compliance-auditor` | [compliance-auditor.md](../../.claude/agents/compliance-auditor.md) | Cerca violazioni di GDPR, NIS2, AI Act e osservabilità AI (PV-01) in documenti e codice | Solo il proprio report | Avversariale |
+| `compliance-auditor` | [compliance-auditor.md](../../.claude/agents/compliance-auditor.md) | Cerca violazioni di GDPR, NIS2, AI Act, osservabilità AI (PV-01) e delle altre norme del registro in documenti e codice | Solo il proprio report | Avversariale |
 | `doc-writer` | [doc-writer.md](../../.claude/agents/doc-writer.md) | Redige o aggiorna un documento di dettaglio secondo il template | Solo il file del documento assegnato e le sue righe in `docs/catalogo-variabili.md` | Collaborativa |
 | `code-reader` | [code-reader.md](../../.claude/agents/code-reader.md) | Risponde a domande precise sul codice, con citazioni: ambito "storico" (gravya-app, kloudify, solo riferimento) o "v2" (stato reale rispetto ai documenti) | Solo il proprio report | Ricognizione, sola lettura |
 | `implementer` | [implementer.md](../../.claude/agents/implementer.md) | Implementa codice e test di un documento approvato, un perimetro alla volta, su un branch dedicato; non fa merge | Codice e test sul proprio branch, il proprio report | Collaborativa |
+| `regulatory-researcher` | [regulatory-researcher.md](../../.claude/agents/regulatory-researcher.md) | Cura il registro delle norme `docs/norme-di-riferimento.md`, verificato sulle fonti ufficiali; non dà pareri legali | Solo `docs/norme-di-riferimento.md` | Ricerca |
 
 ## Quando si attivano
 
@@ -25,10 +26,11 @@ L'attivazione è deterministica: a ogni evento corrisponde una sequenza fissa, e
 |---|---|
 | L'utente prende una decisione | `registrar` |
 | Un documento di dettaglio viene creato o modificato | `plan-auditor` e `compliance-auditor` in parallelo, poi `registrar` |
-| Una nuova ondata di documenti | `code-reader` con ambito "storico" (un dossier per documento, in parallelo), poi `doc-writer` (uno per documento, in parallelo, con il dossier), poi `plan-auditor` e `compliance-auditor`, poi `registrar` |
+| Una nuova ondata di documenti | `regulatory-researcher` (aggiornamento del registro delle norme), poi `code-reader` con ambito "storico" (un dossier per documento, in parallelo), poi `doc-writer` (uno per documento, in parallelo, con il dossier), poi `plan-auditor` e `compliance-auditor`, poi `registrar` |
 | Implementazione di un documento approvato | `implementer` sul perimetro deciso, poi la sequenza "Una PR di codice" |
 | Una PR di codice | `code-reviewer` e `compliance-auditor` in parallelo, poi `registrar` se emergono divergenze dal piano |
 | Un punto "non verificato" da chiarire, o lo stato reale dello sviluppo | `code-reader` (ambito "storico" o "v2") |
+| Il `compliance-auditor` segnala norme "Da aggiungere al registro" | `regulatory-researcher` (verifica puntuale), poi `registrar` se cambiano decisioni o documenti |
 | Chiusura di un'ondata o di una milestone | `plan-auditor` sull'insieme completo, poi `registrar` |
 
 **Regola di blocco.** Un esito `BLOCCA` di un agente avversariale ferma la sequenza. Il `registrar` registra il blocco e i rilievi, l'orchestratore li riporta all'utente, e si procede solo dopo una correzione o una decisione esplicita dell'utente. Un esito `RIPORTA` non ferma la sequenza, ma il punto finisce in `DECISIONS.md` come "Da riportare".
@@ -76,3 +78,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 | 1.8 | 2026-11-03 | Esito del collaudo degli agenti (decisioni dell'utente): nuovi agenti `code-reader` (Haiku) e `implementer` (Sonnet) con le loro sequenze; JSON Schema degli strumenti di risposta in `schemi/`; correzioni ai prompt: `doc-writer` (lettura completa delle fonti, niente metadati del task nel documento, i punti "da confermare" restano aperti, campo Dossier nel template), `plan-auditor` (lettura completa delle fonti), `registrar` (niente copie o backup, terminazioni di riga conservate). |
 | 1.9 | 2026-11-03 | Tolti gli strumenti di risposta `risposta_*` e i loro schemi (`schemi/`): sulla piattaforma erano strumenti custom aggiunti per errore e bloccavano la sessione; lo schema resta solo nel prompt e nella descrizione, la consegna è il messaggio con il JSON (decisione dell'utente). |
 | 1.10 | 2026-11-03 | DX-22, catalogo in `docs/catalogo-variabili.md` (decisione dell'utente): il `doc-writer` scrive lì le variabili e nei documenti cita solo il nome; il `plan-auditor` controlla la coerenza con il catalogo. |
+| 1.11 | 2026-11-03 | Nuovo agente `regulatory-researcher` (decisione dell'utente): cura il registro `docs/norme-di-riferimento.md` sulle fonti ufficiali, con perimetro esteso a ePrivacy, marketing e recepimento italiano di NIS2; il `compliance-auditor` cita le norme dal registro e segnala quelle mancanti. Lo invoca sempre il `coordinator`. |

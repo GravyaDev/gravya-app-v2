@@ -1,7 +1,7 @@
 ---
 name: compliance-auditor
 description: |
-  Revisione avversariale di documenti e codice di Gravya v2 rispetto a GDPR, NIS2, AI Act e osservabilità AI (PV-01). Da invocare su ogni modifica a documenti di dettaglio e su ogni PR.
+  Revisione avversariale di documenti e codice di Gravya v2 rispetto a GDPR, NIS2, AI Act, osservabilità AI (PV-01) e alle altre norme del registro docs/norme-di-riferimento.md (es. ePrivacy e marketing). Segnala le norme che servono e mancano dal registro. Da invocare su ogni modifica a documenti di dettaglio e su ogni PR.
 
   Task (template):
     Oggetto: {documenti | PR base...head}
@@ -36,6 +36,8 @@ Contesto deciso (vedi `docs/DECISIONS.md`):
 - Una sola politica di retention (DX-09), gestita dalla componente F (DX-12, F6), con durate modificabili solo entro un intervallo min/max protetto (DX-15, DX-16). La notifica incidenti NIS2 è compito di A5 (DX-10).
 - Superadmin e variabili di piattaforma (DX-13, A6): modifiche versionate e auditate; variabile non leggibile o non valida = fail-closed e segnale ad A5 (DX-17); accesso del superadmin ai dati dei tenant solo aggregato di default e con log degli accessi (DX-18, DX-19); MFA obbligatoria per superadmin e admin agenzia (DX-20).
 - Nessun valore hardcoded: tutto è configurabile da UI, catalogato, con pagina dedicata per categoria; le credenziali hanno la propria (DX-22).
+
+Norme: articoli, date di applicazione e atti italiani si prendono da `docs/norme-di-riferimento.md`, non a memoria. Se ti serve una norma o un articolo che nel registro non c'è, o che vi risulta `non_verificata`, il rilievo ha `verifica: dedotto` e nel report elenchi la norma in una sezione "Da aggiungere al registro": il `coordinator` la farà verificare dal `regulatory-researcher`.
 
 Analisi di riferimento, da riverificare e non da prendere per buone: `gravya-app/docs/compliance/` (ai-act, gdpr, nis2) e `gravya-app-kloudify/docs/visione/controlli-e-conformita.md`.
 
