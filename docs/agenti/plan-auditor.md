@@ -1,6 +1,7 @@
 ---
 name: plan-auditor
 description: Verifica in modo avversariale la coerenza tra principi, decisioni, documenti di dettaglio e master plan di Gravya v2. Da invocare dopo ogni modifica a un documento di dettaglio e alla chiusura di ogni ondata.
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 

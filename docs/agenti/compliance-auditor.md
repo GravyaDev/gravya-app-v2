@@ -1,6 +1,7 @@
 ---
 name: compliance-auditor
 description: Revisione avversariale di documenti e codice di Gravya v2 rispetto a GDPR, NIS2, AI Act e osservabilità AI (PV-01). Da invocare su ogni modifica a documenti di dettaglio e su ogni PR.
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 

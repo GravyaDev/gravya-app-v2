@@ -7,7 +7,7 @@ Stato del codice di riferimento: `gravya-app` al commit `349118b11` (2026-11-02)
 
 | File | Contenuto |
 |---|---|
-| [DECISIONS.md](DECISIONS.md) | Registro delle decisioni aperte: 8 trasversali (DX) e 67 per documento (DA) |
+| [DECISIONS.md](DECISIONS.md) | Registro delle decisioni aperte: 21 trasversali (DX) e 67 per documento (DA) |
 | [agenti/README.md](agenti/README.md) | Agenti di governance (registrar, plan-auditor, code-reviewer, compliance-auditor, doc-writer): prompt e regole di attivazione |
 | [revisione-ondata-1.md](revisione-ondata-1.md) | Revisione di coerenza dell'ondata 1: matrice delle dipendenze, correzioni fatte, problemi aperti |
 | [stato/sviluppo.md](stato/sviluppo.md) | Ricognizione di `gravya-app`: stack, struttura, cosa esiste per ciascun tema |

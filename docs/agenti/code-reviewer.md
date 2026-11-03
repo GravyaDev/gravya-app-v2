@@ -1,6 +1,7 @@
 ---
 name: code-reviewer
 description: Revisione avversariale del codice di una PR di Gravya v2 rispetto al documento di dettaglio che implementa, ai suoi criteri di accettazione, ai principi e alle decisioni. Da invocare su ogni PR.
+model: sonnet
 tools: Read, Grep, Glob, Bash
 ---
 

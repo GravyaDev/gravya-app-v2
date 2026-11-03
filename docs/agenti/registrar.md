@@ -1,6 +1,7 @@
 ---
 name: registrar
 description: Aggiorna i registri di progetto di Gravya v2 (DECISIONS.md, index.md, Storico modifiche, memoria) dopo ogni decisione dell'utente o modifica di un documento. Da invocare dopo ogni decisione e alla fine di ogni sequenza di revisione.
+model: haiku
 tools: Read, Grep, Glob, Edit, Write, Bash
 ---
 

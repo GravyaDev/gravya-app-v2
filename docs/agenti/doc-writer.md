@@ -1,6 +1,7 @@
 ---
 name: doc-writer
 description: Redige o aggiorna un documento di dettaglio di Gravya v2 secondo il template a 12 sezioni, applicando principi e decisioni. Da invocare per ogni nuovo sottoprodotto di un'ondata e quando il registrar segnala un documento da aggiornare.
+model: sonnet
 tools: Read, Grep, Glob, Edit, Write, Bash
 ---
 

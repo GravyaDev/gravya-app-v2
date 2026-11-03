@@ -28,9 +28,24 @@ L'attivazione è deterministica: a ogni evento corrisponde una sequenza fissa, e
 
 **Regola di blocco.** Un esito `BLOCCA` di un agente avversariale ferma la sequenza. Il `registrar` registra il blocco e i rilievi, l'orchestratore li riporta all'utente, e si procede solo dopo una correzione o una decisione esplicita dell'utente. Un esito `RIPORTA` non ferma la sequenza, ma il punto finisce in `DECISIONS.md` come "Da riportare".
 
+## Modello
+
+Per decisione dell'utente (2026-11-03) gli agenti di governance **non usano Opus**:
+
+| Agente | Modello | Motivo |
+|---|---|---|
+| `registrar` | `haiku` | Compito meccanico: aggiorna i registri da input già decisi |
+| `doc-writer` | `sonnet` | Redazione strutturata con ragionamento sulle dipendenze |
+| `plan-auditor`, `compliance-auditor`, `code-reviewer` | `sonnet` | Revisione avversariale |
+
+Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Claude Code rispetta quando l'agente sta in `.claude/agents/`. Le copie per Claude Code sono in `/.claude/agents/` del repository e vanno tenute allineate a questa cartella.
+
+**Limite noto:** una sessione che gira su Opus e lancia agenti inline (workflow) non può scegliere Sonnet o Haiku: gli agenti ereditano il modello della sessione. Per rispettare questa regola, le sequenze vanno eseguite da una sessione Claude Code aperta nel repository, che usi gli agenti di `.claude/agents/`, oppure da una sessione impostata su Sonnet.
+
 ## Come si invocano
 
-- **In sessione:** l'orchestratore usa il testo del file (dopo l'intestazione YAML) come istruzioni di sistema dell'agente, e il blocco "Task" del file, con le variabili compilate, come brief. Se gli agenti sono più di uno, li lancia con un workflow; il formato di risposta in JSON permette di leggere l'esito nello script.
+- **In Claude Code (consigliato):** gli agenti si trovano in `.claude/agents/` e vengono invocati per nome; il campo `model:` assicura Sonnet o Haiku.
+- **In una sessione di pianificazione:** solo se la sessione non è su Opus, oppure se l'utente lo autorizza esplicitamente.
 - **Nel repository:** quando esisterà la CI di v2, `code-reviewer` e `compliance-auditor` diventano controlli obbligatori sulle PR. Il loro esito `BLOCCA` fa fallire il controllo.
 
 ## Regole comuni a tutti gli agenti
