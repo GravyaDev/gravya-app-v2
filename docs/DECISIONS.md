@@ -38,6 +38,7 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 | DX-19 | **Visibilità di default del superadmin sui dati dei tenant (R5, DA-E1-08).** | E1, A6, A1, A3 | **Decisa (2026-11-03, utente)** | Di default il superadmin vede solo dati aggregati senza identificativi; la lettura di una singola traccia è ammessa solo su richiesta dell'agenzia o per un incidente, con log degli accessi (DX-18). | Conferma dell'utente delle proposte ("confermo tutte le tue proposte") | 2026-11-03 |
 | DX-20 | **Autenticazione del superadmin (R6).** | A6 | **Decisa (2026-11-03, utente)** | L'autenticazione del superadmin è responsabilità di A6; MFA obbligatoria per superadmin e admin di agenzia. | Conferma dell'utente delle proposte ("confermo tutte le tue proposte") | 2026-11-03 |
 | DX-21 | **Minori del plan-auditor (revisioni/plan-auditor-2026-11-03.md, R5-R8).** | A1, A3, B2, E1, A6, F6 | **Decisa (2026-11-03, utente)** | Nome unico `config_version` per la versione della configurazione, aggiunto alla whitelist del segmento decision di E1; produttore dell'evento `platform.config.changed` è A6; le classi senza durata (nodi ed edge del grafo, `outputs_ref`, contatori di rate limit, esiti idempotency, token consumati) le assegna F6 e vanno citate come tali; l'identità dell'attore è fornita da A6, non da A3. | Conferma dell'utente delle proposte ("confermo tutte le tue proposte") | 2026-11-03 |
+| DX-22 | **Nessun valore hardcoded; catalogo delle variabili.** | Tutti | **Decisa (2026-11-03, utente)** | "TUTTO DEVE ESSERE CONFIGURABILE DA UI SUPERADMIN O ADMIN AGENZIA, NIENTE HARDCODED MAI! Ogni variabile va catalogata e inserita nella sua sezione/pagina dedicata (es. credenziali sarà in una sua pagina/sezione, ecc.)" | Decisione dell'utente. Responsabile del catalogo e del registro versionato: A6 (DX-14). DX-13, DX-16 e DX-17 restano valide. Formato e posizione del catalogo: da definire (§4). | 2026-11-03 |
 
 ---
 
@@ -89,7 +90,7 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 | DA-C3-01 | Riuso dei moduli HITL in v2 | Chiusa da DX-01 | Decisa (2026-11-03) |
 | DA-C3-02 | Dove vive il nodo HITL | Solo nel motore unico scelto da C1 | Aperta (dipende da DA-C1-01) |
 | DA-C3-03 | Fonte del contratto condiviso | JSON Schema neutro | Aperta (= DX-04) |
-| DA-C3-04 | TTL delle richieste HITL | 24 h fisse in ondata 1 | Aperta |
+| DA-C3-04 | TTL delle richieste HITL | 24 h come valore di default, configurabile (proposta del coordinatore, da confermare: il superadmin fissa default e intervallo min/max, l'admin agenzia sceglie entro l'intervallo). Min/max da definire (§4) | **Decisa (2026-11-03, utente)** |
 
 ## 3. Decisioni aggiunte nella v1.2 (ripartenza da zero e conformità)
 
@@ -121,6 +122,10 @@ Queste decisioni non sono in nessun singolo documento. Ricorrono in più documen
 ## 4. Lacune trasversali emerse nella v1.2
 
 - ~~Notifica degli incidenti NIS2~~: assegnata ad A5 (DX-10).
+- **Da riportare. DA-C3-04, intervallo min/max del TTL HITL**: ripartizione proposta (da confermare): il superadmin fissa default e intervallo, l'admin agenzia sceglie entro l'intervallo (DX-22). Valori min/max non definiti: non inventarli, da fornire.
+- **Da riportare. DX-22, valori con vincolo di legge** (es. scadenze NIS2 24 h/72 h di DX-10): sono configurabili solo entro limiti che non violano la norma? Da confermare.
+- **Da riportare. DX-22, credenziali**: la pagina dedicata gestisce i segreti, ma il valore va in un archivio cifrato e non è leggibile in chiaro da UI. Da confermare.
+- **Da riportare. DX-22, formato e posizione del catalogo delle variabili**: documento proprio o sezione di A6. Da decidere.
 - **Mutazioni del grafo A1**: non è deciso se diventano segmenti di traccia E1 (con un nuovo kind) o solo eventi di audit.
 - ~~Ruoli GDPR e classificazione di rischio AI Act~~: decisi (DX-11).
 

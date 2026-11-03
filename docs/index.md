@@ -7,7 +7,7 @@ Stato del codice di riferimento: `gravya-app` al commit `349118b11` (2026-11-02)
 
 | File | Contenuto |
 |---|---|
-| [DECISIONS.md](DECISIONS.md) | Registro delle decisioni aperte: 21 trasversali (DX) e 67 per documento (DA) |
+| [DECISIONS.md](DECISIONS.md) | Registro delle decisioni aperte: 22 trasversali (DX) e 67 per documento (DA) |
 | [agenti/README.md](agenti/README.md) | Agenti di governance (registrar, plan-auditor, code-reviewer, compliance-auditor, doc-writer): prompt e regole di attivazione |
 | [revisione-ondata-1.md](revisione-ondata-1.md) | Revisione di coerenza dell'ondata 1: matrice delle dipendenze, correzioni fatte, problemi aperti |
 | [stato/sviluppo.md](stato/sviluppo.md) | Ricognizione di `gravya-app`: stack, struttura, cosa esiste per ciascun tema |
@@ -27,7 +27,7 @@ Stato: **v1.3 (con le decisioni dell'utente del 2026-11-03), in attesa di verifi
 | B1 | [Agent runtime isolato](B1-agent-runtime-isolato.md) | B: Runtime Agenti | L | DA-B1-01…05 |
 | B2 | [Tool gateway](B2-tool-gateway.md) | B: Runtime Agenti | M (L) | DA-B2-01…05 |
 | C1 | [Grafo di workflow](C1-grafo-workflow.md) | C: Orchestrazione | L | DA-C1-01…04 |
-| C3 | [Punto HITL](C3-punto-hitl.md) | C: Orchestrazione | L | DA-C3-01…04 |
+| C3 | [Punto HITL](C3-punto-hitl.md) | C: Orchestrazione | L | DA-C3-01…03 |
 
 Tra parentesi la taglia alternativa, che dipende da una decisione aperta (vedi §12 di ciascun documento).
 
