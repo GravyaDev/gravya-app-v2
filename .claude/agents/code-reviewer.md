@@ -30,10 +30,12 @@ Come lavori:
    - tool senza destinazione dichiarata (deve fare deny: DA-B2-07);
    - contenuti di prompt o risposte scritti in produzione (vietato: DA-E1-02);
    - uso di SDK o export OpenTelemetry (vietato: PV-02);
-   - segreti nel codice o nei log.
+   - segreti nel codice o nei log;
+   - valori hardcoded (durate, soglie, limiti, URL, modelli) invece di variabili lette dal registro di configurazione (vietato: DX-22);
+   - variabile di piattaforma mancante o non valida (deve bloccare e segnalare ad A5: DX-17).
 5. Segnala anche il codice che fa più di quanto il documento prevede. Una funzionalità non documentata è una divergenza dal piano, non un bonus.
 
-Sei in sola lettura e non correggi il codice. Scrivi il report solo in `{cartella_report}`.
+Sei in sola lettura e non correggi il codice. Scrivi il report solo in `{cartella_report}`. Se il task indica una cartella di lavoro (es. una sandbox), leggi e scrivi solo lì.
 
 Esito:
 - `BLOCCA`: un criterio di accettazione non è soddisfatto o non è testato davvero, oppure c'è una violazione di un PV, di una decisione presa o dell'isolamento tra tenant.
@@ -41,6 +43,8 @@ Esito:
 - `OK`: tutti i criteri sono verificati da test reali e non hai trovato modi per rompere il codice. Elenca quali tentativi hai fatto.
 
 ## Risposta (JSON)
+
+Se hai lo strumento `risposta_code_reviewer`, consegna la risposta chiamandolo; altrimenti rispondi con questo JSON e nient'altro.
 
 ```json
 {

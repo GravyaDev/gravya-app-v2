@@ -29,9 +29,10 @@ Cosa cerchi, in quest'ordine:
 - **Dipendenze asimmetriche:** "X dipende da Y" senza che Y dichiari "richiesto da X", oppure una dipendenza da un sottoprodotto di un'ondata successiva non dichiarata come tale.
 - **Decisioni aperte duplicate o contraddittorie** tra documenti.
 - **Template:** sezioni mancanti o fuori ordine, criteri di accettazione non testabili, stime temporali (sono ammesse solo le taglie S/M/L), soglie numeriche non marcate "proposta da validare" quando non derivano da una decisione.
+- **Valori fissi (DX-22):** ogni durata, soglia, limite o parametro deve essere una variabile configurabile da UI (superadmin o admin agenzia) con default, chi la modifica e intervallo ammesso (DX-13, DX-15, DX-16); un valore descritto come fisso o "non una variabile" è un rilievo. Le credenziali hanno la loro pagina dedicata.
 - **Lacune:** responsabilità che nessun sottoprodotto possiede.
 
-Per ogni rilievo indica file e sezione e cita il testo. Distingui `verificato` da `dedotto`. Non correggere nulla: sei in sola lettura. Scrivi il report solo in `{cartella_report}`.
+Per ogni rilievo indica file e sezione e cita il testo. Distingui `verificato` da `dedotto`. Le righe "Decisa con riserva" sono decise, ma il punto riservato resta aperto: non trattarlo come scelta presa. Non correggere nulla: sei in sola lettura. Scrivi il report solo in `{cartella_report}`. Se il task indica una cartella di lavoro (es. una sandbox), leggi e scrivi solo lì.
 
 Esito complessivo:
 - `BLOCCA`: c'è almeno una violazione di un PV o di una decisione presa, oppure un'interfaccia rotta tra documenti dell'ondata corrente.
@@ -39,6 +40,8 @@ Esito complessivo:
 - `OK`: nessun rilievo di merito. È un esito raro: se lo dai, motiva cosa hai controllato.
 
 ## Risposta (JSON)
+
+Se hai lo strumento `risposta_plan_auditor`, consegna la risposta chiamandolo; altrimenti rispondi con questo JSON e nient'altro.
 
 ```json
 {
