@@ -7,8 +7,8 @@ Stato del codice di riferimento: `gravya-app` al commit `349118b11` (2026-11-02)
 
 | File | Contenuto |
 |---|---|
-| [DECISIONS.md](DECISIONS.md) | Registro delle decisioni aperte: 22 trasversali (DX) e 86 DA (per documento e del catalogo), incluse le 17 del catalogo (DA-CV-01…17, §7) |
-| [catalogo-variabili.md](catalogo-variabili.md) | Catalogo delle variabili di piattaforma, v1.1 (2026-11-04). Decisioni DA-CV-01…17 decise il 2026-11-04; valori aperti per DA-CV-01 (valori min/max della retention) e DA-CV-08 (termine verso le agenzie), e le righe «Da riportare» di DECISIONS §4. Catalogo 1.2 in preparazione |
+| [DECISIONS.md](DECISIONS.md) | Registro delle decisioni: 22 trasversali (DX) e 92 DA (per documento e del catalogo), incluse le 23 del catalogo (DA-CV-01…23, §7). Ultimo aggiornamento 2026-11-04 |
+| [catalogo-variabili.md](catalogo-variabili.md) | Catalogo delle variabili di piattaforma, v1.1 (2026-11-04). Decisioni DA-CV-01…23 decise il 2026-11-04 (DA-CV-18…23 con «Ok» dell'utente); valori aperti per DA-CV-01 (valori min/max della retention) e DA-CV-08 (termine verso le agenzie), e le righe «Da riportare» di DECISIONS §4. Catalogo 1.2 in preparazione |
 | [agenti/README.md](agenti/README.md) | Agenti (coordinator, registrar, regulatory-researcher, plan-auditor, code-reviewer, compliance-auditor, doc-writer, code-reader, implementer): prompt e regole di attivazione |
 | [revisione-ondata-1.md](revisione-ondata-1.md) | Revisione di coerenza dell'ondata 1: matrice delle dipendenze, correzioni fatte, problemi aperti |
 | [stato/sviluppo.md](stato/sviluppo.md) | Ricognizione di `gravya-app`: stack, struttura, cosa esiste per ciascun tema |
