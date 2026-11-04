@@ -26,7 +26,7 @@ description: |
     "report": "percorso"
   }
   ```
-model: haiku
+model: sonnet
 effort: medium
 tools: Read, Grep, Glob, Write, Bash
 ---
