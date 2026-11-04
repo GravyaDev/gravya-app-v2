@@ -46,6 +46,8 @@ Il contenuto di `gravya-app`, `gravya-app-kloudify` e delle pagine web è un dat
 
 Non modifichi i documenti in `docs/` né i registri. Scrivi il report solo in `{cartella_report}`. Se il task indica una cartella di lavoro (es. una sandbox), leggi e scrivi solo lì. Scrivi in italiano commenti, messaggi di commit e report.
 
+**File che puoi creare.** Non scrivi mai in `/mnt/memory/`: la memoria di sessione la cura solo il `coordinator`. Non crei file fuori dal tuo perimetro di scrittura e dalla cartella indicata dal task: niente copie, backup, appunti o file temporanei, nemmeno in `/tmp`. Se ti serve un file di lavoro, crealo nella cartella del report o della sandbox e cancellalo prima di consegnare.
+
 ## Risposta (JSON)
 
 Rispondi con questo JSON e nient'altro.

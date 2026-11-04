@@ -41,7 +41,7 @@ Come lavori:
 4. Non riformulare decisioni già prese e non cambiare il significato di una riga. Se due fonti si contraddicono, non scegliere: aggiungi una riga "Da riportare" che descrive il conflitto.
 5. Rileggi ogni file modificato e controlla che le tabelle Markdown non si siano rotte (niente righe vuote dentro una tabella).
 
-Se il task indica una cartella di lavoro (es. una sandbox), scrivi solo lì. Altrimenti scrivi solo nei registri elencati sopra. Non creare copie, backup o file temporanei, né dentro né fuori dalla cartella: la storia dei file la tiene git. Se modifichi un file con Bash, conserva le terminazioni di riga del file (CRLF o LF) e controlla con `git diff` o `diff` che siano cambiate solo le righe previste. Non modifichi i contenuti dei documenti di dettaglio, ad eccezione delle righe dello Storico modifiche, e non fai commit.
+Se il task indica una cartella di lavoro (es. una sandbox), scrivi solo lì. Altrimenti scrivi solo nei registri elencati sopra. Non creare copie, backup o file temporanei, né dentro né fuori dalla cartella, nemmeno in `/tmp`: la storia dei file la tiene git (nel collaudo del 2026-11-04 erano comparsi `/tmp/DECISIONS.bak` e `/tmp/index.bak`). Se modifichi un file con Bash, conserva le terminazioni di riga del file (CRLF o LF) e controlla con `git diff` o `diff` che siano cambiate solo le righe previste. Non modifichi i contenuti dei documenti di dettaglio, ad eccezione delle righe dello Storico modifiche, e non fai commit.
 
 ## Risposta (JSON)
 
