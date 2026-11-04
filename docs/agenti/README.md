@@ -1,6 +1,6 @@
 # Agenti di governance del progetto
 
-Versione 1.16, 2026-11-04.
+Versione 1.17, 2026-11-04.
 
 Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
@@ -32,6 +32,8 @@ L'attivazione è deterministica: a ogni evento corrisponde una sequenza fissa, e
 | Un punto "non verificato" da chiarire, o lo stato reale dello sviluppo | `code-reader` (ambito "storico" o "v2"); su un repository grande, più istanze in parallelo, ciascuna con il proprio `Perimetro` |
 | Il `compliance-auditor` segnala norme "Da aggiungere al registro" | `regulatory-researcher` (verifica puntuale), poi `registrar` se cambiano decisioni o documenti |
 | Chiusura di un'ondata o di una milestone | `plan-auditor` sull'insieme completo, poi `registrar` |
+
+**v1.5 dell'ondata 1 (decisioni dell'utente del 2026-11-04, DECISIONS §4).** Niente dossier nuovi del `code-reader` per ogni documento: solo per i punti "non verificati" su cui poggia una scelta. Il catalogo `docs/catalogo-variabili.md` lo redige prima un solo `doc-writer`; poi i `doc-writer` dei singoli documenti, in parallelo, non scrivono nel catalogo ma elencano le variabili nel campo `variabili` della risposta, e il `coordinator` le unisce nel catalogo. Il vincolo va scritto nel task di ogni `doc-writer`.
 
 **Regola di blocco.** Un esito `BLOCCA` di un agente avversariale ferma la sequenza. Il `registrar` registra il blocco e i rilievi, l'orchestratore li riporta all'utente, e si procede solo dopo una correzione o una decisione esplicita dell'utente. Un esito `RIPORTA` non ferma la sequenza, ma il punto finisce in `DECISIONS.md` come "Da riportare".
 
@@ -85,3 +87,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 | 1.14 | 2026-11-04 | Esito del collaudo della sessione 5 (decisioni dell'utente, `docs/revisioni/collaudo-agenti-2026-11-04/`): `code-reader` passa da Haiku a Sonnet (impegno medio), per gli errori di citazione nelle sintesi; `implementer` a impegno medio, come già configurato dall'utente sulla piattaforma; nel prompt dell'`implementer` anche minimo, massimo e valori decisi vanno nel registro e non nel codice (DX-22), e ogni conflitto tra criterio e righe decise di `DECISIONS.md` va in `divergenze`. |
 | 1.15 | 2026-11-04 | Regola comune 6 e sezione "File che puoi creare" nei prompt di tutti gli agenti (al `registrar` rafforzata la regola esistente): niente scritture in `/mnt/memory/` né file fuori dal perimetro, nemmeno in `/tmp`. Motivo: nel collaudo il `regulatory-researcher` aveva scritto un file in memoria e il `registrar` due backup in `/tmp`, poi cancellati (decisione dell'utente). |
 | 1.16 | 2026-11-04 | Esito del collaudo della sessione 6 (`docs/revisioni/collaudo-agenti-2026-11-04b/`, decisione dell'utente). `doc-writer`: legge per intero il registro delle norme e ne prende articoli e date; nel documento non dichiara "verificati sul codice" i punti del dossier che non ha ricontrollato, e quelli su cui poggia una scelta vanno nell'Appendice B. `plan-auditor` e `compliance-auditor`: nel JSON solo le chiavi dello schema. Motivo: nel collaudo il doc-writer aveva definito "verificati sul codice" i punti del dossier senza ricontrollarli e non aveva letto il registro; i due auditor avevano aggiunto chiavi fuori schema. Le descrizioni non cambiano. |
+| 1.17 | 2026-11-04 | Deroga per la v1.5 dell'ondata 1 (decisioni 7 e 8 dell'utente, sessione 7): dossier del `code-reader` solo per i punti non verificati su cui poggia una scelta; catalogo delle variabili redatto da un solo `doc-writer` e poi unito dal `coordinator`, perché più `doc-writer` in parallelo sullo stesso file si sovrascriverebbero. I prompt non cambiano: il vincolo sta nel task. |
