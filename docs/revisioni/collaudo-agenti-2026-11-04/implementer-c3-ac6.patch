@@ -1,0 +1,554 @@
+From cdb1db4128f183c70a611064466714608ba380f2 Mon Sep 17 00:00:00 2001
+From: collaudo <collaudo@gravya.test>
+Date: Wed, 4 Nov 2026 09:02:51 +0000
+Subject: [PATCH] C3 AC-6: sweeper del TTL HITL con lettura da registro (DX-13)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Implementa il perimetro assegnato di C3-punto-hitl.md v1.4: lo sweeper che
+chiude le righe hitl_requests scadute oltre il TTL (pending, approved non
+reclamata, reclamata senza esito -> reaped) senza mai rieseguire la
+chiamata (AC-6), con TTL letto da un'interfaccia ConfigRegistry (DX-13,
+DA-C3-04) invece che hardcoded (DX-22).
+
+- db/migrations/001_hitl_requests.sql: tabella hitl_requests minima
+  secondo C3 §4.3 (fuori perimetro: RLS FORCE/AC-7, retention/AC-11),
+  tool_executions per provare l'assenza di riesecuzione, platform_signals
+  come segnale di collaudo verso A5 (DX-17, A5 non esiste ancora).
+- src/config-registry.js: interfaccia ConfigRegistry + InMemoryConfigRegistry
+  di test (il registro reale è A6/DX-14, non deciso).
+- src/hitl-expiry-sweeper.js: sweepHitlRequests, fail-closed per azienda se
+  il TTL non è leggibile o fuori intervallo 1-168h (DA-C3-04, DX-17).
+- test/hitl-expiry-sweeper.realpg.test.js: su Postgres reale (sul modello
+  di gravya-app kloud-write-approvals.realpg.test.ts), copre AC-6 (100%
+  chiuse, nessuna riesecuzione), idempotenza, soglia netta del TTL,
+  fail-closed DX-17 (valore mancante/fuori intervallo) senza bloccare le
+  altre aziende, isolamento tra aziende con TTL diversi.
+
+Verificato con mutazioni: disattivare il cutoff reale o il fail-closed fa
+fallire rispettivamente 3 e 1 dei 6 test nuovi.
+---
+ db/migrations/001_hitl_requests.sql     |  49 ++++++
+ src/config-registry.js                  |  77 +++++++++
+ src/hitl-expiry-sweeper.js              | 130 ++++++++++++++++
+ test/helpers/db.js                      |  24 +++
+ test/hitl-expiry-sweeper.realpg.test.js | 198 ++++++++++++++++++++++++
+ 5 files changed, 478 insertions(+)
+ create mode 100644 db/migrations/001_hitl_requests.sql
+ create mode 100644 src/config-registry.js
+ create mode 100644 src/hitl-expiry-sweeper.js
+ create mode 100644 test/helpers/db.js
+ create mode 100644 test/hitl-expiry-sweeper.realpg.test.js
+
+diff --git a/db/migrations/001_hitl_requests.sql b/db/migrations/001_hitl_requests.sql
+new file mode 100644
+index 0000000..409baca
+--- /dev/null
++++ b/db/migrations/001_hitl_requests.sql
+@@ -0,0 +1,49 @@
++-- C3 — Punto HITL. Tabella minima per il perimetro di questo collaudo (AC-6: sweeper del TTL).
++-- Campi secondo C3 §4.3 (versione 1.4). Fuori perimetro in questa migrazione: RLS FORCE (AC-7),
++-- retention/cancellazione di arguments/context (AC-11), collegamento a C4.
++--
++-- id generato dall'applicazione (node:crypto randomUUID): l'utente di collaudo non è superuser e
++-- non si presume l'estensione pgcrypto installata.
++
++CREATE TABLE IF NOT EXISTS hitl_requests (
++  id uuid PRIMARY KEY,
++  company_id uuid NOT NULL,
++  run_id text NOT NULL,
++  tool_key text NOT NULL,
++  permission_key text NOT NULL,
++  arguments jsonb NOT NULL,
++  context jsonb,
++  status text NOT NULL CHECK (status IN ('pending', 'approved', 'rejected', 'cancelled')),
++  outcome text CHECK (outcome IN ('ok', 'refused', 'error')),
++  outcome_code text,
++  claimed_at timestamptz,
++  decided_by_user_id uuid,
++  decided_at timestamptz,
++  feedback text,
++  created_at timestamptz NOT NULL DEFAULT now(),
++  updated_at timestamptz NOT NULL DEFAULT now()
++);
++
++CREATE INDEX IF NOT EXISTS idx_hitl_requests_open ON hitl_requests (company_id, status)
++  WHERE status IN ('pending', 'approved');
++
++-- Rappresenta "l'esecuzione della chiamata" (B2). Non fa parte del contratto C3, serve solo al
++-- collaudo di AC-6 per provare che lo sweeper non rieseguisce mai una riga: se un test vede una
++-- riga qui dopo il passaggio dello sweeper su una riga "reaped", il criterio è violato.
++CREATE TABLE IF NOT EXISTS tool_executions (
++  id uuid PRIMARY KEY,
++  hitl_request_id uuid NOT NULL REFERENCES hitl_requests (id),
++  company_id uuid NOT NULL,
++  executed_at timestamptz NOT NULL DEFAULT now()
++);
++
++-- Segnali verso A5 (DX-17): A5 non esiste ancora (ondata 2). Tabella minima di collaudo per
++-- verificare che il fail-closed sulla variabile di piattaforma mancante/non valida produca un
++-- segnale, non per sostituire A5.
++CREATE TABLE IF NOT EXISTS platform_signals (
++  id uuid PRIMARY KEY,
++  company_id uuid,
++  signal_type text NOT NULL,
++  details jsonb NOT NULL,
++  created_at timestamptz NOT NULL DEFAULT now()
++);
+diff --git a/src/config-registry.js b/src/config-registry.js
+new file mode 100644
+index 0000000..e654427
+--- /dev/null
++++ b/src/config-registry.js
+@@ -0,0 +1,77 @@
++/**
++ * Interfaccia di lettura del registro delle variabili di piattaforma (DX-13/DX-14, A6).
++ *
++ * Il registro reale (schema, API, chi lo possiede) è responsabilità del sottoprodotto A6, non
++ * ancora deciso (C3 v1.4 §3 e Appendice C, "DA RIPORTARE": "registro delle variabili di
++ * piattaforma gestito dal superadmin ... non ancora decisa"). Niente valori hardcoded (DX-22):
++ * questo modulo definisce solo l'interfaccia di lettura che uno sweeper consuma, con
++ * un'implementazione di test in-memory, come richiesto quando il registro non esiste ancora.
++ *
++ * Variabile letta dallo sweeper: `hitl.request_ttl_hours` (DA-C3-04, decisa il 2026-11-03):
++ * default 24h, intervallo ammesso [1h, 168h], il superadmin fissa default e intervallo, l'admin
++ * di ogni azienda può scegliere un proprio valore entro l'intervallo (DX-22). L'implementazione
++ * reale della risoluzione per-azienda/di piattaforma non è definita (vedi decisioni_mancanti nel
++ * report): qui l'interfaccia espone solo il valore finale già risolto per l'azienda.
++ */
++
++export const HITL_REQUEST_TTL_HOURS_MIN = 1;
++export const HITL_REQUEST_TTL_HOURS_MAX = 168;
++
++export function isValidHitlRequestTtlHours(value) {
++  return (
++    typeof value === "number" &&
++    Number.isFinite(value) &&
++    value >= HITL_REQUEST_TTL_HOURS_MIN &&
++    value <= HITL_REQUEST_TTL_HOURS_MAX
++  );
++}
++
++/**
++ * @typedef {{ ok: true, value: number, version: string }} ConfigReadOk
++ * @typedef {{ ok: false, reason: "missing" | "out_of_range" }} ConfigReadFail
++ * @typedef {ConfigReadOk | ConfigReadFail} ConfigReadResult
++ */
++
++/**
++ * Contratto che ogni implementazione del registro deve rispettare. Non istanziare
++ * direttamente: è solo la forma dell'interfaccia.
++ */
++export class ConfigRegistry {
++  /**
++   * @param {string} _companyId
++   * @returns {Promise<ConfigReadResult>}
++   */
++  // eslint-disable-next-line no-unused-vars
++  async getHitlRequestTtlHours(_companyId) {
++    throw new Error("ConfigRegistry.getHitlRequestTtlHours non implementato");
++  }
++}
++
++/**
++ * Implementazione di test: valori tenuti in memoria. Non è il registro reale (A6/DX-14, non
++ * deciso); serve a non introdurre valori hardcoded nello sweeper durante lo sviluppo e il
++ * collaudo di C3 (DX-22).
++ */
++export class InMemoryConfigRegistry extends ConfigRegistry {
++  /**
++   * @param {{ platformDefault?: unknown, perCompany?: Record<string, unknown>, version?: string }} opts
++   */
++  constructor({ platformDefault, perCompany = {}, version = "test-v1" } = {}) {
++    super();
++    this.platformDefault = platformDefault;
++    this.perCompany = perCompany;
++    this.version = version;
++  }
++
++  async getHitlRequestTtlHours(companyId) {
++    const hasOverride = companyId != null && Object.prototype.hasOwnProperty.call(this.perCompany, companyId);
++    const raw = hasOverride ? this.perCompany[companyId] : this.platformDefault;
++    if (raw === undefined || raw === null) {
++      return { ok: false, reason: "missing" };
++    }
++    if (!isValidHitlRequestTtlHours(raw)) {
++      return { ok: false, reason: "out_of_range" };
++    }
++    return { ok: true, value: raw, version: this.version };
++  }
++}
+diff --git a/src/hitl-expiry-sweeper.js b/src/hitl-expiry-sweeper.js
+new file mode 100644
+index 0000000..54473a0
+--- /dev/null
++++ b/src/hitl-expiry-sweeper.js
+@@ -0,0 +1,130 @@
++/**
++ * C3 — Punto HITL, sweeper di scadenza (§6 "Scadenza", §9 fase 5, AC-6).
++ *
++ * Perimetro di questo modulo: solo lo sweeper e la lettura del TTL. Fuori perimetro: la
++ * cancellazione di `arguments`/`context` dopo la retention (AC-11), il collegamento a C4, la RLS
++ * (AC-7), il replay/resume.
++ *
++ * Tre modi in cui una riga parcheggiata "muore" oltre il TTL (C3 §6):
++ *   - `pending` oltre il TTL: nessuno ha deciso -> `cancelled`;
++ *   - `approved` ma mai reclamata oltre il TTL: nessun run la eseguirà -> `cancelled`;
++ *   - reclamata (`claimed_at` valorizzato) senza esito oltre il TTL: lo stato della scrittura è
++ *     sconosciuto -> si registra `outcome='error'`/`outcome_code='reaped'`, lo `status` RESTA
++ *     `approved`. Non viene MAI rieseguita qui: il claim è ciò che rende la scrittura unica, e un
++ *     reaper che la rieseguisse sarebbe un secondo writer (AC-6).
++ *
++ * TTL: variabile di piattaforma `hitl.request_ttl_hours` (DX-13, DA-C3-04), letta per ogni
++ * azienda dal registro (ConfigRegistry). Se il valore non è leggibile o non è valido, lo sweeper
++ * NON chiude nessuna riga di quell'azienda (fail-closed, DX-17) ed emette un segnale.
++ */
++
++import { randomUUID } from "node:crypto";
++
++const DEFAULT_SIGNAL_TYPE = "config_variable_unreadable";
++
++/**
++ * @param {import('pg').Pool | import('pg').Client} db
++ * @param {string} companyId
++ * @param {string} signalType
++ * @param {Record<string, unknown>} details
++ */
++async function emitSignal(db, companyId, signalType, details) {
++  await db.query(
++    `INSERT INTO platform_signals (id, company_id, signal_type, details) VALUES ($1, $2, $3, $4)`,
++    [randomUUID(), companyId, signalType, details],
++  );
++}
++
++/**
++ * Chiude le righe scadute di una sola azienda. Tre UPDATE basati su predicato, ciascuno con
++ * `company_id = $1` nella propria WHERE, così il passaggio di un'azienda non può mai toccare le
++ * righe di un'altra.
++ *
++ * @param {import('pg').Pool | import('pg').Client} db
++ * @param {string} companyId
++ * @param {string} cutoffIso
++ */
++async function expireCompanyRows(db, companyId, cutoffIso) {
++  const cancelPending = await db.query(
++    `UPDATE hitl_requests
++        SET status = 'cancelled', updated_at = now()
++      WHERE company_id = $1
++        AND status = 'pending'
++        AND created_at < $2
++      RETURNING id`,
++    [companyId, cutoffIso],
++  );
++
++  const cancelUnclaimed = await db.query(
++    `UPDATE hitl_requests
++        SET status = 'cancelled', updated_at = now()
++      WHERE company_id = $1
++        AND status = 'approved'
++        AND claimed_at IS NULL
++        AND COALESCE(decided_at, created_at) < $2
++      RETURNING id`,
++    [companyId, cutoffIso],
++  );
++
++  const reaped = await db.query(
++    `UPDATE hitl_requests
++        SET outcome = 'error', outcome_code = 'reaped', updated_at = now()
++      WHERE company_id = $1
++        AND status = 'approved'
++        AND claimed_at IS NOT NULL
++        AND outcome IS NULL
++        AND claimed_at < $2
++      RETURNING id`,
++    [companyId, cutoffIso],
++  );
++
++  return {
++    cancelledPending: cancelPending.rowCount,
++    cancelledUnclaimed: cancelUnclaimed.rowCount,
++    reaped: reaped.rowCount,
++  };
++}
++
++/**
++ * @param {import('pg').Pool} db
++ * @param {{ now?: Date, configRegistry: import('./config-registry.js').ConfigRegistry }} options
++ * @returns {Promise<{
++ *   scanned: number,
++ *   cancelled: number,
++ *   reaped: number,
++ *   blockedCompanies: string[],
++ * }>}
++ */
++export async function sweepHitlRequests(db, { now = new Date(), configRegistry }) {
++  if (!configRegistry) {
++    throw new Error("sweepHitlRequests richiede un configRegistry (DX-13): niente default hardcoded");
++  }
++
++  const { rows: companies } = await db.query(
++    `SELECT DISTINCT company_id FROM hitl_requests WHERE status IN ('pending', 'approved')`,
++  );
++
++  const result = { scanned: companies.length, cancelled: 0, reaped: 0, blockedCompanies: [] };
++
++  for (const { company_id: companyId } of companies) {
++    const ttl = await configRegistry.getHitlRequestTtlHours(companyId);
++    if (!ttl.ok) {
++      // DX-17 fail-closed: variabile mancante o non valida -> l'azione (chiudere le righe) si
++      // blocca per questa azienda, e parte un segnale (qui verso la tabella di collaudo
++      // `platform_signals`, in attesa di A5, ondata 2).
++      result.blockedCompanies.push(companyId);
++      await emitSignal(db, companyId, DEFAULT_SIGNAL_TYPE, {
++        variable: "hitl.request_ttl_hours",
++        reason: ttl.reason,
++      });
++      continue;
++    }
++
++    const cutoffIso = new Date(now.getTime() - ttl.value * 60 * 60 * 1000).toISOString();
++    const { cancelledPending, cancelledUnclaimed, reaped } = await expireCompanyRows(db, companyId, cutoffIso);
++    result.cancelled += cancelledPending + cancelledUnclaimed;
++    result.reaped += reaped;
++  }
++
++  return result;
++}
+diff --git a/test/helpers/db.js b/test/helpers/db.js
+new file mode 100644
+index 0000000..ed48fd5
+--- /dev/null
++++ b/test/helpers/db.js
+@@ -0,0 +1,24 @@
++import { readFile } from "node:fs/promises";
++import path from "node:path";
++import { fileURLToPath } from "node:url";
++import pg from "pg";
++
++const __dirname = path.dirname(fileURLToPath(import.meta.url));
++const MIGRATION_PATH = path.join(__dirname, "..", "..", "db", "migrations", "001_hitl_requests.sql");
++
++/** Pool di collaudo su Postgres reale (AC-6 richiede Postgres reale, non un fake in memoria). */
++export function makeTestPool() {
++  if (!process.env.DATABASE_URL) {
++    throw new Error("DATABASE_URL non impostata: il test richiede Postgres reale");
++  }
++  return new pg.Pool({ connectionString: process.env.DATABASE_URL });
++}
++
++export async function applyMigration(pool) {
++  const sql = await readFile(MIGRATION_PATH, "utf8");
++  await pool.query(sql);
++}
++
++export async function truncateAll(pool) {
++  await pool.query("TRUNCATE TABLE tool_executions, platform_signals, hitl_requests RESTART IDENTITY CASCADE");
++}
+diff --git a/test/hitl-expiry-sweeper.realpg.test.js b/test/hitl-expiry-sweeper.realpg.test.js
+new file mode 100644
+index 0000000..99a0b08
+--- /dev/null
++++ b/test/hitl-expiry-sweeper.realpg.test.js
+@@ -0,0 +1,198 @@
++/**
++ * C3 — Punto HITL. AC-6: "Lo sweeper chiude il 100% delle righe oltre il TTL senza rieseguirne
++ * nessuna" (C3 v1.4 §8), su Postgres reale, sul modello di gravya-app
++ * `kloud-write-approvals.realpg.test.ts`.
++ *
++ * Perimetro: sweeper e lettura del TTL (§9 fase 5, parte necessaria ad AC-6). Fuori perimetro:
++ * retention di arguments/context (AC-11), collegamento a C4, RLS (AC-7), replay/resume.
++ */
++import { test, before, beforeEach, after } from "node:test";
++import assert from "node:assert/strict";
++import { randomUUID } from "node:crypto";
++import { makeTestPool, applyMigration, truncateAll } from "./helpers/db.js";
++import { sweepHitlRequests } from "../src/hitl-expiry-sweeper.js";
++import { InMemoryConfigRegistry } from "../src/config-registry.js";
++
++let pool;
++
++before(async () => {
++  pool = makeTestPool();
++  await applyMigration(pool);
++});
++
++after(async () => {
++  await pool.end();
++});
++
++beforeEach(async () => {
++  await truncateAll(pool);
++});
++
++function hoursAgo(h) {
++  return new Date(Date.now() - h * 3600_000).toISOString();
++}
++
++async function insertRow(overrides) {
++  const row = {
++    id: randomUUID(),
++    companyId: randomUUID(),
++    runId: "run-1",
++    toolKey: "crm.create_record",
++    permissionKey: "crm_records:create",
++    status: "pending",
++    outcome: null,
++    outcomeCode: null,
++    claimedAt: null,
++    decidedAt: null,
++    createdAt: new Date().toISOString(),
++    ...overrides,
++  };
++  await pool.query(
++    `INSERT INTO hitl_requests
++       (id, company_id, run_id, tool_key, permission_key, arguments, context, status,
++        outcome, outcome_code, claimed_at, decided_at, created_at, updated_at)
++     VALUES ($1,$2,$3,$4,$5,'{}'::jsonb,'{}'::jsonb,$6,$7,$8,$9,$10,$11,$11)`,
++    [
++      row.id,
++      row.companyId,
++      row.runId,
++      row.toolKey,
++      row.permissionKey,
++      row.status,
++      row.outcome,
++      row.outcomeCode,
++      row.claimedAt,
++      row.decidedAt,
++      row.createdAt,
++    ],
++  );
++  return row.id;
++}
++
++async function rowById(id) {
++  const { rows } = await pool.query(
++    "SELECT id, company_id, status, outcome, outcome_code FROM hitl_requests WHERE id = $1",
++    [id],
++  );
++  return rows[0];
++}
++
++test("AC-6: chiude il 100% delle righe scadute nei tre modi previsti e non riesegue nessuna chiamata", async () => {
++  const companyId = randomUUID();
++  const registry = new InMemoryConfigRegistry({ perCompany: { [companyId]: 24 } });
++
++  const expiredPending = await insertRow({ companyId, status: "pending", createdAt: hoursAgo(25) });
++  const expiredUnclaimed = await insertRow({
++    companyId,
++    status: "approved",
++    createdAt: hoursAgo(30),
++    decidedAt: hoursAgo(25),
++  });
++  const expiredClaimedNoOutcome = await insertRow({
++    companyId,
++    status: "approved",
++    createdAt: hoursAgo(30),
++    decidedAt: hoursAgo(26),
++    claimedAt: hoursAgo(25),
++  });
++  const freshPending = await insertRow({ companyId, status: "pending", createdAt: hoursAgo(1) });
++  const freshClaimed = await insertRow({
++    companyId,
++    status: "approved",
++    createdAt: hoursAgo(2),
++    decidedAt: hoursAgo(1),
++    claimedAt: hoursAgo(1),
++  });
++
++  const result = await sweepHitlRequests(pool, { configRegistry: registry });
++
++  assert.equal(result.cancelled, 2, "le due righe pending/unclaimed scadute sono chiuse");
++  assert.equal(result.reaped, 1, "la riga reclamata senza esito è segnata reaped");
++  assert.deepEqual(result.blockedCompanies, []);
++
++  assert.equal((await rowById(expiredPending)).status, "cancelled");
++  assert.equal((await rowById(expiredUnclaimed)).status, "cancelled");
++
++  const reapedRow = await rowById(expiredClaimedNoOutcome);
++  assert.equal(reapedRow.status, "approved", "la riga reclamata NON cambia status: non viene rieseguita");
++  assert.equal(reapedRow.outcome, "error");
++  assert.equal(reapedRow.outcome_code, "reaped");
++
++  assert.equal((await rowById(freshPending)).status, "pending", "una riga non scaduta non si tocca");
++  const freshClaimedRow = await rowById(freshClaimed);
++  assert.equal(freshClaimedRow.status, "approved");
++  assert.equal(freshClaimedRow.outcome, null);
++
++  const { rows: execs } = await pool.query("SELECT count(*)::int AS n FROM tool_executions");
++  assert.equal(execs[0].n, 0, "nessuna esecuzione è mai stata registrata dallo sweeper");
++});
++
++test("AC-6: idempotenza — un secondo giro non rielabora le righe già chiuse", async () => {
++  const companyId = randomUUID();
++  const registry = new InMemoryConfigRegistry({ perCompany: { [companyId]: 24 } });
++  const id = await insertRow({ companyId, status: "pending", createdAt: hoursAgo(25) });
++
++  const first = await sweepHitlRequests(pool, { configRegistry: registry });
++  assert.equal(first.cancelled, 1);
++
++  const second = await sweepHitlRequests(pool, { configRegistry: registry });
++  assert.equal(second.cancelled, 0, "la riga già cancellata non viene più contata (status non più pending/approved)");
++  assert.equal((await rowById(id)).status, "cancelled");
++});
++
++test("AC-6: soglia netta sul TTL — appena sotto resta aperta, appena sopra viene chiusa", async () => {
++  const companyId = randomUUID();
++  const registry = new InMemoryConfigRegistry({ perCompany: { [companyId]: 24 } });
++
++  const justBelow = await insertRow({ companyId, status: "pending", createdAt: hoursAgo(23.98) }); // ~23h59
++  const justAbove = await insertRow({ companyId, status: "pending", createdAt: hoursAgo(24.02) }); // ~24h01
++
++  await sweepHitlRequests(pool, { configRegistry: registry });
++
++  assert.equal((await rowById(justBelow)).status, "pending", "sotto il TTL: resta pending");
++  assert.equal((await rowById(justAbove)).status, "cancelled", "sopra il TTL: viene chiuso");
++});
++
++test("AC-6 / DX-17: TTL mancante o fuori intervallo blocca la chiusura solo per l'azienda interessata, con segnale", async () => {
++  const companyMissing = randomUUID(); // nessun valore nel registro
++  const companyInvalid = randomUUID(); // valore fuori dall'intervallo 1-168h (DA-C3-04)
++  const companyValid = randomUUID();
++
++  const registry = new InMemoryConfigRegistry({
++    perCompany: { [companyInvalid]: 500, [companyValid]: 24 },
++  });
++
++  const rowMissing = await insertRow({ companyId: companyMissing, status: "pending", createdAt: hoursAgo(48) });
++  const rowInvalid = await insertRow({ companyId: companyInvalid, status: "pending", createdAt: hoursAgo(48) });
++  const rowValid = await insertRow({ companyId: companyValid, status: "pending", createdAt: hoursAgo(48) });
++
++  const result = await sweepHitlRequests(pool, { configRegistry: registry });
++
++  assert.deepEqual(result.blockedCompanies.sort(), [companyInvalid, companyMissing].sort());
++  assert.equal((await rowById(rowMissing)).status, "pending", "senza TTL leggibile, nessuna chiusura (fail-closed)");
++  assert.equal((await rowById(rowInvalid)).status, "pending", "con TTL fuori intervallo, nessuna chiusura (fail-closed)");
++  assert.equal((await rowById(rowValid)).status, "cancelled", "l'azienda con TTL valido viene comunque processata");
++
++  const { rows: signals } = await pool.query(
++    "SELECT company_id, signal_type, details FROM platform_signals ORDER BY company_id",
++  );
++  assert.equal(signals.length, 2, "un segnale per ciascuna azienda bloccata");
++  const byCompany = Object.fromEntries(signals.map((s) => [s.company_id, s]));
++  assert.equal(byCompany[companyMissing].details.reason, "missing");
++  assert.equal(byCompany[companyInvalid].details.reason, "out_of_range");
++});
++
++test("AC-6: isolamento — il TTL e la chiusura di un'azienda non toccano le righe scadute di un'altra azienda con TTL diverso", async () => {
++  const companyA = randomUUID();
++  const companyB = randomUUID();
++  const registry = new InMemoryConfigRegistry({ perCompany: { [companyA]: 24, [companyB]: 48 } });
++
++  // Scaduta per A (TTL 24h) ma NON per B (TTL 48h), stessa età: 30h.
++  const rowA = await insertRow({ companyId: companyA, status: "pending", createdAt: hoursAgo(30) });
++  const rowB = await insertRow({ companyId: companyB, status: "pending", createdAt: hoursAgo(30) });
++
++  await sweepHitlRequests(pool, { configRegistry: registry });
++
++  assert.equal((await rowById(rowA)).status, "cancelled", "A è scaduta secondo il proprio TTL");
++  assert.equal((await rowById(rowB)).status, "pending", "B non è scaduta secondo il proprio TTL, nonostante la stessa età di A");
++});
+-- 
+2.43.0
+
