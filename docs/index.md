@@ -12,6 +12,7 @@ Stato del codice di riferimento: `gravya-app` al commit `349118b11` (2026-11-02)
 | [revisione-ondata-1.md](revisione-ondata-1.md) | Revisione di coerenza dell'ondata 1: matrice delle dipendenze, correzioni fatte, problemi aperti |
 | [stato/sviluppo.md](stato/sviluppo.md) | Ricognizione di `gravya-app`: stack, struttura, cosa esiste per ciascun tema |
 | [stato/kloudify.md](stato/kloudify.md) | Ricognizione di `gravya-app-kloudify`: stato del progetto, regole Beta, priorità |
+| [norme-di-riferimento.md](norme-di-riferimento.md) | Registro delle norme di riferimento (GDPR, Codice privacy, NIS2, AI Act con Omnibus, CRA, Data Act, DSA) e lacune rispetto ai documenti: §9 |
 
 ## Ondata 1: walking skeleton
 
