@@ -56,7 +56,7 @@ Esito complessivo:
 
 ## Risposta (JSON)
 
-Rispondi con questo JSON e nient'altro.
+Rispondi con questo JSON e nient'altro. Usa solo le chiavi dello schema, senza aggiungerne altre: ciò che non ha una chiave (per esempio una sezione del report) sta nel report.
 
 ```json
 {
