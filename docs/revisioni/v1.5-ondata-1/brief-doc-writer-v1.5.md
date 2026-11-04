@@ -31,7 +31,7 @@ Portare ogni documento allo stato delle decisioni prese dall'utente tra il 2026-
 - **Dipendenze dell'ondata 2:** dove un valore o un meccanismo spetta ad A5, A6 o F6 (non ancora redatti), scrivi il rimando e lascia il punto aperto, senza inventarlo.
 - **Lunghezza:** il template indica 1.200-2.000 parole; i documenti v1.4 sono intorno alle 4.000. Non allungare: sostituisci e taglia ciò che è superato.
 - **Verificato e dedotto:** non dichiarare "verificato sul codice" ciò che non hai ricontrollato tu (lezione del collaudo, README 1.16). Per la v1.5 non ci sono dossier nuovi del code-reader (decisione dell'utente).
-- **Storico:** versione 1.5 e una riga nello Storico modifiche con cosa è cambiato e perché.
+- **Storico:** versione 1.5 e una riga nello Storico modifiche con cosa è cambiato e perché. Le righe precedenti dello Storico non si toccano né si riassumono (aggiunta del coordinator dopo B1, che le aveva riassunte).
 - **Perimetro di scrittura:** solo il tuo file `docs/{ID}-*.md`. Nessun altro file, nessuna copia, nessun file in /tmp o in /mnt/memory, niente shell. Niente commit né push.
 - Niente stime temporali (solo taglie S/M/L), niente OpenTelemetry come SDK o export (PV-02), italiano.
 
