@@ -8,7 +8,7 @@ Stato del codice di riferimento: `gravya-app` al commit `349118b11` (2026-11-02)
 | File | Contenuto |
 |---|---|
 | [DECISIONS.md](DECISIONS.md) | Registro delle decisioni: 22 trasversali (DX) e 119 DA (per documento e del catalogo), incluse le 23 del catalogo (DA-CV-01…23, §7). Ultimo aggiornamento 2026-11-04 (blocco E1-E16 approvato, con le aggiunte E8 ed E15) |
-| [catalogo-variabili.md](catalogo-variabili.md) | Catalogo delle variabili di piattaforma, v1.1 (2026-11-04). Decisioni DA-CV-01…23 decise il 2026-11-04 (DA-CV-18…23 con «Ok» dell'utente); valori aperti per DA-CV-01 (valori min/max della retention) e DA-CV-08 (termine verso le agenzie), e le righe «Da riportare» di DECISIONS §4. Catalogo 1.2 in preparazione |
+| [catalogo-variabili.md](catalogo-variabili.md) | Catalogo delle variabili di piattaforma, v1.4 (2026-11-04, registro delle norme v1.6). Decisioni DA-CV-01…23 decise il 2026-11-04 (DA-CV-18…23 con «Ok» dell'utente); valori aperti per DA-CV-01 (valori min/max della retention) e DA-CV-08 (termine verso le agenzie), e le righe «Da riportare» di DECISIONS §4. Le variabili nuove dei documenti v1.6 sono in attesa di unione nel catalogo |
 | [agenti/README.md](agenti/README.md) | Agenti (coordinator, registrar, regulatory-researcher, plan-auditor, code-reviewer, compliance-auditor, doc-writer, code-reader, implementer): prompt e regole di attivazione |
 | [revisione-ondata-1.md](revisione-ondata-1.md) | Revisione di coerenza dell'ondata 1: matrice delle dipendenze, correzioni fatte, problemi aperti |
 | [stato/sviluppo.md](stato/sviluppo.md) | Ricognizione di `gravya-app`: stack, struttura, cosa esiste per ciascun tema |
@@ -17,7 +17,7 @@ Stato del codice di riferimento: `gravya-app` al commit `349118b11` (2026-11-02)
 
 ## Ondata 1: walking skeleton
 
-Stato: **v1.3 (con le decisioni dell'utente del 2026-11-03), in attesa di verifica dell'utente**. Principi vincolanti: [PRINCIPI.md](PRINCIPI.md).
+Stato: **tutti i documenti alla v1.6 (2026-11-04, decisioni fino a F1-F4)**. **E1 e A1 approvati dall'utente come base dell'implementazione** (opzione (a): F2 e F3 applicati nel codice; v1.7 di allineamento dei testi da fare). **A3, B1, B2, C1, C3, E2, E3 in attesa di approvazione dell'utente.** Principi vincolanti: [PRINCIPI.md](PRINCIPI.md).
 
 | ID | Documento | Componente | Taglia | Decisioni aperte |
 |---|---|---|---|---|
