@@ -7,7 +7,7 @@ Stato del codice di riferimento: `gravya-app` al commit `349118b11` (2026-11-02)
 
 | File | Contenuto |
 |---|---|
-| [DECISIONS.md](DECISIONS.md) | Registro delle decisioni: 22 trasversali (DX) e 92 DA (per documento e del catalogo), incluse le 23 del catalogo (DA-CV-01…23, §7). Ultimo aggiornamento 2026-11-04 |
+| [DECISIONS.md](DECISIONS.md) | Registro delle decisioni: 22 trasversali (DX) e 118 DA (per documento e del catalogo), incluse le 23 del catalogo (DA-CV-01…23, §7). Ultimo aggiornamento 2026-11-04 (blocco E1-E16 approvato, con le aggiunte E8 ed E15) |
 | [catalogo-variabili.md](catalogo-variabili.md) | Catalogo delle variabili di piattaforma, v1.1 (2026-11-04). Decisioni DA-CV-01…23 decise il 2026-11-04 (DA-CV-18…23 con «Ok» dell'utente); valori aperti per DA-CV-01 (valori min/max della retention) e DA-CV-08 (termine verso le agenzie), e le righe «Da riportare» di DECISIONS §4. Catalogo 1.2 in preparazione |
 | [agenti/README.md](agenti/README.md) | Agenti (coordinator, registrar, regulatory-researcher, plan-auditor, code-reviewer, compliance-auditor, doc-writer, code-reader, implementer): prompt e regole di attivazione |
 | [revisione-ondata-1.md](revisione-ondata-1.md) | Revisione di coerenza dell'ondata 1: matrice delle dipendenze, correzioni fatte, problemi aperti |
@@ -21,15 +21,15 @@ Stato: **v1.3 (con le decisioni dell'utente del 2026-11-03), in attesa di verifi
 
 | ID | Documento | Componente | Taglia | Decisioni aperte |
 |---|---|---|---|---|
-| E1 | [Tracing distribuito](E1-tracing-distribuito.md) | E: Osservabilità e Valutazione | M (L) | DA-E1-01…04 |
-| E2 | [Prompt registry](E2-prompt-registry.md) | E: Osservabilità e Valutazione | M | DA-E2-01…05 |
-| E3 | [Eval harness offline](E3-eval-harness-offline.md) | E: Osservabilità e Valutazione | L | DA-E3-01…07 |
-| A1 | [Modello del grafo dei mandati](A1-grafo-mandati.md) | A: Control Plane | L (M) | DA-A1-01…06 |
-| A3 | [Runtime di enforcement](A3-runtime-enforcement.md) | A: Control Plane | M (L) | DA-A3-01…05 |
+| E1 | [Tracing distribuito](E1-tracing-distribuito.md) | E: Osservabilità e Valutazione | M (L) | nessuna (DA-E1-03, 04, 07: ipotesi di lavoro decise il 2026-11-04) |
+| E2 | [Prompt registry](E2-prompt-registry.md) | E: Osservabilità e Valutazione | M | DA-E2-01…03; DA-E2-04 (parte residua: approvazione C3 per le versioni umane) |
+| E3 | [Eval harness offline](E3-eval-harness-offline.md) | E: Osservabilità e Valutazione | L | DA-E3-01, DA-E3-03…05 |
+| A1 | [Modello del grafo dei mandati](A1-grafo-mandati.md) | A: Control Plane | L (M) | DA-A1-03…04 |
+| A3 | [Runtime di enforcement](A3-runtime-enforcement.md) | A: Control Plane | M (L) | DA-A3-01…04 |
 | B1 | [Agent runtime isolato](B1-agent-runtime-isolato.md) | B: Runtime Agenti | L | DA-B1-01…03 |
-| B2 | [Tool gateway](B2-tool-gateway.md) | B: Runtime Agenti | M (L) | DA-B2-01…05 |
-| C1 | [Grafo di workflow](C1-grafo-workflow.md) | C: Orchestrazione | L | DA-C1-01…04 |
-| C3 | [Punto HITL](C3-punto-hitl.md) | C: Orchestrazione | L | DA-C3-03 |
+| B2 | [Tool gateway](B2-tool-gateway.md) | B: Runtime Agenti | M (L) | DA-B2-03, DA-B2-05 |
+| C1 | [Grafo di workflow](C1-grafo-workflow.md) | C: Orchestrazione | L | DA-C1-03 |
+| C3 | [Punto HITL](C3-punto-hitl.md) | C: Orchestrazione | L | nessuna |
 
 Tra parentesi la taglia alternativa, che dipende da una decisione aperta (vedi §12 di ciascun documento).
 
