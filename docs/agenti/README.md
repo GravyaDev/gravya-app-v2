@@ -1,6 +1,6 @@
 # Agenti di governance del progetto
 
-Versione 1.17, 2026-11-04.
+Versione 1.18, 2026-11-04.
 
 Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
@@ -88,3 +88,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 | 1.15 | 2026-11-04 | Regola comune 6 e sezione "File che puoi creare" nei prompt di tutti gli agenti (al `registrar` rafforzata la regola esistente): niente scritture in `/mnt/memory/` né file fuori dal perimetro, nemmeno in `/tmp`. Motivo: nel collaudo il `regulatory-researcher` aveva scritto un file in memoria e il `registrar` due backup in `/tmp`, poi cancellati (decisione dell'utente). |
 | 1.16 | 2026-11-04 | Esito del collaudo della sessione 6 (`docs/revisioni/collaudo-agenti-2026-11-04b/`, decisione dell'utente). `doc-writer`: legge per intero il registro delle norme e ne prende articoli e date; nel documento non dichiara "verificati sul codice" i punti del dossier che non ha ricontrollato, e quelli su cui poggia una scelta vanno nell'Appendice B. `plan-auditor` e `compliance-auditor`: nel JSON solo le chiavi dello schema. Motivo: nel collaudo il doc-writer aveva definito "verificati sul codice" i punti del dossier senza ricontrollarli e non aveva letto il registro; i due auditor avevano aggiunto chiavi fuori schema. Le descrizioni non cambiano. |
 | 1.17 | 2026-11-04 | Deroga per la v1.5 dell'ondata 1 (decisioni 7 e 8 dell'utente, sessione 7): dossier del `code-reader` solo per i punti non verificati su cui poggia una scelta; catalogo delle variabili redatto da un solo `doc-writer` e poi unito dal `coordinator`, perché più `doc-writer` in parallelo sullo stesso file si sovrascriverebbero. I prompt non cambiano: il vincolo sta nel task. |
+| 1.18 | 2026-11-04 | `doc-writer` senza `Bash` (decisione dell'utente, C14 della sessione 7): nel collaudo della v1.5 aveva scritto `/tmp/x.json` fuori perimetro, contro la regola comune 6; per redigere documenti bastano Read, Grep, Glob, Edit e Write. Da ricopiare sulla piattaforma solo il campo strumenti. |
