@@ -7,7 +7,8 @@ Stato del codice di riferimento: `gravya-app` al commit `349118b11` (2026-11-02)
 
 | File | Contenuto |
 |---|---|
-| [DECISIONS.md](DECISIONS.md) | Registro delle decisioni aperte: 22 trasversali (DX) e 69 per documento (DA) |
+| [DECISIONS.md](DECISIONS.md) | Registro delle decisioni aperte: 22 trasversali (DX) e 77 per documento (DA), incluse le 8 del catalogo (DA-CV-01…08, §7) |
+| [catalogo-variabili.md](catalogo-variabili.md) | Catalogo delle variabili di piattaforma, v1.0 (2026-11-04): decisioni DA-CV-01…08 decise il 2026-11-04; valore aperto per DA-CV-01 (valori min/max della retention) e DA-CV-08 (termine verso le agenzie), vedi §4 di DECISIONS |
 | [agenti/README.md](agenti/README.md) | Agenti (coordinator, registrar, regulatory-researcher, plan-auditor, code-reviewer, compliance-auditor, doc-writer, code-reader, implementer): prompt e regole di attivazione |
 | [revisione-ondata-1.md](revisione-ondata-1.md) | Revisione di coerenza dell'ondata 1: matrice delle dipendenze, correzioni fatte, problemi aperti |
 | [stato/sviluppo.md](stato/sviluppo.md) | Ricognizione di `gravya-app`: stack, struttura, cosa esiste per ciascun tema |
