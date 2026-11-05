@@ -43,6 +43,18 @@ produzione) e il GUC si imposta dal contesto, non dal modello. Se NON dato
 tenant con lo stesso helper (passo 4+, dove non esiste ancora un'identita'
 applicativa prima di A6) il tenant resta quello del modello, comportamento
 preesistente: dichiarato qui, non nascosto (vedi report, sezione "Giro 3").
+
+Giro 4 (correzione richiesta dal coordinator). `tenant_context` assente e'
+obbligatorio solo quando l'ambiente di produzione e' **reale**
+(`is_production()`, `API_ENV=production`): in tal caso `__init__` emette il
+segnale `trace.tenant_context_absent` e solleva `TenantContextRequiredError`,
+l'helper non viene costruito. `production_override` da solo (produzione
+"simulata" nei test, senza impersonare un ambiente reale) NON attiva questo
+obbligo: e' una scelta esplicita del coordinator (vedi report), perche' i
+pacchetti di prova fissi dei revisori costruiscono l'helper con
+`production_override=True` e senza `tenant_context` in decine di casi.
+Fuori da produzione reale, se `tenant_context` e' assente l'helper si avvia
+comunque, ma emette lo stesso segnale in forma informativa (non bloccante).
 """
 from __future__ import annotations
 
@@ -74,6 +86,11 @@ _SENTINEL = object()
 
 class AttributeRejectedError(ValueError):
     """Sollevato fuori produzione quando un campo/attributo non e' conforme (§6)."""
+
+
+class TenantContextRequiredError(RuntimeError):
+    """Sollevato da `__init__` quando l'ambiente e' di produzione reale (`API_ENV=production`)
+    ma non e' stato dato un `tenant_context` (giro 4, correzione del coordinator)."""
 
 
 @dataclass
@@ -292,6 +309,23 @@ class TracingHelper:
         self._loss_lock = threading.Lock()
         self.loss_count = 0
         self._pending_signal_loss = 0
+
+        # Giro 4: `tenant_context` e' obbligatorio solo sotto la guardia di
+        # produzione REALE (`is_production()`, non `production_override`,
+        # che resta una "produzione simulata" per i test - vedi report).
+        if self._tenant_context is None:
+            if is_production():
+                self._safe_emit(
+                    "trace.tenant_context_absent",
+                    reason="tenant_context_absent_bloccante",
+                )
+                raise TenantContextRequiredError(
+                    "tenant_context e' obbligatorio quando API_ENV=production"
+                )
+            self._safe_emit(
+                "trace.tenant_context_absent",
+                reason="tenant_context_absent_informativo",
+            )
 
         self._queue: "queue.Queue" = queue.Queue(maxsize=self._write_buffer_size)
         self._pending = 0
