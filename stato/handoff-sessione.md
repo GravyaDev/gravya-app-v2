@@ -5,7 +5,7 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 ## Leggere prima
 1. Questo file, poi `preferenze-e-lezioni.md` (politica sui thread, file temporanei degli agenti, lezioni), `ambiente.md` (due ambienti), `azioni-utente.md`.
 2. Branch dei documenti: `claude/docs-ondata-1`. Branch del codice di E1: `claude/impl-e1` (non unito; base `claude/docs-ondata-1`). Allineare entrambi al remoto prima di leggere.
-3. `docs/DECISIONS.md` §4 (voci «Da riportare» di E1 v1.6, giri 1-3, E1 v1.7) e §6 (righe del 2026-11-05), `docs/agenti/README.md`, `docs/catalogo-variabili.md` (v1.5).
+3. `docs/DECISIONS.md` (solo decisioni correnti: §4 punti aperti, §6 regole incluse quelle di E1), `docs/agenti/README.md`, `docs/catalogo-variabili.md` (v1.7).
 
 ## Stato
 - Ondata 1: E1 alla v1.7 (2026-11-05), gli altri 8 documenti alla v1.6. Approvati come base dell'implementazione: E1 e A1. Da approvare: A3, B1, B2, C1, C3, E2, E3.
@@ -23,8 +23,8 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 
 ## Prossimi passi, in ordine
 1. Esiti della verifica finale, poi registrar.
-3. Chiedere all'utente quando e dove unire `claude/impl-e1`.
-4. Poi: A1 (passi 3-4) sull'ossatura; v1.7 di allineamento degli altri documenti (F2, `run_id` UUID, `gravya.tool.outcome` in B2, C3 con F4); approvazione dei sette documenti; ondata 2 (A5, A6, F6).
+2. Chiedere all'utente quando e dove unire `claude/impl-e1`.
+3. Poi: A1 (passi 3-4) sull'ossatura; v1.7 di allineamento degli altri documenti (F2, `run_id` UUID, `gravya.tool.outcome` in B2, C3 con F4); approvazione dei sette documenti; ondata 2 (A5, A6, F6).
 
 ## In attesa di risposta dall'utente
 - Ok dopo la ricopiatura dei prompt sulla piattaforma.
