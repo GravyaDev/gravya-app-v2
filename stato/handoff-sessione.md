@@ -22,8 +22,8 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 ## Prossimi passi, in ordine
 1. Esito del code-reviewer sul giro 4.
 2. Verificare E1 v1.8 (doc-writer) con il catalogo v1.6 già fatto, poi plan-auditor e compliance-auditor, poi registrar. Contenuto richiesto: chiudere i rilievi della voce «Da riportare. Revisione di E1 v1.7 e catalogo v1.5» di DECISIONS §4 (report in `docs/revisioni/e1-v1.7/`), con DA-E1-13 in App. C, deroga C2, tenant di contesto, avvio bloccato, formati e chiave minima 32 byte nel catalogo §18, regola 11 per le variabili `e1.write_*`, valore di sviluppo di `e1.write_tcp_user_timeout_ms`. Poi plan-auditor e compliance-auditor, poi registrar.
-4. Chiedere all'utente quando e dove unire `claude/impl-e1`.
-5. Poi: A1 (passi 3-4) sull'ossatura; v1.7 di allineamento degli altri documenti (F2, `run_id` UUID, `gravya.tool.outcome` in B2, C3 con F4); approvazione dei sette documenti; ondata 2 (A5, A6, F6).
+3. Chiedere all'utente quando e dove unire `claude/impl-e1`.
+4. Poi: A1 (passi 3-4) sull'ossatura; v1.7 di allineamento degli altri documenti (F2, `run_id` UUID, `gravya.tool.outcome` in B2, C3 con F4); approvazione dei sette documenti; ondata 2 (A5, A6, F6).
 
 ## In attesa di risposta dall'utente
 - Nessuna decisione aperta.
