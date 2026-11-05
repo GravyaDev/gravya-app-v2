@@ -89,7 +89,7 @@ def test_helper_parte_in_sviluppo_con_valori_di_sviluppo(variables, signal_sink)
         assert helper._keepalives_interval_s == 5
         assert helper._keepalives_count == 3
     finally:
-        helper.close()
+        helper.close(timeout=5)
 
 
 def test_helper_non_parte_in_produzione_senza_variabile_da_definire(signal_sink):
@@ -145,4 +145,4 @@ def test_helper_non_parte_in_produzione_senza_write_statement_timeout_ms(tmp_pat
     try:
         assert helper._write_statement_timeout_ms == 2000
     finally:
-        helper.close()
+        helper.close(timeout=5)

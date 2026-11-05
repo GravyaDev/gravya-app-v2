@@ -75,10 +75,13 @@ def test_production_override_true_senza_tenant_context_non_blocca_ma_segnala(var
 
 
 def test_fuori_produzione_senza_tenant_context_si_avvia_con_segnale_informativo(variables, signal_sink, key_provider, make_helper):
-    """Sviluppo (nessun API_ENV, nessun override), nessun tenant_context:
-    l'avvio riesce comunque (compatibilita' coi chiamanti multi-tenant), ma
-    emette il segnale informativo."""
-    helper = make_helper(variables, signal_sink, key_provider)
+    """Sviluppo (nessun API_ENV, production_override=False esplicito), nessun
+    tenant_context: l'avvio riesce comunque (compatibilita' coi chiamanti
+    multi-tenant), ma emette il segnale informativo. Giro 6 (decisione
+    dell'utente): API_ENV assente blocca l'avvio solo quando nessuno sceglie
+    esplicitamente un comportamento (production_override is None); qui lo si
+    sceglie (False), apposta per testare il tenant_context, non l'ambiente."""
+    helper = make_helper(variables, signal_sink, key_provider, production_override=False)
     assert helper is not None
     events = [e for e in signal_sink.signals if e.kind == "trace.tenant_context_absent"]
     assert len(events) == 1
@@ -87,16 +90,19 @@ def test_fuori_produzione_senza_tenant_context_si_avvia_con_segnale_informativo(
 
 def test_con_tenant_context_nessun_segnale_di_assenza_fuori_produzione(variables, signal_sink, key_provider, make_helper):
     """Con tenant_context dato, il segnale di assenza non deve comparire
-    nemmeno fuori produzione."""
-    helper = make_helper(variables, signal_sink, key_provider, tenant_context=str(uuid.uuid4()))
+    nemmeno fuori produzione (production_override=False esplicito, giro 6:
+    vedi nota sopra)."""
+    helper = make_helper(variables, signal_sink, key_provider, production_override=False, tenant_context=str(uuid.uuid4()))
     assert helper is not None
     assert not [e for e in signal_sink.signals if e.kind == "trace.tenant_context_absent"]
 
 
-# --- G3-04 / giro 5 (decisione dell'utente): API_ENV fuori insieme chiuso --
-# Giro 5: l'avvio SI BLOCCA (decisione dell'utente, ribalta la scelta del
-# giro 4): test_R15b di code-reviewer/ diventa fallito atteso per questa
-# stessa decisione (vedi report, sezione "Giro 5").
+# --- G3-04 / giro 5/6 (decisioni dell'utente): API_ENV fuori insieme chiuso o assente ---
+# Giro 5: un valore fuori insieme chiuso blocca l'avvio (ribalta la scelta
+# del giro 4): test_R15b di code-reviewer/ diventa fallito atteso per questa
+# decisione. Giro 6: anche con production_override impostato (anche True);
+# e API_ENV assente blocca anch'essa (prima: "sviluppo" con segnale
+# informativo), ma solo se nessuno sceglie production_override esplicitamente.
 
 
 def test_api_env_fuori_insieme_chiuso_blocca_l_avvio_con_segnale(monkeypatch, variables, signal_sink, key_provider):
@@ -108,6 +114,18 @@ def test_api_env_fuori_insieme_chiuso_blocca_l_avvio_con_segnale(monkeypatch, va
     assert "e5.environment_invalid" in signal_sink.kinds()
 
 
+def test_api_env_fuori_insieme_chiuso_blocca_anche_con_production_override(monkeypatch, variables, signal_sink, key_provider):
+    """Giro 6 (CA E2): il blocco vale anche con production_override impostato
+    (qui True): prima restava dentro `if production_override is None`, quindi
+    chi lo passava (anche True) avviava l'helper senza blocco ne' segnale."""
+    from gravya_e1.tracing import EnvironmentInvalidError
+
+    monkeypatch.setenv("API_ENV", "Production")
+    with pytest.raises(EnvironmentInvalidError):
+        TracingHelper(variables, signal_sink, key_provider, production_override=True, tenant_context=str(uuid.uuid4()))
+    assert "e5.environment_invalid" in signal_sink.kinds()
+
+
 def test_api_env_valore_noto_non_segnala_invalido(monkeypatch, variables, signal_sink, key_provider, make_helper):
     monkeypatch.setenv("API_ENV", "development")
     helper = make_helper(variables, signal_sink, key_provider, tenant_context=str(uuid.uuid4()))
@@ -115,11 +133,31 @@ def test_api_env_valore_noto_non_segnala_invalido(monkeypatch, variables, signal
     assert "e5.environment_invalid" not in signal_sink.kinds()
 
 
-def test_api_env_assente_non_segnala_invalido_solo_non_dichiarato(signal_sink, key_provider, make_helper, variables):
-    helper = make_helper(variables, signal_sink, key_provider, tenant_context=str(uuid.uuid4()))
-    assert helper is not None
-    assert "e5.environment_invalid" not in signal_sink.kinds()
+def test_api_env_assente_blocca_l_avvio_con_segnale(monkeypatch, signal_sink, key_provider, variables):
+    """Giro 6 (decisione dell'utente): API_ENV non impostata ora blocca
+    l'avvio (prima: trattata come sviluppo, con segnale informativo e avvio
+    consentito). Nessun production_override: nessuno ha scelto un
+    comportamento esplicito. `delenv` esplicito: la prova deve valere anche
+    se chi lancia i test ha una `API_ENV` impostata nella propria shell
+    (per esempio seguendo il README)."""
+    monkeypatch.delenv("API_ENV", raising=False)
+    from gravya_e1.tracing import EnvironmentInvalidError
+
+    with pytest.raises(EnvironmentInvalidError):
+        TracingHelper(variables, signal_sink, key_provider, tenant_context=str(uuid.uuid4()))
     assert "e5.environment_undeclared" in signal_sink.kinds()
+
+
+def test_api_env_assente_non_blocca_con_production_override_esplicito(monkeypatch, signal_sink, key_provider, variables, make_helper):
+    """Con un comportamento scelto esplicitamente (production_override=False),
+    API_ENV assente non blocca piu' (nessun API_ENV finto da impostare solo
+    per usare production_override). `delenv` esplicito per lo stesso motivo
+    del test precedente."""
+    monkeypatch.delenv("API_ENV", raising=False)
+    helper = make_helper(variables, signal_sink, key_provider, production_override=False, tenant_context=str(uuid.uuid4()))
+    assert helper is not None
+    assert "e5.environment_undeclared" not in signal_sink.kinds()
+
 
 
 # --- G3-01: i segnali passano da una coda/thread propri, il chiamante non aspetta ---
