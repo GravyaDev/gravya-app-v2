@@ -78,18 +78,24 @@ def partition_suffix(moment: datetime) -> str:
 
 
 def _existing_partitions(conn, table: str) -> list[tuple[str, datetime, datetime]]:
-    with conn.cursor() as cur:
-        cur.execute(
-            """
-            SELECT c.relname, pg_get_expr(c.relpartbound, c.oid)
-            FROM pg_inherits i
-            JOIN pg_class c ON c.oid = i.inhrelid
-            JOIN pg_class p ON p.oid = i.inhparent
-            WHERE p.relname = %s
-            """,
-            (table,),
-        )
-        rows = cur.fetchall()
+    with conn.transaction():
+        with conn.cursor() as cur:
+            # Giro 3 (G12): `pg_get_expr` rende i timestamp nel TimeZone della
+            # sessione, non in UTC. Si forza UTC solo per questa transazione,
+            # cosi' il confine letto e' sempre in UTC indipendentemente dal
+            # TimeZone del chiamante (per esempio 'Europe/Rome').
+            cur.execute("SET LOCAL TimeZone = 'UTC'")
+            cur.execute(
+                """
+                SELECT c.relname, pg_get_expr(c.relpartbound, c.oid)
+                FROM pg_inherits i
+                JOIN pg_class c ON c.oid = i.inhrelid
+                JOIN pg_class p ON p.oid = i.inhparent
+                WHERE p.relname = %s
+                """,
+                (table,),
+            )
+            rows = cur.fetchall()
     result = []
     for name, bound_text in rows:
         if not bound_text:

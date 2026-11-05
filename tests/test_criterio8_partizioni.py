@@ -50,6 +50,22 @@ def test_partizione_creata_ha_rls_abilitata_e_forzata(admin_conn, tmp_path, sign
     assert force_security is True
 
 
+def test_ensure_partition_con_timezone_di_sessione_non_utc(admin_conn, tmp_path, signal_sink):
+    """Giro 3 (G12): i confini si leggono in UTC indipendentemente dal TimeZone della sessione."""
+    reg = _registry_with_interval(tmp_path, signal_sink, months=1)
+    admin_conn.execute("SET TimeZone = 'Europe/Rome'")
+    try:
+        first = datetime(2033, 7, 10, tzinfo=timezone.utc)
+        name1 = ensure_partition(admin_conn, "gravya_traces", first, reg)
+        # stesso mese UTC, vicino all'inizio: deve risultare nella stessa partizione
+        near_start = datetime(2033, 7, 1, 0, 30, tzinfo=timezone.utc)
+        name2 = ensure_partition(admin_conn, "gravya_traces", near_start, reg)
+        assert name1 == name2
+    finally:
+        admin_conn.execute("SET TimeZone = 'UTC'")
+        admin_conn.commit()
+
+
 def test_calcolo_confini_rispetta_intervallo_dalla_variabile(tmp_path, signal_sink):
     reg = _registry_with_interval(tmp_path, signal_sink, months=2)
     interval = reg.get("e1.partition_interval_months").value
