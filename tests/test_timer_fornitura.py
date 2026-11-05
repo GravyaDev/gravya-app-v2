@@ -72,3 +72,46 @@ def test_systemd_analyze_verify(tmp_path):
     r = subprocess.run(["systemd-analyze", "--user", "verify", str(dest / "gravya-fornitura.service"), str(dest / "gravya-fornitura.timer")],
                        text=True, capture_output=True)
     assert r.returncode == 0 and r.stderr.strip() == "", r.stderr
+
+
+def _installa_con_systemctl_finto(tmp_path: Path, attivo: bool):
+    """Esegue lo script con un `systemctl` finto in testa al PATH: registra gli argomenti, `is-active` risponde come richiesto."""
+    bin_ = tmp_path / "bin"
+    bin_.mkdir()
+    registro = tmp_path / "systemctl.log"
+    stub = bin_ / "systemctl"
+    stub.write_text(
+        "#!/bin/sh\n"
+        'echo "$*" >> "%s"\n'
+        'case "$*" in *is-active*) exit %d ;; esac\n'
+        "exit 0\n" % (registro, 0 if attivo else 3)
+    )
+    stub.chmod(0o755)
+    env = dict(os.environ, PATH=f"{bin_}:{os.environ['PATH']}")
+    r = subprocess.run(["bash", str(INSTALLA), "--destinazione", str(tmp_path / "user"), "--anche-da-worktree"],
+                       text=True, capture_output=True, env=env)
+    comandi = [riga.replace("--user ", "") for riga in registro.read_text().splitlines()] if registro.exists() else []
+    return r, comandi
+
+
+def test_installazione_su_timer_gia_attivo_rilegge_e_riavvia(tmp_path):
+    r, comandi = _installa_con_systemctl_finto(tmp_path, attivo=True)
+    assert r.returncode == 0, r.stderr
+    assert comandi.index("daemon-reload") < comandi.index("enable --now gravya-fornitura.timer") < comandi.index("restart gravya-fornitura.timer")
+    assert "riavviato" in r.stdout
+
+
+def test_installazione_su_timer_non_attivo_non_riavvia(tmp_path):
+    r, comandi = _installa_con_systemctl_finto(tmp_path, attivo=False)
+    assert r.returncode == 0, r.stderr
+    assert "daemon-reload" in comandi and "enable --now gravya-fornitura.timer" in comandi
+    assert not any(c.startswith("restart") for c in comandi)
+
+
+def test_senza_systemctl_non_chiama_systemctl(tmp_path):
+    r, comandi = _installa_con_systemctl_finto(tmp_path, attivo=True)   # per avere il registro
+    (tmp_path / "systemctl.log").unlink()
+    env = dict(os.environ, PATH=f"{tmp_path / 'bin'}:{os.environ['PATH']}")
+    r = subprocess.run(["bash", str(INSTALLA), "--destinazione", str(tmp_path / "u2"), "--senza-systemctl", "--anche-da-worktree"],
+                       text=True, capture_output=True, env=env)
+    assert r.returncode == 0 and not (tmp_path / "systemctl.log").exists()

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Installa (o aggiorna) il timer systemd utente dei controlli settimanali della
 # catena di fornitura. Idempotente: puo' essere rieseguito; riscrive le unita'
-# con il percorso del repository e riabilita il timer.
+# con il percorso del repository, rilegge le unita' (daemon-reload), abilita il
+# timer e, se era gia' attivo, lo riavvia.
 #
 # Uso: scripts/installa-timer-fornitura.sh [--destinazione DIR] [--senza-systemctl] [--anche-da-worktree]
 #   --destinazione DIR     dove scrivere le unita' (default: ~/.config/systemd/user)
@@ -35,6 +36,12 @@ case "$RADICE" in
   *[[:space:]\&\|\\]*) echo "ERRORE: il percorso del repository contiene spazi o caratteri speciali: $RADICE" >&2; exit 2 ;;
 esac
 
+# Il timer era gia' attivo? Se si', dopo la copia va riavviato: `enable --now` non rilegge un OnCalendar cambiato.
+ERA_ATTIVO=0
+if [ "$SYSTEMCTL" -eq 1 ] && systemctl --user is-active --quiet gravya-fornitura.timer; then
+  ERA_ATTIVO=1
+fi
+
 mkdir -p "$DESTINAZIONE"
 for u in "${UNITA[@]}"; do
   sed "s|@RADICE@|$RADICE|g" "$RADICE/systemd/$u" > "$DESTINAZIONE/$u.nuovo"
@@ -45,5 +52,9 @@ done
 if [ "$SYSTEMCTL" -eq 1 ]; then
   systemctl --user daemon-reload
   systemctl --user enable --now gravya-fornitura.timer
+  if [ "$ERA_ATTIVO" -eq 1 ]; then
+    systemctl --user restart gravya-fornitura.timer
+    echo "timer riavviato (era gia' attivo): la nuova pianificazione e' in vigore"
+  fi
   systemctl --user list-timers gravya-fornitura.timer --no-pager
 fi
