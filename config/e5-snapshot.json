@@ -44,6 +44,42 @@
       "catalog_ref": "non ancora nel catalogo (DX-22, giro 3): il coordinator la aggiunge a catalogo-variabili.md; valore di sviluppo scelto dall'implementer, stesso trattamento di e1.write_buffer_size",
       "min": 1,
       "max": null
+    },
+    "e1.write_connect_timeout_ms": {
+      "value": 2000,
+      "unit": "ms (timeout di connessione del thread di scrittura dell'helper, giro 3)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 3): il coordinator la aggiunge a catalogo-variabili.md",
+      "min": 1,
+      "max": null
+    },
+    "e1.write_tcp_keepalives_idle_s": {
+      "value": 10,
+      "unit": "s (keepalive TCP: secondi di inattivita' prima del primo probe, giro 3)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 3): il coordinator la aggiunge a catalogo-variabili.md",
+      "min": 1,
+      "max": null
+    },
+    "e1.write_tcp_keepalives_interval_s": {
+      "value": 5,
+      "unit": "s (keepalive TCP: intervallo tra probe, giro 3)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 3): il coordinator la aggiunge a catalogo-variabili.md",
+      "min": 1,
+      "max": null
+    },
+    "e1.write_tcp_keepalives_count": {
+      "value": 3,
+      "unit": "count (keepalive TCP: numero di probe prima di considerare la connessione morta, giro 3)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 3): il coordinator la aggiunge a catalogo-variabili.md",
+      "min": 1,
+      "max": null
     }
   }
 }
