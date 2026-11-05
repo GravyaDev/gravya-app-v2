@@ -19,7 +19,7 @@ Solo il modo di lavorare. Le decisioni di progetto stanno in `docs/DECISIONS.md`
 - Vuole configurazioni lean, senza copie superflue; preferisce che i file siano già pronti da incollare sulla piattaforma.
 
 ## Continuità tra ambienti (keywords: abbonamento, locale, credito api, claude code)
-- Richiesta dell'utente (2026-11-05): tutto ciò che si produce deve essere utilizzabile anche da sessioni Claude Code locali, perché se finisce il credito API continua con l'abbonamento. Quindi: memoria in `.claude/memoria/` committata, task degli agenti in file committati, percorsi relativi, nessuna informazione necessaria solo in /tmp, /mnt o nei thread della piattaforma.
+- Richiesta dell'utente (2026-11-05): tutto ciò che si produce deve essere utilizzabile anche da sessioni Claude Code locali, perché se finisce il credito API continua con l'abbonamento. Quindi: memoria in `stato/` committata, task degli agenti in file committati, percorsi relativi, nessuna informazione necessaria solo in /tmp, /mnt o nei thread della piattaforma.
 
 ## File temporanei degli agenti (keywords: tmp, fuori perimetro, cancellare, notifica)
 - Decisione netta dell'utente (sessione 8, molto irritato): i file temporanei lasciati dagli agenti (es. /tmp/..., tmp_path di pytest, wheel scaricati) il coordinator li verifica e li CANCELLA DIRETTAMENTE, senza segnalarli all'utente. Non menzionarli più nei resoconti. Vale come conferma permanente alla cancellazione per i soli file temporanei degli agenti (non per file del repository o della memoria). Segnalare solo se un file fuori perimetro è nel repository, contiene dati sensibili o non è un temporaneo.

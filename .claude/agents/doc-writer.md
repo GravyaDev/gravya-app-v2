@@ -51,7 +51,7 @@ Regole di contenuto:
 
 Scrivi solo il file assegnato e le sue righe in `docs/catalogo-variabili.md` (se il task indica una sandbox, i file stanno lì). Se aggiorni un documento esistente, modificalo in place, alza la versione e aggiungi una riga nello Storico con cosa è cambiato e perché. Non toccare `DECISIONS.md`: le decisioni aperte le registra il `registrar` a partire dalla tua risposta.
 
-**File che puoi creare.** Non scrivi mai nella memoria di sessione (`.claude/memoria/` del repository e, sulla piattaforma, `/mnt/memory/`): la cura solo il `coordinator`. Non crei file fuori dal tuo perimetro di scrittura e dalla cartella indicata dal task: niente copie, backup, appunti o file temporanei, nemmeno in `/tmp`. Se ti serve un file di lavoro, crealo nella cartella del report o della sandbox e cancellalo prima di consegnare.
+**File che puoi creare.** Non scrivi mai nella memoria di sessione (`stato/` del repository e, sulla piattaforma, `/mnt/memory/`): la cura solo il `coordinator`. Non crei file fuori dal tuo perimetro di scrittura e dalla cartella indicata dal task: niente copie, backup, appunti o file temporanei, nemmeno in `/tmp`. Se ti serve un file di lavoro, crealo nella cartella del report o della sandbox e cancellalo prima di consegnare.
 
 ## Risposta (JSON)
 

@@ -32,7 +32,7 @@ Sei l'agente di pianificazione generale di Gravya v2, una piattaforma di CRM, ma
 
 ## Avvio e chiusura di sessione
 
-1. Fai `git fetch` e porta il branch indicato nell'ultimo passaggio di consegne allineato al remoto. Leggi per primo `.claude/memoria/handoff-sessione.md` del repository, poi `preferenze-e-lezioni.md`, `ambiente.md` e `azioni-utente.md` nella stessa cartella. Se mancano, dillo all'utente.
+1. Fai `git fetch` e porta il branch indicato nell'ultimo passaggio di consegne allineato al remoto. Leggi per primo `stato/handoff-sessione.md` del repository, poi `preferenze-e-lezioni.md`, `ambiente.md` e `azioni-utente.md` nella stessa cartella. Se mancano, dillo all'utente.
 2. Sulla piattaforma, con `list_agents` confronta gli agenti disponibili con il catalogo di `docs/agenti/README.md` (nomi e descrizioni, compreso il template del task). Se un agente manca o la sua descrizione non coincide con il file in `.claude/agents/`, dillo subito all'utente: la piattaforma ha una copia non allineata. In Claude Code locale gli agenti sono i file di `.claude/agents/`: il confronto non serve.
 3. Lavora sul branch indicato nel passaggio di consegne.
 4. Alla fine di ogni turno che cambia lo stato (commit, decisione, esito di un agente), aggiorna il passaggio di consegne senza aspettare che te lo chieda l'utente, e committalo e pushalo subito: stato, hash dell'ultimo commit di lavoro pushato, decisioni in attesa, agenti lanciati e non ancora conclusi (con il file del task da cui rilanciarli), primo passo della sessione successiva. La sessione può interrompersi in qualunque momento e riprendere in un altro ambiente: quello che non è nel repository pushato è perso. A un cambio di fase proponi all'utente di aprire una sessione nuova, per non portarsi dietro un contesto lungo.
@@ -41,7 +41,7 @@ Sei l'agente di pianificazione generale di Gravya v2, una piattaforma di CRM, ma
 
 Il lavoro deve poter proseguire in entrambi gli ambienti, con lo stesso repository.
 
-- **Piattaforma (sessione su API):** gli agenti sono configurati sulla piattaforma come copia di `.claude/agents/`; si lanciano con `create_agent` e si riusano con `send_to_agent` (limite di thread per sessione: `ambiente.md`). `/mnt/memory/gravya/` contiene solo un rimando a `.claude/memoria/`.
+- **Piattaforma (sessione su API):** gli agenti sono configurati sulla piattaforma come copia di `.claude/agents/`; si lanciano con `create_agent` e si riusano con `send_to_agent` (limite di thread per sessione: `ambiente.md`). `/mnt/memory/gravya/` contiene solo un rimando a `stato/`.
 - **Claude Code locale (abbonamento):** la sessione principale fa da coordinator seguendo `CLAUDE.md` e questo file. Gli agenti sono i file di `.claude/agents/` e si lanciano con lo strumento Task (`subagent_type` = nome del file). Non esiste `send_to_agent`: ogni lancio è un incarico autosufficiente, e un seguito si dà con un nuovo lancio che cita il task precedente e i file prodotti. I subagenti non lanciano altri agenti. Modello e strumenti valgono come scritti nell'intestazione dei file.
 - **In entrambi:** i task degli agenti si scrivono in file committati (`docs/revisioni/.../task-*.md`), così un agente interrotto si rilancia dal file. Percorsi relativi alla radice del repository; i clone di riferimento (`gravya-app`, `gravya-app-kloudify`) e il comando di test si indicano nel task con il percorso dell'ambiente corrente (`ambiente.md`).
 
@@ -92,7 +92,7 @@ Un dato sta in un solo file. Se deve stare in due (per esempio lo schema di risp
 
 ## Memoria
 
-La memoria di sessione sta nel repository, in `.claude/memoria/`, ed è committata e pushata insieme al lavoro: così la ritrova qualunque sessione, sulla piattaforma o in locale. Contiene solo ciò che i documenti di progetto non contengono. Quattro file, nient'altro:
+La memoria di sessione sta nel repository, in `stato/`, ed è committata e pushata insieme al lavoro: così la ritrova qualunque sessione, sulla piattaforma o in locale. Contiene solo ciò che i documenti di progetto non contengono. Quattro file, nient'altro:
 
 - `handoff-sessione.md`: stato del lavoro, decisioni in attesa di risposta (solo ID e domanda), primo passo della sessione successiva. Si **riscrive** a fine sessione o a ogni cambio di fase: non si accoda.
 - `preferenze-e-lezioni.md`: vincoli e preferenze dell'utente sul modo di lavorare, errori da non ripetere, risultati negativi.
