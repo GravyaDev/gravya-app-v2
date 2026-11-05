@@ -31,3 +31,26 @@ Branch `impl/ci-fornitura`. Perimetro: punti 1 e 2 della decisione (DECISIONS §
 - Il commit `d3d1fb0` («scripts/osv-check.py…») contiene per errore tutto il lavoro (un primo tentativo di commit separati era fallito per identità git mancante, ma i file erano già in staging): non è un commit per argomento come richiesto. Già pushato, non riscrivo la storia.
 - Il commento del passo «Crea il database di test» in `ci.yml` cita ancora che `test-non-superuser` usa `psql`: resta vero (ora dall'immagine), non modificato.
 - Ancora YAML nei workflow: funzionano su GitHub Actions (verificato dalla CI verde); `scripts/agenti.py` legge la riga `image:` con la regex invariata.
+
+## Giro 2
+
+Correzione del BLOCCA del `code-reviewer` e del minore del `compliance-auditor`.
+Perimetro: `scripts/osv-check.py`, `tests/test_ci_osv_check.py`.
+
+**Punti 1-2 (commit e3759ef).** `invia_http` ora:
+- rifiuta ogni stato HTTP diverso da 200 (`http.HTTPStatus.OK`; prima un 204 vuoto passava solo per il fallimento del parse JSON);
+- cattura anche `http.client.HTTPException` (`IncompleteRead` e simili): errore OSV con codice 2 e messaggio, senza traceback (prima traceback e codice 1).
+
+Test reali (server HTTP locale su `127.0.0.1` avviato nel test, nessuna rete esterna), tutti via `main` con `invia_http` vera e codice atteso 2: stato 500/404/204, corpo non JSON, corpo non UTF-8, risposta troncata, porta chiusa, timeout (server lento e `TIMEOUT_SECONDI` ridotto dal test). Controprova: risposta valida con vulnerabilità → 1, pulita → 0.
+
+**Punto 3 (commit c11fa33).** `leggi_lockfile` è fail-closed: ogni riga a colonna 0 non vuota e non commento è un blocco e deve essere `nome==versione` (a fine riga solo marcatore `;` e backslash), altrimenti `ErroreLockfile` → codice 2. Il numero di pacchetti letti deve coincidere con i blocchi. Test: `nome[extra]==v`, `nome @ url`, `>=`, `===`, testo dopo la versione, `--index-url`, `-e .`; conteggio pacchetti = blocchi; lockfile attuale conforme.
+
+**Nota onesta.** Il controllo dei conteggi è difensivo: con la lettura rigorosa riga per riga non è raggiungibile da input reali (una riga non letta solleva prima). Il test verifica l'uguaglianza; non esiste un mutante che solo quel controllo distingua.
+
+**Verifiche.**
+- `pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp` (ambiente come da task): 117 passed.
+- `python3 scripts/osv-check.py requirements.lock.txt`: esito 0 (18 pacchetti).
+- `prova-mutante.sh`: la riga mutata (`raise ErroreOsv(f"richiesta a {url} fallita: {e}") from e`) è rimasta identica, quindi il mutante è quello del reviewer. Suite del branch sul mutante: 8 failed (prima 11 passed); le tre prove del reviewer falliscono sul mutante e passano sul codice del branch (3 passed).
+- Il caso stato 204 non è rilevato dal mutante (ha la sua riga di controllo, che il mutante non tocca): è coperto dal test sul codice corretto.
+
+README: il comportamento documentato (errore se OSV non risponde) non cambia; non toccato.
