@@ -1,0 +1,40 @@
+{
+  "_comment": "Istantanea versionata delle variabili di piattaforma (E5, DA-A1-10), ripiego finché A6 non esiste. Contiene solo le variabili che servono ai passi 0-3 di E1 v1.6 (docs/E1-tracing-distribuito.md), copiate da docs/catalogo-variabili.md v1.4. Modificabile solo con una PR. Letta da un'unica interfaccia condivisa (src/gravya_e1/config/variables.py).",
+  "source_catalog_version": "1.4",
+  "variables": {
+    "e1.partition_interval_months": {
+      "value": 1,
+      "unit": "months",
+      "status": "proposta_da_validare",
+      "catalog_ref": "catalogo-variabili.md §12, riga `e1.partition_interval_months` (proposta da validare, E1 §4.1)",
+      "min": null,
+      "max": null
+    },
+    "e1.overhead_p95_ms": {
+      "value": 5,
+      "unit": "ms",
+      "status": "proposta_da_validare",
+      "catalog_ref": "catalogo-variabili.md §12, riga `e1.overhead_p95_ms` (proposta da validare, E1 §5, §7)",
+      "min": null,
+      "max": null
+    },
+    "e1.write_buffer_size": {
+      "value": 100,
+      "unit": "count (numero di segmenti in coda) - unita' assunta dallo sviluppatore, non fissata dal catalogo: da confermare con l'utente (vedi report, decisioni_mancanti)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "catalogo-variabili.md §12, riga `e1.write_buffer_size` (da definire, unita' non specificata da E1 §5)",
+      "min": null,
+      "max": null
+    },
+    "e1.attributes.max_value_bytes": {
+      "value": 2048,
+      "unit": "bytes",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "catalogo-variabili.md §12, riga `e1.attributes.max_value_bytes` (da definire, intervallo minimo-massimo richiesto prima della produzione, regola 11)",
+      "min": null,
+      "max": null
+    }
+  }
+}

@@ -1,0 +1,27 @@
+[project]
+name = "gravya-e1"
+version = "0.1.0"
+description = "Gravya v2 - E1 Tracing distribuito (ossatura, schema, helper Python)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.110",
+    "pydantic>=2.6",
+    "psycopg[binary]>=3.1",
+    "alembic>=1.13",
+    "sqlalchemy>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

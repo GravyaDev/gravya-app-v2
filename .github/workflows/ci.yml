@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: root
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+psycopg://root@localhost:5432/gravya_e1_test
+      GRAVYA_E1_TEST_DSN: host=localhost user=root dbname=gravya_e1_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Installa le dipendenze
+        run: pip install -e .[dev]
+      - name: Crea il database di test
+        run: |
+          sudo apt-get install -y postgresql-client
+          psql "postgresql://root@localhost:5432/postgres" -c "CREATE DATABASE gravya_e1_test;"
+      - name: Applica le migrazioni
+        run: alembic upgrade head
+      - name: Esegue i test
+        run: pytest -q
