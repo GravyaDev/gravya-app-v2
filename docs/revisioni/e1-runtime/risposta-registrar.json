@@ -1,0 +1,17 @@
+{
+  "registri_modificati": [
+    "docs/DECISIONS.md",
+    "docs/decisioni-archivio.md"
+  ],
+  "righe_aggiornate": [
+    "DECISIONS.md, intestazione «Ultimo aggiornamento»: riscritta per l'esito delle revisioni della PR sulle versioni di runtime (merge 3bf8969)",
+    "DECISIONS.md §6, «Versioni di runtime»: testo aggiornato allo stato attuale (merge 3bf8969, revisioni, dipendenze all'ultima versione su PyPI al 2026-11-05, nessuna vulnerabilità nota su OSV); rimossi i riferimenti a pydantic 2.14.2 e pydantic-core 2.50.2",
+    "DECISIONS.md §4: nuovo punto «Catena di fornitura e aggiornamenti» (rilievi 1, 2, 5, 6 del compliance-auditor e rilievo 1 del code-reviewer; documenti E1, CI)",
+    "DECISIONS.md §4: nuovo punto «Versione di Python: testo dell'utente da riportare» (conflitto registrato, vedi conflitti_da_riportare)",
+    "decisioni-archivio.md: in coda, nuova sezione «2026-11-05 — righe superate (esito della PR sulle versioni di runtime)» con la versione superata della riga «Versioni di runtime» (Python 3.15, testo precedente alla lettera)"
+  ],
+  "documenti_da_aggiornare": [],
+  "conflitti_da_riportare": [
+    "Versione di Python: l'archivio (sezione «righe superate» del 2026-11-05) registra come decisione dell'utente Python 3.14, mentre la riga §6 «Versioni di runtime» dice Python 3.15 senza un testo dell'utente che lo registri. Riportato in §4 come «Versione di Python: testo dell'utente da riportare»; la riga non è stata modificata."
+  ]
+}
