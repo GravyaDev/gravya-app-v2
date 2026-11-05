@@ -213,7 +213,9 @@ def cmd_lancia(a: argparse.Namespace) -> None:
     testo = task.read_text(encoding="utf-8")
     nome = agente_dal_task(testo)
     ag = leggi_agente(nome)
-    if re.search(r"\{[^}\n]*\}", testo.split("## Regole fisse")[0]) and not a.forza:
+    # Segnaposto del template = graffe fuori dal codice tra backtick (un JSON citato non conta).
+    senza_codice = re.sub(r"`[^`\n]*`", "", testo.split("## Regole fisse")[0])
+    if re.search(r"\{[^}\n]*\}", senza_codice) and not a.forza:
         sys.exit("Il task contiene ancora campi {da compilare}. Compilali o usa --forza.")
     if shutil.which("claude") is None:
         sys.exit("Comando `claude` non trovato nel PATH.")
