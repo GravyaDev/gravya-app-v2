@@ -488,12 +488,11 @@ class TracingHelper:
             )
         # Giro 6 (decisione dell'utente): API_ENV NON impostata ora blocca
         # l'avvio con segnale (prima: trattata come sviluppo, con segnale
-        # informativo e avvio consentito). Resta gated da
-        # `production_override is None`: chi sceglie esplicitamente un
-        # comportamento (anche `production_override=False`, per simulare
-        # "sviluppo" a prescindere dall'ambiente reale) non deve impostare
-        # un API_ENV finto solo per poterlo fare.
-        if self._production_override is None and not is_declared():
+        # informativo e avvio consentito). Micro-correzione (giro 6,
+        # decisione dell'utente): vale SEMPRE, anche con
+        # `production_override` impostato, come per un valore fuori insieme
+        # (DECISIONS §6 «E1: ambiente e avvio»).
+        if not is_declared():
             self._emit_at_startup("e5.environment_undeclared", reason="API_ENV non impostata: avvio bloccato")
             raise EnvironmentInvalidError("API_ENV non impostata")
 

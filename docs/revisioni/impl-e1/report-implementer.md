@@ -1166,3 +1166,13 @@ migrazioni", "Eseguire i test", "Prove dei revisori", "Nota sul ruolo di
 sviluppo" aggiornate/corrette). Nessun file bloccato dei revisori
 (`code-reviewer*/conftest.py`, `test_giro*.py`) modificato in questo giro:
 nessuna fixture per `API_ENV` è risultata indispensabile.
+
+## Micro-correzione API_ENV
+
+Fonte: `report-code-reviewer-giro6.md` §3; decisione dell'utente 2026-11-05 «(a, micro-correzione)».
+
+- `src/gravya_e1/tracing.py`, `TracingHelper.__init__`: tolta la condizione `self._production_override is None and`; `API_ENV` non impostata blocca sempre, con segnale `e5.environment_undeclared` (DECISIONS §6 «E1: ambiente e avvio»; catalogo v1.8 §18).
+- Test: fixture autouse `_api_env_sviluppo` in `tests/conftest.py` (`API_ENV=development`); il test `test_api_env_assente_non_blocca_con_production_override_esplicito` è diventato `test_api_env_assente_blocca_anche_con_production_override` (parametrizzato `production_override` False/True: solleva `EnvironmentInvalidError` ed emette il segnale).
+- README: tolta l'eccezione; `API_ENV` va sempre impostata, anche per le prove dei revisori e gli script.
+- `scripts/_verify_nonsuperuser.py`: solo il commento (lo script ora richiede `API_ENV` esportata; da `test-non-superuser.sh` non viene esportata, quindi la esporta chi lancia lo script: da verificare dal coordinator).
+- Esito: `pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp` con le variabili del task: 10 esecuzioni, 88 passed ciascuna; un'11ª senza `API_ENV` in shell: 88 passed. Nessun file in /tmp. Prove dei revisori e `test-non-superuser.sh` non eseguiti (come da task).

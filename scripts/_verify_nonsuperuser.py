@@ -102,10 +102,9 @@ def main() -> None:
         conninfo = f"host={HOST} port={PORT} user={ROLE} password={password} dbname={DBNAME}"
         key_provider = StaticTestKeyProvider()
         signal_sink = InMemorySignalSink()
-        # Giro 6 (decisione dell'utente): API_ENV non impostata ora blocca
-        # l'avvio quando nessuno sceglie esplicitamente un comportamento;
-        # qui si simula "fuori produzione" con production_override=False,
-        # senza bisogno di impostare un API_ENV finto in questo script.
+        # Micro-correzione API_ENV: API_ENV non impostata blocca l'avvio
+        # sempre, anche con production_override; chi lancia lo script deve
+        # esportare API_ENV (per esempio `development`, vedi README).
         helper = TracingHelper(variables, signal_sink, key_provider, production_override=False, conninfo=conninfo)
         try:
             tenant_a = uuid.uuid4()

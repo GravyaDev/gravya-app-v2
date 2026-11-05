@@ -16,6 +16,15 @@ from _pgconn import pg_dsn
 TEST_DB_NAME = "gravya_e1_test"
 
 
+@pytest.fixture(autouse=True)
+def _api_env_sviluppo(monkeypatch):
+    """`API_ENV` va sempre impostata (micro-correzione API_ENV): per le suite
+    vale `development`, indipendentemente dalla shell di chi lancia i test.
+    I test che verificano altri valori o l'assenza la cambiano con
+    `monkeypatch` (`setenv`/`delenv`)."""
+    monkeypatch.setenv("API_ENV", "development")
+
+
 @pytest.fixture()
 def admin_conn():
     """Connessione da superuser di sviluppo locale (ruolo di sviluppo, auth peer o PG*).

@@ -59,10 +59,10 @@ creando un ruolo apposta (vedi "Nota sul ruolo di sviluppo").
 un valore dell'insieme chiuso (`production`, `development`, `test`). Non
 impostarla affatto **blocca l'avvio** dell'helper con un segnale (prima:
 trattata come sviluppo, con un segnale solo informativo); lo stesso vale per
-un valore fuori da quell'insieme (per esempio `Production`, maiuscolo). Fa
-eccezione solo chi sceglie esplicitamente un comportamento con
-`production_override` nel proprio codice (i test di questo repository lo
-fanno quando serve: non è qualcosa che riguarda l'uso normale descritto qui).
+un valore fuori da quell'insieme (per esempio `Production`, maiuscolo). Non
+ci sono eccezioni: il blocco vale anche con `production_override` esplicito.
+`API_ENV` va quindi impostata sempre, anche per eseguire le prove dei
+revisori e gli script in `scripts/` (per esempio `API_ENV=development`).
 
 ### Database di test e migrazioni
 
@@ -98,11 +98,9 @@ pytest -q
 ```
 
 (`GRAVYA_E1_TEST_DSN`/`PGUSER` impostati come sopra; stessa `dbname` del
-passo precedente, aggiunta internamente dai test.) `tests/` non richiede
-`API_ENV` per girare (ogni test sceglie da solo `production_override` o
-imposta `API_ENV` quando è proprio quello che vuole verificare): impostarla
-comunque, come sopra, è buona abitudine per chi scrive codice nuovo che usa
-`TracingHelper` direttamente, dove per davvero conta (vedi sopra). I test
+passo precedente, aggiunta internamente dai test.) `tests/` imposta da sé
+`API_ENV=development` (fixture autouse in `tests/conftest.py`); fuori da
+`tests/` va impostata sempre (vedi sopra). I test
 creano e distruggono le proprie partizioni/righe dentro `gravya_e1_test`
 (fixture `ensure_partitions_now`, `make_helper`, ecc.): non serve nessuna
 preparazione oltre alle migrazioni. Nessun file temporaneo resta fuori da

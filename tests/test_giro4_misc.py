@@ -148,15 +148,18 @@ def test_api_env_assente_blocca_l_avvio_con_segnale(monkeypatch, signal_sink, ke
     assert "e5.environment_undeclared" in signal_sink.kinds()
 
 
-def test_api_env_assente_non_blocca_con_production_override_esplicito(monkeypatch, signal_sink, key_provider, variables, make_helper):
-    """Con un comportamento scelto esplicitamente (production_override=False),
-    API_ENV assente non blocca piu' (nessun API_ENV finto da impostare solo
-    per usare production_override). `delenv` esplicito per lo stesso motivo
-    del test precedente."""
+@pytest.mark.parametrize("override", [False, True])
+def test_api_env_assente_blocca_anche_con_production_override(monkeypatch, signal_sink, key_provider, variables, override):
+    """Micro-correzione API_ENV: API_ENV non impostata blocca l'avvio con
+    segnale anche con `production_override` esplicito (False o True), come
+    per un valore fuori insieme. `delenv` esplicito: la fixture autouse dei
+    test imposta `API_ENV=development`."""
+    from gravya_e1.tracing import EnvironmentInvalidError
+
     monkeypatch.delenv("API_ENV", raising=False)
-    helper = make_helper(variables, signal_sink, key_provider, production_override=False, tenant_context=str(uuid.uuid4()))
-    assert helper is not None
-    assert "e5.environment_undeclared" not in signal_sink.kinds()
+    with pytest.raises(EnvironmentInvalidError):
+        TracingHelper(variables, signal_sink, key_provider, production_override=override, tenant_context=str(uuid.uuid4()))
+    assert "e5.environment_undeclared" in signal_sink.kinds()
 
 
 
