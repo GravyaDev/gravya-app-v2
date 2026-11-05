@@ -97,6 +97,12 @@ class PostgresSignalSink:
     scartato (vincolo 4): solo `kind`, chiavi del payload dichiarate esplicite
     dal chiamante (mai il valore di un attributo scartato) e conteggi, filtrati
     dall'insieme chiuso `ALLOWED_SIGNAL_FIELDS` (B7).
+
+    Giro 4 (task correzione 5, CR minore): la policy di RLS della tabella
+    richiede `tenant_id IS NULL OR tenant_id = current_setting('app.tenant_id')`
+    (`WITH CHECK`, migrazione 0006): imposta qui il GUC del tenant del
+    segnale nella propria transazione, cosi' il writer non puo' inserire un
+    segnale a nome di un tenant diverso da quello dichiarato.
     """
 
     def __init__(self, conn) -> None:
@@ -105,6 +111,8 @@ class PostgresSignalSink:
     def emit(self, event: str, *, tenant_id: str | None = None, **payload: Any) -> None:
         safe_payload = _filter_payload(payload)
         with self._conn.cursor() as cur:
+            if tenant_id is not None:
+                cur.execute("SELECT set_config('app.tenant_id', %s, true)", (str(tenant_id),))
             cur.execute(
                 """
                 INSERT INTO gravya_signals_min_audit (id, kind, tenant_id, payload)

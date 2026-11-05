@@ -59,7 +59,11 @@ def upgrade() -> None:
         BEGIN
             EXECUTE format('GRANT gravya_migrator TO %I', current_user);
         EXCEPTION WHEN OTHERS THEN
-            NULL;
+            -- Giro 4 (G3-02): visibile, non inghiottito. Fallisce qui quando
+            -- current_user e' gia' superuser (non puo' concedersi un ruolo a
+            -- se stesso in questo modo) o quando manca l'ADMIN OPTION: in
+            -- entrambi i casi non e' un errore fatale per questa migrazione.
+            RAISE WARNING 'impossibile concedere gravya_migrator al chiamante qui (%)', SQLERRM;
         END
         $$;
         """
@@ -84,7 +88,12 @@ def upgrade() -> None:
         BEGIN
             EXECUTE format('GRANT gravya_e1_so_owner TO %I', current_user);
         EXCEPTION WHEN OTHERS THEN
-            NULL;
+            -- Giro 4 (G3-02): visibile, non inghiottito (stesso motivo sopra).
+            -- La migrazione 0006 revoca questa appartenenza temporanea dopo
+            -- l'ALTER OWNER sotto; se la concessione qui e' fallita perche'
+            -- current_user e' gia' il proprietario finale o gia' superuser,
+            -- non c'e' nulla da revocare e va bene cosi'.
+            RAISE WARNING 'impossibile concedere gravya_e1_so_owner al chiamante qui (%)', SQLERRM;
         END
         $$;
         """
