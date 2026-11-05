@@ -1,0 +1,28 @@
+{
+  "registri_modificati": [
+    "docs/DECISIONS.md",
+    "docs/decisioni-archivio.md"
+  ],
+  "righe_aggiornate": [
+    "DECISIONS.md intestazione «Ultimo aggiornamento»: riscritta su una riga (2026-11-05, decisione dell'utente su catena di fornitura e job in locale)",
+    "§6 «Catena di fornitura»: aggiornata con le decisioni (a), (b), (c), (e) e (d)/(f) nella forma raccomandata, con esecuzione in locale",
+    "§6 «Minuti di GitHub Actions»: riga nuova (2026-11-05)",
+    "§4 «Catena di fornitura e aggiornamenti»: punti (a)-(f) decisi; resta aperta solo l'attuazione con docs/revisioni/ci-locale/task-implementer.md e il rilievo minore del code-reviewer",
+    "decisioni-archivio.md: in coda, versioni superate di «Ultimo aggiornamento», di §6 «Catena di fornitura» e di §4 «Catena di fornitura e aggiornamenti»; testo dell'utente alla lettera nella sezione «2026-11-05 — testi dell'utente (job in locale e minuti di GitHub Actions)»"
+  ],
+  "documenti_da_aggiornare": [
+    {
+      "doc": "E3-eval-harness-offline.md",
+      "motivo": "Dichiara la CI su GitHub (DA-E3-11 e §6 «Report CI su GitHub»): la regola «su GitHub solo i controlli che servono, avviati da cambiamenti di codice» e il controllo in locale vanno riportati nel documento."
+    },
+    {
+      "doc": "E1-tracing-distribuito.md",
+      "motivo": "La riga «Catena di fornitura» di §6 cita E1 e il controllo OSV del lockfile ora gira in locale con issue su GitHub in caso di fallimento; verificare i riferimenti alla CI nel documento."
+    },
+    {
+      "doc": "stato/ambiente.md",
+      "motivo": "Non scritto da me (solo il coordinator scrive in stato/): annotare il job settimanale su timer locale e il fatto che i controlli programmati non girano più su GitHub Actions."
+    }
+  ],
+  "conflitti_da_riportare": []
+}
