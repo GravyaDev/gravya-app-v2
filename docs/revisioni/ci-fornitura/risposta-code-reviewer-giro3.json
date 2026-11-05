@@ -1,0 +1,53 @@
+{
+  "esito": "OK",
+  "criteri": [
+    {
+      "id": "R1-giro2-stato-HTTP-diverso-da-200",
+      "test": "tests/test_ci_osv_check.py::test_invia_http_stato_2xx_diverso_da_200_con_corpo_valido_codice_2",
+      "verifica_reale": true,
+      "eseguito": "prova-sopravvissuti.sh dalla radice del worktree: il mutante s1 (`if False:`) fa fallire 6 test della suite del branch (29 passati) e 3 test su 4 della mia prova. `pytest tests/test_ci_osv_check.py` sul branch: 35 passati.",
+      "note": "I casi 201, 203 e 206 hanno corpo pulito e corpo vulnerabile. Si aspetta codice 2, il messaggio «stato HTTP <n>» e nessun traceback. Sono gli input che distinguono il controllo `risposta.status != HTTP_OK`. Rilievo risolto."
+    },
+    {
+      "id": "R2-giro2-timeout",
+      "test": "tests/test_ci_osv_check.py::test_invia_http_timeout_codice_2",
+      "verifica_reale": true,
+      "eseguito": "prova-sopravvissuti.sh: il mutante s2 (`timeout=None`) fa fallire 1 test della suite del branch (34 passati) e 1 test della mia prova. Sul codice del branch la prova dà 4 passati.",
+      "note": "La risposta tardiva (1 s) è valida e pulita, quindi senza timeout l'esito sarebbe 0. Il test riduce `TIMEOUT_SECONDI` a 0,2 s con monkeypatch e asserisce «timed out» nel messaggio. Il default dello script (30) non è cambiato. Rilievo risolto."
+    },
+    {
+      "id": "R3-giro2-frase-204-nel-report",
+      "test": "assente (rilievo documentale)",
+      "verifica_reale": true,
+      "eseguito": "Lettura del diff di `docs/revisioni/ci-fornitura/report-implementer.md`.",
+      "note": "La frase inesatta è sostituita da una esatta: il test sul 204 passa con e senza il controllo, e lo stato è protetto solo dai test del giro 3. Rilievo risolto."
+    },
+    {
+      "id": "Lockfile-fail-closed",
+      "test": "tests/test_ci_osv_check.py (7 casi parametrizzati)",
+      "verifica_reale": true,
+      "eseguito": "Il mutante s3 (righe ignorate e conteggio rimosso) fa fallire 7 test della suite del branch, 28 passati.",
+      "note": "Già chiuso nel giro 2 e riconfermato in questo giro."
+    }
+  ],
+  "rilievi": [
+    {
+      "gravita": "minore",
+      "file_riga": "tests/test_ci_osv_check.py::test_invia_http_timeout_codice_2",
+      "problema": "Il test asserisce il testo «timed out» dell'eccezione di Python. Se un'altra versione di Python cambiasse il messaggio, il test fallirebbe in modo visibile e non lascerebbe passare nulla. È un'osservazione, non un difetto.",
+      "fonte": "E1 v1.10 CI; DECISIONS §6 Catena di fornitura p.1",
+      "prova": "nessuna",
+      "verifica": "dedotto"
+    }
+  ],
+  "tentativi_di_rottura": [
+    "Mutante senza il controllo dello stato (`if False:`): ucciso dalla suite, 6 falliti.",
+    "Mutante con il controllo ridotto a `>= 400`: non rieseguito in questo giro. Il report dell'implementer lo dà ucciso (6 falliti, casi 201/203/206).",
+    "Mutante senza timeout (`timeout=None`): ucciso dalla suite, 1 fallito.",
+    "Timeout fisso nel codice al posto della costante: dedotto ucciso, perché la risposta tardiva è valida. Non provato come mutante.",
+    "Mutante del lockfile (righe ignorate e conteggio rimosso): ucciso da 7 test.",
+    "Confronto del diff del giro 3 con il perimetro: solo il test e il report dell'implementer. Nessuna modifica allo script, né a workflow, Dependabot o README.",
+    "Stato del worktree: HEAD uguale a impl/ci-fornitura (796a096), nessuna modifica. La cartella `lavoro-mutanti/` è stata cancellata dallo script. Non ho rieseguito l'intera suite del repository (richiede PostgreSQL): per la CI mi baso sul verde riferito dal coordinator."
+  ],
+  "report": "docs/revisioni/ci-fornitura/report-code-reviewer-giro3.md"
+}
