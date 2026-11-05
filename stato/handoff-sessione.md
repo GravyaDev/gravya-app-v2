@@ -16,13 +16,13 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 ## In corso (agenti lanciati, non conclusi)
 - Ristrutturazione di DECISIONS.md **conclusa**: registro solo corrente, storia in `docs/decisioni-archivio.md`. Da fare nelle revisioni dei documenti: rimandi a vecchi titoli di §4 (E1 §3 e A1 App. C sulle mutazioni del grafo, ora §6; B1 sulla base giuridica delle evidenze, ora §5).
 - Decisioni M1-M5 dell'utente («ok», 2026-11-05): ultimo giro unico. Catalogo v1.7 fatto dal coordinator.
-- **Implementer, giro 5** — task `docs/revisioni/impl-e1/task-implementer-giro5.md` (branch `claude/impl-e1`, commit 09b7162). Se interrotto: controllare i commit dopo 09b7162 e la sezione «Giro 5» del report; altrimenti rilanciare da quel task.
+- Giro 5 dell'implementer **concluso**: `claude/impl-e1` a 41607af (verificato: 80 test; falliti attesi dichiarati, refuso confermato nel conftest del code-reviewer giro 4 r.74).
+- **Verifica finale** in corso: code-reviewer (task `docs/revisioni/impl-e1/task-code-reviewer-giro5.md` sul branch del codice), plan-auditor e compliance-auditor su E1 v1.9 e catalogo v1.7 (task `docs/revisioni/e1-v1.9/task-auditor.md`). Se interrotti: rilanciare dai task.
 - E1 v1.9 fatta (doc-writer, Storico verificato intatto) e committata.
 - Registrar concluso: decisioni M1-M5 ed esiti registrati, commit 1ecfe11.
 
 ## Prossimi passi, in ordine
-1. Verificare il giro 5; commit.
-2. Verifica mirata finale: code-reviewer sulle modifiche del giro 5; plan-auditor e compliance-auditor su E1 v1.9 e catalogo v1.7. Poi registrar.
+1. Esiti della verifica finale, poi registrar.
 3. Chiedere all'utente quando e dove unire `claude/impl-e1`.
 4. Poi: A1 (passi 3-4) sull'ossatura; v1.7 di allineamento degli altri documenti (F2, `run_id` UUID, `gravya.tool.outcome` in B2, C3 con F4); approvazione dei sette documenti; ondata 2 (A5, A6, F6).
 
