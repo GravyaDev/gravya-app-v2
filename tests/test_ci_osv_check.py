@@ -244,3 +244,30 @@ def test_lockfile_numero_pacchetti_uguale_ai_blocchi():
 def test_lockfile_attuale_e_conforme():
     testo = (Path(__file__).resolve().parent.parent / "requirements.lock.txt").read_text(encoding="utf-8")
     assert len(osv.leggi_lockfile(testo)) > 0
+
+
+# --- Costanti: valori letterali attesi, documentati (non tautologici) --------
+# Un cambio involontario deve far fallire il test. Fonti: documentazione di
+# OSV (https://google.github.io/osv.dev/post-v1-querybatch/): endpoint
+# `POST https://api.osv.dev/v1/querybatch`, ecosistema `PyPI`, al massimo 1000
+# interrogazioni per richiesta.
+
+def test_costanti_hanno_i_valori_documentati():
+    assert osv.OSV_URL == "https://api.osv.dev/v1/querybatch"
+    assert osv.ECOSISTEMA == "PyPI"
+    assert osv.DIMENSIONE_BLOCCO == 1000
+    assert osv.HTTP_OK == 200
+    assert osv.LOCKFILE_DEFAULT == "requirements.lock.txt"
+    assert osv.TIMEOUT_SECONDI == 30
+
+
+def test_la_richiesta_usa_url_ed_ecosistema_documentati():
+    visto = {}
+
+    def invia(url, corpo):
+        visto["url"], visto["corpo"] = url, corpo
+        return {"results": [{}]}
+
+    osv.interroga([("requests", "2.0.0")], invia)
+    assert visto["url"] == "https://api.osv.dev/v1/querybatch"
+    assert visto["corpo"] == {"queries": [{"package": {"name": "requests", "ecosystem": "PyPI"}, "version": "2.0.0"}]}
