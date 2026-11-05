@@ -23,6 +23,7 @@ import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import psycopg
 
@@ -47,7 +48,7 @@ DBNAME = os.environ["GRAVYA_E1_CI_NONSUPER_DB"]
 ROLE = "gravya_e1_ci_nonsuper_writer"
 
 
-def _build_variables() -> SnapshotVariableRegistry:
+def _build_variables(tmpdir: Path) -> SnapshotVariableRegistry:
     snapshot = {
         "variables": {
             "e1.partition_interval_months": {"value": 1, "unit": "months", "status": "deciso"},
@@ -59,19 +60,20 @@ def _build_variables() -> SnapshotVariableRegistry:
             "e1.write_tcp_keepalives_idle_s": {"value": 10, "unit": "s", "status": "deciso"},
             "e1.write_tcp_keepalives_interval_s": {"value": 5, "unit": "s", "status": "deciso"},
             "e1.write_tcp_keepalives_count": {"value": 3, "unit": "count", "status": "deciso"},
+            "e1.write_tcp_user_timeout_ms": {"value": 5000, "unit": "ms", "status": "deciso"},
         }
     }
-    import tempfile
-
-    fd, path = tempfile.mkstemp(suffix=".json")
-    with os.fdopen(fd, "w") as fh:
-        json.dump(snapshot, fh)
-    return SnapshotVariableRegistry(signal_sink=InMemorySignalSink(), snapshot_path=Path(path))
+    # Giro 4 (CR N13): directory temporanea cancellata da `main()` alla fine
+    # (`TemporaryDirectory`), mai un file lasciato in /tmp.
+    path = tmpdir / "snapshot.json"
+    path.write_text(json.dumps(snapshot))
+    return SnapshotVariableRegistry(signal_sink=InMemorySignalSink(), snapshot_path=path)
 
 
 def main() -> None:
     admin = psycopg.connect(SUPERUSER_DSN)
     password = secrets.token_urlsafe(24)
+    tmpdir_ctx = TemporaryDirectory()
     try:
         with admin.cursor() as cur:
             cur.execute(
@@ -92,7 +94,7 @@ def main() -> None:
             cur.execute(f"GRANT CONNECT ON DATABASE {DBNAME} TO {ROLE};")
         admin.commit()
 
-        variables = _build_variables()
+        variables = _build_variables(Path(tmpdir_ctx.name))
         ensure_partition(admin, "gravya_traces", NOW(), variables)
         ensure_partition(admin, "gravya_trace_segments", NOW(), variables)
         admin.commit()
@@ -155,10 +157,25 @@ def main() -> None:
 
         print("OK: scrittura, trigger anti-modifica e funzione cross-tenant funzionano con schema non superuser")
     finally:
-        with admin.cursor() as cur:
-            cur.execute(f"ALTER ROLE {ROLE} PASSWORD NULL;")
-        admin.commit()
+        # Giro 4 (CA G3-09): un ruolo LOGIN senza password, in un cluster con
+        # autenticazione `trust`, resta utilizzabile da chiunque si connetta.
+        # `DROP OWNED BY` + `DROP ROLE` (non solo azzerare la password) lo
+        # elimina davvero: nessun ruolo residuo con privilegi su `gravya_writer`.
+        try:
+            with admin.cursor() as cur:
+                cur.execute(f"DROP OWNED BY {ROLE};")
+        except Exception:  # noqa: BLE001 - difensivo: la pulizia non deve mai far fallire lo script con un errore oscuro
+            admin.rollback()
+        else:
+            admin.commit()
+        try:
+            with admin.cursor() as cur:
+                cur.execute(f"DROP ROLE IF EXISTS {ROLE};")
+            admin.commit()
+        except Exception:  # noqa: BLE001
+            admin.rollback()
         admin.close()
+        tmpdir_ctx.cleanup()
 
 
 if __name__ == "__main__":

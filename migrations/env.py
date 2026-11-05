@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool, text
@@ -24,7 +25,13 @@ config.set_main_option("sqlalchemy.url", database_url)
 # (lo stesso meccanismo di `db.writer_transaction`, non un nuovo modo di
 # autenticarsi). Il nome del ruolo e' un valore fisso dell'ambiente di
 # deploy, non un parametro esterno: non e' parametrizzabile in `SET ROLE`.
+# Giro 4 (CA G3-10): validato come identificatore SQL semplice e quotato
+# (invece di interpolato cosi' com'e') prima di finire in `SET ROLE`.
+_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
 migration_role = os.environ.get("MIGRATION_ROLE")
+if migration_role and not _IDENTIFIER_RE.fullmatch(migration_role):
+    raise RuntimeError(f"MIGRATION_ROLE non e' un identificatore SQL valido: {migration_role!r}")
 
 
 def run_migrations_offline() -> None:
@@ -42,7 +49,9 @@ def run_migrations_online() -> None:
     )
     with connectable.connect() as connection:
         if migration_role:
-            connection.execute(text(f"SET ROLE {migration_role}"))
+            # Identificatore gia' validato sopra (solo lettere/cifre/underscore,
+            # non puo' contenere virgolette): la quotatura e' semplice e sicura.
+            connection.execute(text(f'SET ROLE "{migration_role}"'))
             connection.commit()
         context.configure(connection=connection)
         with context.begin_transaction():

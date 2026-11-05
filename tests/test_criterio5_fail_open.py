@@ -48,10 +48,10 @@ def test_connessione_del_chiamante_chiusa_non_causa_perdita_con_db_sano(variable
     assert helper.loss_count == 0, "connessione del chiamante chiusa ha causato una perdita (G14a non risolto)"
 
 
-def test_scrittura_traccia_non_riuscita_e_fail_open(signal_sink, key_provider, make_helper):
+def test_scrittura_traccia_non_riuscita_e_fail_open(signal_sink, key_provider, make_helper, tmp_path):
     """DB realmente irraggiungibile (conninfo della connessione propria verso una porta inesistente)."""
     helper = make_helper(
-        _unreachable_variables(),
+        _unreachable_variables(tmp_path),
         signal_sink,
         key_provider,
         production_override=False,
@@ -73,9 +73,9 @@ def test_scrittura_traccia_non_riuscita_e_fail_open(signal_sink, key_provider, m
     assert "trace.write_failed" in signal_sink.kinds()
 
 
-def test_scrittura_segmento_non_riuscita_e_fail_open(signal_sink, key_provider, make_helper):
+def test_scrittura_segmento_non_riuscita_e_fail_open(signal_sink, key_provider, make_helper, tmp_path):
     helper = make_helper(
-        _unreachable_variables(),
+        _unreachable_variables(tmp_path),
         signal_sink,
         key_provider,
         production_override=False,
@@ -98,12 +98,12 @@ def test_scrittura_segmento_non_riuscita_e_fail_open(signal_sink, key_provider, 
     assert "trace.write_failed" in signal_sink.kinds()
 
 
-def test_sink_dei_segnali_non_scrivibile_non_blocca_il_fail_open(key_provider, make_helper):
+def test_sink_dei_segnali_non_scrivibile_non_blocca_il_fail_open(key_provider, make_helper, tmp_path):
     """B2/R-08: anche se il sink dei segnali stesso non funziona, l'helper non deve sollevare."""
     broken_conn = psycopg.connect(pg_dsn(TEST_DB))
     broken_conn.close()
     helper = make_helper(
-        _unreachable_variables(),
+        _unreachable_variables(tmp_path),
         PostgresSignalSink(broken_conn),
         key_provider,
         production_override=False,
@@ -129,15 +129,14 @@ def test_sink_dei_segnali_non_scrivibile_non_blocca_il_fail_open(key_provider, m
     assert helper.loss_count == 1
 
 
-def _unreachable_variables():
+def _unreachable_variables(tmp_path):
     from gravya_e1.config.variables import SnapshotVariableRegistry
     from gravya_e1.signals import InMemorySignalSink
     import json
-    import pathlib
-    import tempfile
 
     from _e1vars import snapshot_with
 
-    path = pathlib.Path(tempfile.mkstemp(suffix=".json")[1])
+    # Giro 4 (CR N13): `tmp_path` (cancellato da pytest), mai un file in /tmp.
+    path = tmp_path / "snapshot.json"
     path.write_text(json.dumps(snapshot_with({"e1.write_connect_timeout_ms": {"value": 1000, "unit": "ms", "status": "deciso"}})))
     return SnapshotVariableRegistry(signal_sink=InMemorySignalSink(), snapshot_path=path, production_override=False)
