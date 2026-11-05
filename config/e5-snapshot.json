@@ -45,13 +45,13 @@
       "min": 1,
       "max": null
     },
-    "e1.write_connect_timeout_ms": {
-      "value": 2000,
-      "unit": "ms (timeout di connessione del thread di scrittura dell'helper, giro 3)",
+    "e1.write_connect_timeout_s": {
+      "value": 2,
+      "unit": "s (timeout di connessione del thread di scrittura/segnali dell'helper, intero: libpq legge secondi interi, valori sotto 2 diventano 2, 0 e' attesa infinita, giro 5, decisione dell'utente)",
       "status": "da_definire",
       "dev_only": true,
-      "catalog_ref": "non ancora nel catalogo (DX-22, giro 3): il coordinator la aggiunge a catalogo-variabili.md",
-      "min": 1,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 5): il coordinator la aggiunge a catalogo-variabili.md",
+      "min": 2,
       "max": null
     },
     "e1.write_tcp_keepalives_idle_s": {

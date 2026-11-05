@@ -103,6 +103,13 @@ class PostgresSignalSink:
     (`WITH CHECK`, migrazione 0006): imposta qui il GUC del tenant del
     segnale nella propria transazione, cosi' il writer non puo' inserire un
     segnale a nome di un tenant diverso da quello dichiarato.
+
+    Giro 5 (CR S2): un errore (per esempio `tenant_id` non un UUID valido)
+    lascia la connessione in transazione fallita finche' non arriva un
+    `rollback()`: senza, ogni emissione successiva sulla stessa connessione
+    fallirebbe a sua volta. `emit()` fa `rollback()` prima di rilanciare,
+    cosi' la connessione resta utilizzabile anche da sola (senza passare da
+    `TracingHelper`, che gia' gestisce la riconnessione per conto suo).
     """
 
     def __init__(self, conn) -> None:
@@ -110,14 +117,21 @@ class PostgresSignalSink:
 
     def emit(self, event: str, *, tenant_id: str | None = None, **payload: Any) -> None:
         safe_payload = _filter_payload(payload)
-        with self._conn.cursor() as cur:
-            if tenant_id is not None:
-                cur.execute("SELECT set_config('app.tenant_id', %s, true)", (str(tenant_id),))
-            cur.execute(
-                """
-                INSERT INTO gravya_signals_min_audit (id, kind, tenant_id, payload)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (str(uuid.uuid4()), event, tenant_id, json.dumps(safe_payload)),
-            )
-        self._conn.commit()
+        try:
+            with self._conn.cursor() as cur:
+                if tenant_id is not None:
+                    cur.execute("SELECT set_config('app.tenant_id', %s, true)", (str(tenant_id),))
+                cur.execute(
+                    """
+                    INSERT INTO gravya_signals_min_audit (id, kind, tenant_id, payload)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (str(uuid.uuid4()), event, tenant_id, json.dumps(safe_payload)),
+                )
+            self._conn.commit()
+        except Exception:  # noqa: BLE001 - la connessione deve restare utilizzabile dopo un errore (CR S2)
+            try:
+                self._conn.rollback()
+            except Exception:  # noqa: BLE001
+                pass
+            raise

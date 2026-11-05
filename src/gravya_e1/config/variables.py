@@ -32,6 +32,14 @@ Giro 3 (G9): `production_override` puo' solo irrigidire la guardia di
 produzione (`is_production() or override`), mai spegnerla: con
 `API_ENV=production` nell'ambiente, nessun valore di `production_override`
 puo' far accettare una variabile "da definire".
+
+Giro 5 (CR V1, decisione dell'utente). `e1.write_tcp_user_timeout_ms` e'
+ora in `_EXPECTED_INT_VARIABLES` (prima mancava: un'istantanea senza `min`
+accettava 0, e una stringa sollevava `TypeError` invece di un errore
+tipizzato). `e1.write_connect_timeout_ms` e' rinominata
+`e1.write_connect_timeout_s` (intero, minimo tecnico effettivo 2 tramite
+`min` nell'istantanea: libpq legge secondi interi e tratta valori sotto 2
+come 2, e 0 come attesa infinita); `TracingHelper` non la converte piu'.
 """
 from __future__ import annotations
 
@@ -62,10 +70,11 @@ _EXPECTED_INT_VARIABLES = frozenset(
         "e1.write_buffer_size",
         "e1.attributes.max_value_bytes",
         "e1.write_statement_timeout_ms",
-        "e1.write_connect_timeout_ms",
+        "e1.write_connect_timeout_s",
         "e1.write_tcp_keepalives_idle_s",
         "e1.write_tcp_keepalives_interval_s",
         "e1.write_tcp_keepalives_count",
+        "e1.write_tcp_user_timeout_ms",
     }
 )
 

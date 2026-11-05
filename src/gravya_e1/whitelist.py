@@ -337,3 +337,23 @@ def safe_signal_key_name(key: str) -> tuple[str | None, int]:
     if key in _KNOWN_SIGNAL_KEYS:
         return key, length
     return None, length
+
+
+# Vocabolario dei `kind` noti (giro 5, CR S3): le chiavi di
+# `ATTRIBUTE_WHITELIST`, piu' "_field" (usato internamente per gli scarti di
+# campo, mai dato dal chiamante). Il parametro `kind` di `end_segment` non e'
+# validato altrove: senza questo controllo, un valore arbitrario del
+# chiamante finiva direttamente nel campo `kind` del segnale di scarto.
+_KNOWN_SIGNAL_DISCARD_KINDS = frozenset(ATTRIBUTE_WHITELIST) | {"_field"}
+
+_UNKNOWN_KIND_PLACEHOLDER = "kind_non_valido"
+
+
+def safe_signal_kind(kind: object) -> str:
+    """Valore del campo `kind` da riportare in un segnale di scarto (CR S3).
+
+    Ritorna `kind` se e' uno dei valori noti del vocabolario; altrimenti un
+    segnaposto fisso (mai il testo arbitrario del chiamante)."""
+    if isinstance(kind, str) and kind in _KNOWN_SIGNAL_DISCARD_KINDS:
+        return kind
+    return _UNKNOWN_KIND_PLACEHOLDER
