@@ -25,5 +25,8 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 3. Chiedere all'utente quando e dove unire `claude/impl-e1`.
 4. Poi: A1 (passi 3-4) sull'ossatura; v1.7 di allineamento degli altri documenti (F2, `run_id` UUID, `gravya.tool.outcome` in B2, C3 con F4); approvazione dei sette documenti; ondata 2 (A5, A6, F6).
 
+## Da passare al registrar alla prossima invocazione
+- Testo dell'utente alla lettera (2026-11-05): «Dopo aver ricopiato ti do ok ed elimino la memoria. Istruzioni solo in Claude.md, nessun'altra sessione avrà istruzioni sull'uso della memoria» (regola di processo, DECISIONS §6; applicata nel commit ef40b12).
+
 ## In attesa di risposta dall'utente
 - Nessuna decisione aperta.
