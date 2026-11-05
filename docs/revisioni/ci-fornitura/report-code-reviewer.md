@@ -1,0 +1,22 @@
+# Report code-reviewer — catena di fornitura della CI (`impl/ci-fornitura`, head a0f238c)
+
+Esito: **BLOCCA** (un solo punto bloccante, di copertura dei test; il comportamento reale è corretto).
+
+## Verificato
+- `pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp` nel worktree: 99 passed. `bash scripts/test-non-superuser.sh` (psql dell'host): exit 0. `.pytest_basetemp` cancellato.
+- CI sul branch: tutti i run success (`gh run list`), runner `Image: ubuntu-24.04` nei log di `test` e `test-non-superuser`; `psql` dal `docker run ... $IMMAGINE psql`, con l'immagine letta dal container del servizio e controllata (`postgres:*@sha256:*`); `apt-get` assente.
+- Action: checkout v7.0.1 → 3d3c42e5…; setup-python v7.1.0 → 6d4fd22b… (= `releases/latest`, tag → commit con `git/ref/tags`); `action.yml` a quegli SHA: `runs.using: node24`. `runs-on: ubuntu-24.04` in tutti e 4 i job.
+- Una sola riga `image:` (ancora YAML nel job `test`, alias in `test-non-superuser`); regex di `scripts/agenti.py` → un solo valore.
+- `scripts/osv-check.py` reale: lockfile del repo → exit 0 (18 pacchetti); `jinja2==2.4.1` e `requests==2.0.0` → exit 1 con elenco ID; rete irraggiungibile → exit 2; server locale che risponde HTML, 500, `results` vuoto, `results:[null]` → exit 2. Test del branch con script vuoto → falliscono; mutanti (vulnerabili→0, rete giù→0, lockfile vuoto→0, lunghezza `results` non controllata, paginazione ignorata) → uccisi.
+- Job `digest-postgres` (passo estratto da `fornitura.yml`, eseguito in cartella di lavoro con `ci.yml` modificato, poi cancellata, con `docker buildx imagetools inspect` reale): invariato → exit 0; digest alterato → exit 1 con messaggio chiaro; due immagini → exit 1; nessuna immagine → exit 1.
+- Perimetro: nessun file di applicazione, migrazioni, lockfile o test esistenti toccati; solo file dichiarati.
+
+## Rilievi
+1. **Bloccante (verificato).** Il percorso di rete di `scripts/osv-check.py` (`invia_http`, la parte che dà «OSV non raggiungibile → errore») non è coperto dai test. `test_main_vulnerabile_pulito_vuoto_e_rete` simula la rete giù facendo sollevare `ErroreOsv` direttamente, quindi aggira `invia_http`. Mutante in cui `invia_http` ingoia l'errore e dichiara «nessuna vulnerabilità»: la suite del branch resta verde (11 passed). Il codice del branch è corretto (provato a mano), ma il fail-closed richiesto dal task non è protetto da test. Prova: `docs/revisioni/ci-fornitura/prove-code-reviewer/prova-mutante.sh` e `test_invia_http_fail_closed.py` (sul mutante 3 failed; sul branch 2 passed).
+2. **Da riportare / minore (verificato).** Risposta HTTP troncata (`IncompleteRead`, non `OSError`/`ValueError`): traceback ed exit 1, cioè lo stesso codice di «vulnerabilità trovate» invece di 2. Resta un fallimento (fail-closed), ma l'esito è ambiguo. Prova: `test_risposta_troncata_esce_con_errore_controllato` (fallisce sul branch).
+3. **Da riportare (dedotto).** Dependabot per `pip` non configurato: la decisione (DECISIONS §6 «Catena di fornitura», punto 1) lo prevede; l'implementer si è fermato come da task, dichiarandolo. Non ho potuto leggere la documentazione GitHub (il repository `github/docs` non è accessibile con `gh`): l'affermazione che Dependabot non rigeneri il lockfile con hash non è né confermata né smentita qui. Serve decisione dell'utente (provare con una PR reale). Resta il controllo OSV settimanale come mitigazione parziale.
+4. **Minore (dedotto).** Le costanti `OSV_URL`, `ECOSISTEMA`, `TIMEOUT_SECONDI` non sono verificate dai test (i test le usano per costruire l'atteso: tautologie; mutanti sopravvissuti). Un ecosistema sbagliato darebbe risultati vuoti senza errore: lo copre solo l'esecuzione reale in CI (rilevamento provato a mano oggi con jinja2/requests).
+5. **Minore (dedotto).** Alias YAML in `ci.yml`: funzionano in Actions (CI verde), ma Dependabot `github-actions` potrebbe non analizzarli; non verificabile prima della prima esecuzione (dichiarato dall'implementer tra i non verificati).
+6. **Minore.** Il commit d3d1fb0 contiene tutto il lavoro (non un commit per argomento); dichiarato. Aggiunto un file di test nuovo, dichiarato come divergenza (accettabile, non modifica test esistenti). `workflow_dispatch` e `push`+`pull_request` insieme: consentito dal task, esecuzioni doppie sulle PR.
+
+Nessun contenuto che si rivolgesse a un agente trovato nei file letti. Nessun segreto, nessun URL o soglia nascosti oltre le costanti dichiarate in testa allo script (come ammesso dal task).

@@ -1,0 +1,127 @@
+{
+  "esito": "BLOCCA",
+  "criteri": [
+    {
+      "id": "OSV-fail-closed",
+      "test": "tests/test_ci_osv_check.py::test_main_vulnerabile_pulito_vuoto_e_rete",
+      "verifica_reale": false,
+      "eseguito": "pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp → 99 passed. Prove a mano su scripts/osv-check.py: lockfile del repo exit 0; jinja2==2.4.1 e requests==2.0.0 exit 1 con elenco ID; proxy morto exit 2; server locale con HTML, HTTP 500, 'results' vuoto o 'results:[null]' exit 2. Con script vuoto i test falliscono.",
+      "note": "Il comportamento reale è corretto. Il test della 'rete giù' fa sollevare ErroreOsv direttamente, quindi non passa da invia_http. Un mutante in cui invia_http ingoia l'errore e restituisce 'nessuna vulnerabilità' fa passare tutti gli 11 test del branch. Il fail-closed per OSV non raggiungibile non è protetto da test."
+    },
+    {
+      "id": "digest-postgres-settimanale",
+      "test": "assente (nessun test automatico; passo provato a mano)",
+      "verifica_reale": true,
+      "eseguito": "Passo estratto da fornitura.yml ed eseguito con docker buildx imagetools inspect reale su un ci.yml in cartella di lavoro (poi cancellata). Invariato: exit 0. Digest alterato: exit 1 con messaggio chiaro. Due immagini: exit 1. Nessuna immagine: exit 1. Gli esiti delle run in CI sono nel dettaglio dei run (workflow_dispatch success).",
+      "note": "Il ramo 'digest cambiato' ora è provato. Il job gira solo su schedule e workflow_dispatch. La run schedule vera si vedrà solo dopo il merge su main."
+    },
+    {
+      "id": "action-SHA-Node24",
+      "test": "assente (verifica con gh api)",
+      "verifica_reale": true,
+      "eseguito": "gh api: checkout v7.0.1 → 3d3c42e5…, setup-python v7.1.0 → 6d4fd22b…, entrambe uguali a releases/latest. I tag puntano direttamente a commit. action.yml a quegli SHA ha runs.using: node24.",
+      "note": "Gli SHA corrispondono ai tag dichiarati."
+    },
+    {
+      "id": "runner-ubuntu-24.04",
+      "test": "assente (verifica su YAML e log CI)",
+      "verifica_reale": true,
+      "eseguito": "grep: runs-on: ubuntu-24.04 in tutti e 4 i job. I log CI mostrano 'Image: ubuntu-24.04'.",
+      "note": "Nessun 'ubuntu-latest' residuo."
+    },
+    {
+      "id": "psql-da-immagine-servizi",
+      "test": "assente (script di integrazione)",
+      "verifica_reale": true,
+      "eseguito": "bash scripts/test-non-superuser.sh con psql dell'host: exit 0. CI test-non-superuser: success, con 'docker inspect' del container del servizio + case sul formato + GRAVYA_PSQL='docker run --rm -i --network host $IMMAGINE psql'. Nessun apt-get nel workflow.",
+      "note": "Il default 'psql' mantiene il comportamento locale. La variabile GRAVYA_PSQL è dichiarata in testa allo script e nel README. Non ho rieseguito il giro locale con l'immagine Docker: ho verificato quello della CI."
+    },
+    {
+      "id": "immagine-postgres-una-riga",
+      "test": "assente",
+      "verifica_reale": true,
+      "eseguito": "La regex di scripts/agenti.py su ci.yml dà un solo valore: postgres:18@sha256:bd5dfa49…",
+      "note": "Il digest sta in un solo punto (ancora YAML &servizi, alias *servizi nell'altro job). La CI è verde."
+    },
+    {
+      "id": "dependabot-pip",
+      "test": "assente",
+      "verifica_reale": false,
+      "eseguito": "non eseguito",
+      "note": "Il punto 1 della decisione prevede Dependabot per pip. Il branch configura solo github-actions e dichiara la divergenza. Non ho potuto verificare la documentazione GitHub: il repository github/docs non è accessibile con gh."
+    },
+    {
+      "id": "perimetro",
+      "test": "assente",
+      "verifica_reale": true,
+      "eseguito": "git diff main...impl/ci-fornitura --name-only: 8 file, tutti dichiarati.",
+      "note": "Nessuna modifica a codice applicativo, migrazioni, lockfile o test esistenti. È nuovo il solo file di test tests/test_ci_osv_check.py, dichiarato."
+    }
+  ],
+  "rilievi": [
+    {
+      "gravita": "bloccante",
+      "file_riga": "tests/test_ci_osv_check.py::test_main_vulnerabile_pulito_vuoto_e_rete; scripts/osv-check.py::invia_http",
+      "problema": "Il percorso di rete reale (invia_http, 'OSV non raggiungibile → errore') non è coperto dai test. Il test simula la rete giù sollevando ErroreOsv, che aggira invia_http. Se invia_http ingoiasse l'errore e dichiarasse 'nessuna vulnerabilità', la suite del branch resterebbe verde (11 passed). Il codice attuale è corretto, ma il fail-closed richiesto dal task non è protetto da test.",
+      "fonte": "Task implementer, vincolo 1 (fail-closed con OSV non raggiungibile); regola del code-reviewer sui criteri soddisfatti solo in apparenza",
+      "prova": "docs/revisioni/ci-fornitura/prove-code-reviewer/prova-mutante.sh e test_invia_http_fail_closed.py. Sul mutante: suite del branch 11 passed, prova del reviewer 3 failed. Sul codice del branch: 2 passed.",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "da_riportare",
+      "file_riga": "scripts/osv-check.py::invia_http (except (OSError, ValueError))",
+      "problema": "Una risposta HTTP troncata (http.client.IncompleteRead, che non è OSError né ValueError) esce con traceback ed exit 1. Resta un fallimento, ma ha lo stesso codice di 'vulnerabilità trovate' e non il codice 2 dichiarato per gli errori di OSV. L'esito è ambiguo.",
+      "fonte": "Docstring e report dell'implementer (exit 2 per OSV non risponde o risposta non valida)",
+      "prova": "docs/revisioni/ci-fornitura/prove-code-reviewer/test_invia_http_fail_closed.py::test_risposta_troncata_esce_con_errore_controllato (fallisce sul codice del branch)",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "da_riportare",
+      "file_riga": ".github/dependabot.yml",
+      "problema": "Dependabot per i pacchetti Python non è configurato, mentre la decisione lo prevede. L'implementer si è fermato come da task e lo ha dichiarato. Non ho potuto confermare né smentire la sua lettura della documentazione GitHub. Serve una decisione dell'utente, per esempio provare con una PR reale. Il controllo OSV settimanale è solo una mitigazione parziale.",
+      "fonte": "DECISIONS §6 «Catena di fornitura», punto 1; §4",
+      "prova": "nessuna",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "scripts/osv-check.py (OSV_URL, ECOSISTEMA, TIMEOUT_SECONDI); tests/test_ci_osv_check.py",
+      "problema": "I test costruiscono l'atteso con le stesse costanti (tautologie). Mutanti con URL, ecosistema o timeout errati sopravvivono. Un ecosistema sbagliato darebbe risultati vuoti senza errore. Lo copre solo l'esecuzione reale in CI, che oggi ho verificato a mano con jinja2 e requests.",
+      "fonte": "Task implementer, vincolo 1",
+      "prova": "nessuna (i mutanti sono stati eseguiti in una cartella di lavoro poi cancellata)",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": ".github/workflows/ci.yml (services: &servizi / *servizi)",
+      "problema": "Le ancore YAML funzionano in GitHub Actions (CI verde). Dependabot per github-actions potrebbe non analizzare gli alias nel workflow. Non è verificabile prima della prima esecuzione, e l'implementer lo ha dichiarato.",
+      "fonte": "Task implementer, vincolo 2 (digest in un solo punto)",
+      "prova": "nessuna",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "commit d3d1fb0; .github/workflows/fornitura.yml (on: push + pull_request)",
+      "problema": "Un solo commit contiene tutto il lavoro, invece di un commit per argomento (dichiarato). Il file di test nuovo va contro il vincolo 'nessun cambiamento ai test' (dichiarato, non tocca test esistenti). Con push e pull_request insieme le PR avviano esecuzioni doppie.",
+      "fonte": "Task implementer, punto 7 e perimetro",
+      "prova": "nessuna",
+      "verifica": "verificato"
+    }
+  ],
+  "tentativi_di_rottura": [
+    "OSV con una versione vulnerabile (jinja2==2.4.1, requests==2.0.0): exit 1 con elenco degli ID.",
+    "OSV non raggiungibile (proxy morto, porta chiusa): exit 2.",
+    "Server OSV finto con risposta HTML, HTTP 500, 'results' vuoto e 'results:[null]': tutti exit 2. Con risposta troncata esce con traceback ed exit 1 (rilievo 2).",
+    "Lockfile vuoto, mancante, o con marker di ambiente e --strip-extras: nessun pacchetto saltato. Il parser trova 18 nomi su 18 righe del lockfile.",
+    "Mutazione dello script con 11 mutanti: script vuoto, vulnerabili→0, rete giù→0, lockfile vuoto→0, lunghezza results non controllata, paginazione ignorata, ecosistema errato, URL errato, timeout, invia_http fail-open, regex del marker. Cinque sono uccisi dai test; sopravvivono invia_http fail-open (rilievo 1) e le costanti (rilievo 4).",
+    "Digest di PostgreSQL: passo del job eseguito con docker buildx imagetools inspect reale su ci.yml invariato, con digest alterato, con due immagini diverse e senza immagini. Rileva il cambio, e lo script fallisce con messaggio chiaro.",
+    "SHA delle action ricontrollati contro releases/latest e git/ref/tags; Node 24 letto da action.yml a quello SHA.",
+    "Runner: grep di ubuntu-latest, apt-get e uses non fissati nei workflow: nessuno residuo.",
+    "scripts/agenti.py::immagine_ci() sul ci.yml del branch: un solo valore.",
+    "test-non-superuser.sh con psql dell'host: exit 0. Con GRAVYA_PSQL vuoto o assente prende il default 'psql'.",
+    "Ricerca di segreti, URL o soglie hardcoded: solo le costanti dichiarate in testa allo script, come ammesso dal task.",
+    "Ricerca di testi rivolti a un agente nei file letti: nessuno trovato.",
+    "File temporanei: cartelle di lavoro e .pytest_basetemp cancellati. Nella cartella del report restano solo prova-mutante.sh e test_invia_http_fail_closed.py."
+  ],
+  "report": "docs/revisioni/ci-fornitura/report-code-reviewer.md"
+}

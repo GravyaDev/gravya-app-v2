@@ -1,0 +1,77 @@
+{
+  "branch": "impl/ci-fornitura",
+  "commit": [
+    "d3d1fb0 scripts/osv-check.py: controllo OSV del lockfile (fail-closed), con test offline (contiene per errore tutto il lavoro: OSV, ci.yml, fornitura.yml, dependabot.yml, test-non-superuser.sh, README)",
+    "a0f238c ci-fornitura: report dell'implementer"
+  ],
+  "criteri": [
+    {
+      "id": "1-controllo-OSV",
+      "stato": "implementato",
+      "test": "tests/test_ci_osv_check.py::test_vulnerabile_elencato_e_pulito_no (e le altre 10 del file)",
+      "eseguito": "pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp → 99 passed; python3 scripts/osv-check.py → OK su 18 pacchetti; prova con jinja2==2.4.1 → exit 1; workflow_dispatch run 42088064447 osv success"
+    },
+    {
+      "id": "2-digest-postgres",
+      "stato": "parziale",
+      "test": "assente (verificato solo dal job digest-postgres in CI)",
+      "eseguito": "workflow_dispatch run 42088064447: digest-postgres success (digest fissato uguale all'attuale). Il ramo digest cambiato non è stato provato."
+    },
+    {
+      "id": "3-dependabot",
+      "stato": "parziale",
+      "test": "assente",
+      "eseguito": "non eseguito: configurato solo github-actions; pip fermato (vedi divergenze)"
+    },
+    {
+      "id": "4-runner-e-action",
+      "stato": "implementato",
+      "test": "assente (verifica con gh api e CI)",
+      "eseguito": "CI run 42087878924: test e test-non-superuser success su ubuntu-24.04; checkout v7.0.1 e setup-python v7.1.0 con runs.using node24"
+    },
+    {
+      "id": "5-psql-dall-immagine",
+      "stato": "implementato",
+      "test": "assente (script di integrazione)",
+      "eseguito": "bash scripts/test-non-superuser.sh riuscito in locale con psql dell'host e con GRAVYA_PSQL=docker run ... psql; CI test-non-superuser success"
+    }
+  ],
+  "file_modificati": [
+    ".github/workflows/ci.yml",
+    ".github/workflows/fornitura.yml",
+    ".github/dependabot.yml",
+    "scripts/osv-check.py",
+    "scripts/test-non-superuser.sh",
+    "tests/test_ci_osv_check.py",
+    "README.md",
+    "docs/revisioni/ci-fornitura/report-implementer.md"
+  ],
+  "decisioni_mancanti": [
+    {
+      "punto": "Dependabot per i pacchetti pip sul lockfile pip-compile con hash generato da pyproject.toml",
+      "riferimento": "DECISIONS §4 «Catena di fornitura e aggiornamenti», punto 1",
+      "cosa_serve": "Decidere come aggiornare i pacchetti Python: voce pip in dependabot.yml da provare con una PR reale, oppure un'altra via. La documentazione GitHub non garantisce la rigenerazione degli hash."
+    }
+  ],
+  "divergenze": [
+    {
+      "dove": "Task punto 3 (Dependabot) / docs.github.com «Supported ecosystems and repositories», sezione pip e pip-compile",
+      "problema": "La documentazione dice solo che Dependabot supporta «any .txt file» e pyproject.toml PEP 621. Non dice che rigeneri un lockfile pip-compile con --generate-hashes --all-build-deps --extra=dev. Mi sono fermato: dependabot.yml ha solo github-actions."
+    },
+    {
+      "dove": "Task, vincolo «nessun cambiamento ai test»",
+      "problema": "Ho aggiunto un file di test nuovo, tests/test_ci_osv_check.py (11 test offline per lo script OSV), per avere test reali dei criteri. Nessun test esistente è stato modificato."
+    },
+    {
+      "dove": "Task, «commit piccoli, uno per argomento»",
+      "problema": "Il commit d3d1fb0 contiene tutto il lavoro: un primo tentativo di commit separati era fallito per identità git mancante, ma i file erano già in staging. Il branch è già pushato e non ho riscritto la storia."
+    }
+  ],
+  "non_verificato": [
+    "Il ramo in cui il job digest-postgres fallisce con un digest diverso non è stato provato.",
+    "Il comportamento di Dependabot sulle action (PR di aggiornamento SHA + commento di versione) non è osservabile prima della prima esecuzione.",
+    "L'esecuzione del job schedule vero e proprio: provato solo con workflow_dispatch.",
+    "Le ancore YAML nei servizi funzionano su GitHub Actions (CI verde); non ho verificato altri parser."
+  ],
+  "report": "docs/revisioni/ci-fornitura/report-implementer.md"
+}

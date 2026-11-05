@@ -1,0 +1,107 @@
+{
+  "esito": "RIPORTA",
+  "rilievi": [
+    {
+      "gravita": "da_riportare",
+      "norma": "NIS2 art. 21(2)(d); Reg. 2024/2690",
+      "dove": ".github/dependabot.yml; DECISIONS §6 «Catena di fornitura» (1)",
+      "testo_citato": "Dependabot settimanale per i pacchetti Python e per le action",
+      "problema": "Dependabot per pip non è configurato, quindi il punto 1 è attuato solo in parte. OSV settimanale segnala le vulnerabilità sul lockfile ma non propone aggiornamenti: la correzione resta manuale e le versioni obsolete senza CVE non si vedono. Il rilievo a di e1-runtime è coperto in parte.",
+      "proposta": "L'utente sceglie tra provare Dependabot pip con una PR reale e un'altra via (job che rigenera il lockfile e apre una PR). Intanto si registra che il punto 1 è parziale.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "da_riportare",
+      "norma": "NIS2 art. 21(2)(d)",
+      "dove": ".github/workflows/fornitura.yml (trigger schedule)",
+      "testo_citato": "cron: \"17 5 * * 1\"",
+      "problema": "Un fallimento del job settimanale non ha un destinatario definito né un segnale verso A5. GitHub può inoltre disattivare i workflow `schedule` dopo un periodo di inattività (da verificare nella sua documentazione). Il monitoraggio può diventare solo apparente.",
+      "proposta": "Definire chi riceve l'avviso, per esempio con una issue automatica al fallimento. Decidere se è un segnale per A5 e se `fornitura` è un controllo richiesto per il merge.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "norma": "NIS2 art. 21(2)(d)",
+      "dove": "scripts/osv-check.py, main()",
+      "testo_citato": "if vulnerabili: ... return 1",
+      "problema": "Ogni vulnerabilità fa fallire il controllo, anche senza correzione disponibile. Non c'è un meccanismo di eccezione tracciato con motivo e scadenza, e questo spinge a ignorare o disattivare il controllo.",
+      "proposta": "Prevedere un elenco di eccezioni versionato, con motivo e scadenza.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "norma": "NIS2 art. 21(2)(d); fail-closed",
+      "dove": "scripts/osv-check.py, leggi_lockfile()",
+      "testo_citato": "RE_PACCHETTO = re.compile(r\"^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\\s;\\\\]+)\")",
+      "problema": "Le righe di pacchetto in formato diverso (`nome[extra]==v`, `nome @ url`) vengono ignorate in silenzio. Sarebbe un caso fail-open. Oggi tutti i 18 pacchetti sono letti.",
+      "proposta": "Far fallire il controllo se una riga di pacchetto non corrisponde, oppure se il numero di voci differisce da quello dei blocchi `--hash`.",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "minore",
+      "norma": "NIS2 art. 21(2)(d)",
+      "dove": ".github/workflows/fornitura.yml, job digest-postgres",
+      "testo_citato": "if [ \"$FISSATO\" != \"$ATTUALE\" ]",
+      "problema": "Il job rileva solo il cambio del tag, non le vulnerabilità dell'immagine fissata né del runner. Il ramo «digest cambiato → fallisce» non è stato provato (lo dichiara l'implementer).",
+      "proposta": "Registrare il residuo e riprenderlo con l'immagine di produzione (§6 punto 3). Provare il ramo con un digest diverso via workflow_dispatch.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "norma": "NIS2 art. 21(2)(d)",
+      "dove": ".github/workflows/ci.yml, runs-on: ubuntu-24.04",
+      "testo_citato": "runs-on: ubuntu-24.04",
+      "problema": "È un'etichetta di versione, non un'immagine fissa, e il suo sostituto futuro non è monitorato. Resta un rischio accettato da registrare.",
+      "proposta": "Registrarlo come rischio accettato.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "norma": "GDPR art. 32 (buona pratica, credenziali)",
+      "dove": "scripts/test-non-superuser.sh; ci.yml (docker run ... psql)",
+      "testo_citato": "TESTER_DSN=\"postgresql://${TESTER_ROLE}:${TESTER_PASSWORD}@...\"",
+      "problema": "La password casuale del ruolo di prova passa negli argomenti di `docker run` e quindi nell'elenco dei processi del runner. Il runner è effimero e i dati sono sintetici: nessun impatto oggi.",
+      "proposta": "Nessuna azione. Non estendere lo schema a credenziali reali.",
+      "verifica": "dedotto"
+    }
+  ],
+  "letture": [
+    {
+      "file": "git diff main...impl/ci-fornitura (ci.yml, fornitura.yml, dependabot.yml, osv-check.py, test-non-superuser.sh, test_ci_osv_check.py, README.md)",
+      "righe": "diff intero"
+    },
+    {
+      "file": "docs/revisioni/ci-fornitura/report-implementer.md (branch)",
+      "righe": "1-33 di 33"
+    },
+    {
+      "file": "docs/revisioni/e1-runtime/report-compliance-auditor.md",
+      "righe": "1-28 di 28"
+    },
+    {
+      "file": "docs/PRINCIPI.md",
+      "righe": "1-15 di 15"
+    },
+    {
+      "file": "docs/DECISIONS.md",
+      "righe": "righe 155 e 218 (catena di fornitura) e 1-12; il resto solo grep, 249 righe totali"
+    },
+    {
+      "file": "docs/norme-di-riferimento.md",
+      "righe": "righe 433-442 e grep su NIS2, Reg. 2024/2690, CRA; 906 righe totali"
+    },
+    {
+      "file": "requirements.lock.txt (branch)",
+      "righe": "solo grep (18 pacchetti, nessuna riga fuori formato)"
+    }
+  ],
+  "controllato": [
+    "Risposta ai rilievi a e b di e1-runtime: a coperto in parte (manca Dependabot pip), b coperto.",
+    "SHA delle action verificati con gh api contro i tag v7.0.1 e v7.1.0.",
+    "Permessi: contents: read a livello di workflow e di job; nessun segreto; i trigger pull_request non danno accesso a segreti.",
+    "Fail-closed di osv-check.py (rete, risposta non valida, lockfile vuoto) e del job digest-postgres.",
+    "Nessun dato personale o di tenant verso terzi: a OSV vanno solo nomi e versioni dei pacchetti.",
+    "Non ho eseguito test né CI."
+  ],
+  "report": "docs/revisioni/ci-fornitura/report-compliance-auditor.md"
+}
