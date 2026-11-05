@@ -1,0 +1,24 @@
+{
+  "registri_modificati": [
+    "docs/DECISIONS.md",
+    "docs/decisioni-archivio.md"
+  ],
+  "righe_aggiornate": [
+    "§6 «Branch di lavoro»: versione precedente (testo «Dopo il giro 6, claude/impl-e1 si unisce in claude/docs-ondata-1…», decisione «ok») → Decisa (2026-11-05, utente): branch unico `main`, dopo la PR #1",
+    "§6 «Versioni di runtime»: nuova riga, Decisa (2026-11-05, utente): Python 3.14 e PostgreSQL 18 (in Docker); ordine: prima micro-correzione `API_ENV` sulle versioni attuali, poi aggiornamento come lavoro a parte dell'implementer, poi code-reviewer e compliance-auditor; motivo dalla verifica del coordinator",
+    "Ultimo aggiornamento (intestazione): riga sostituita con 2026-11-05, branch unico `main` e versioni di runtime (Python 3.14, PostgreSQL 18)"
+  ],
+  "documenti_da_aggiornare": [
+    {
+      "doc": "E1-tracing-distribuito.md",
+      "motivo": "Decisione «Versioni di runtime»: Python 3.14 e PostgreSQL 18 al posto di 3.11 e 16; l'aggiornamento è un lavoro a parte dell'implementer, seguito da code-reviewer e compliance-auditor"
+    },
+    {
+      "doc": "codice e repository (lockfile con hash, CI, README, test)",
+      "motivo": "Decisione «Versioni di runtime» (fuori dal perimetro del registrar): aggiornamento a Python 3.14 e PostgreSQL 18 dopo la micro-correzione di `API_ENV` sulle versioni attuali"
+    }
+  ],
+  "conflitti_da_riportare": [
+    "Ambiguità nel testo della verifica del coordinator: «le dipendenze Python del lockfile sono all'ultima versione su PyPI salvo pydantic 2.14.3 e pydantic-core 2.50.4» può voler dire che quelle due sono le eccezioni (non all'ultima versione) oppure che sono le versioni fissate. La riga «Versioni di runtime» riporta la frase così com'è; il coordinator va verificato prima dell'aggiornamento delle dipendenze. Nessun punto di §4 aggiunto, come da task."
+  ]
+}

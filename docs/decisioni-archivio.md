@@ -352,3 +352,23 @@ Versioni precedenti di punti e righe di `DECISIONS.md` sostituite il 2026-11-05 
 - §6, «E1: chiusura della v1.8» (2026-11-05): «In corso un giro unico: codice (giro 5 su `claude/impl-e1`), E1 v1.9 e catalogo v1.7, poi verifica mirata di code-reviewer, plan-auditor e compliance-auditor.» Sostituita da «E1: chiusura definitiva».
 - §6, «E1: ambiente e avvio» (2026-11-05), versione precedente della sola frase sull'avvio: «`API_ENV` in un insieme chiuso (`production`, `development`, `test`): un valore fuori insieme blocca l'avvio con segnale.» Aggiornata con «o `API_ENV` non impostata» e il rimando a PV-01.
 - §6, «E1: robustezza della scrittura e ruoli del database» (2026-11-05), versione precedente della sola frase finale: «`production_override` può solo irrigidire la guardia.» Aggiunta la regola «`e1.write_tcp_user_timeout_ms` non inferiore a `e1.write_statement_timeout_ms`, altrimenti valore non valido e avvio bloccato con segnale (DX-17)».
+
+## 2026-11-05 — testi dell'utente (branch e versioni di runtime)
+
+Testi alla lettera delle decisioni dell'utente su branch di lavoro e versioni di runtime. La regola corrente è in [DECISIONS.md](DECISIONS.md) §6, righe «Branch di lavoro» e «Versioni di runtime».
+
+- Branch, 2026-11-05, risposta alla domanda del coordinator «Da ora il branch unico di lavoro è `main`?» (dopo la PR #1 che ha unito `claude/docs-ondata-1`): «Sì, main».
+- Versioni di runtime e ordine, 2026-11-05, risposte alle domande 1, 2 e 3 del coordinator (1a: PostgreSQL 18 e Python 3.14; 2a: prima la micro-correzione di `API_ENV` con le versioni attuali, poi l'aggiornamento come lavoro a parte; 3: implementer per l'aggiornamento, poi `code-reviewer` e `compliance-auditor`): «1a, 2a, 3 ok».
+- Versioni di runtime, 2026-11-05, messaggio dell'utente dopo la verifica del coordinator sulla compatibilità dei pacchetti con Python 3.15 (riga «Versioni di runtime» in [DECISIONS.md](DECISIONS.md) §6): «Ma perché questo postgres? Ti avevo detto il 18... Anche python, metti il 3.15 ma solo se tutti i pacchetti sono compatibili.»
+
+## 2026-11-05 — righe superate (branch)
+
+Versione superata di una riga di `DECISIONS.md` sostituita il 2026-11-05 dal branch unico `main`. Il contenuto corrente è in [DECISIONS.md](DECISIONS.md) §6.
+
+- §6, «Branch di lavoro» (2026-11-05): «Dopo il giro 6, `claude/impl-e1` si unisce in `claude/docs-ondata-1`: codice e documenti in un solo branch (decisione dell'utente, «ok»)».
+
+## 2026-11-05 — righe superate (versioni di runtime)
+
+Versione superata di una riga di `DECISIONS.md` sostituita il 2026-11-05 da Python 3.15 e dalla compatibilità dei pacchetti verificata. Il contenuto corrente è in [DECISIONS.md](DECISIONS.md) §6.
+
+- §6, «Versioni di runtime» (2026-11-05): «Decisa (2026-11-05, utente): Python 3.14 e PostgreSQL 18 (in Docker), al posto delle versioni ereditate dal container della piattaforma (Python 3.11, PostgreSQL 16). Ordine: prima la micro-correzione di `API_ENV` sulle versioni attuali; poi l'aggiornamento come lavoro a parte dell'implementer (lockfile con hash, CI, README, test sulla nuova versione), seguito da `code-reviewer` e `compliance-auditor`. Motivo: Python 3.14 supportato fino al 2030-10-31 e PostgreSQL 18 fino al 2030-11-14 (contro 2027-10-31 per Python 3.11 e 2028-11-09 per PostgreSQL 16); verifica del 2026-11-05: dipendenze Python del lockfile all'ultima versione su PyPI salvo `pydantic` 2.14.3 e `pydantic-core` 2.50.4, nessuna vulnerabilità nota su OSV.»

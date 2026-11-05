@@ -1,0 +1,13 @@
+{
+  "registri_modificati": [
+    "docs/DECISIONS.md",
+    "docs/decisioni-archivio.md"
+  ],
+  "righe_aggiornate": [
+    "Branch di lavoro (§6): tolto il prefisso «Decisa (2026-11-05, utente): »",
+    "Versioni di runtime (§6): Python 3.14 -> 3.15, PostgreSQL 18 invariato; compatibilità dei pacchetti con Python 3.15 verificata; ordine e motivo aggiornati (date di supporto, frase sulle dipendenze sostituita); tolto il prefisso «Decisa (2026-11-05, utente): »",
+    "Ultimo aggiornamento (riga 5): Python 3.14 -> 3.15"
+  ],
+  "documenti_da_aggiornare": [],
+  "conflitti_da_riportare": []
+}
