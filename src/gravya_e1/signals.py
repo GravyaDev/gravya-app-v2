@@ -46,11 +46,17 @@ _fallback_logger = logging.getLogger("gravya_e1.signals_fallback")
 def log_fallback(event: str, *, tenant_id: str | None = None, **payload: Any) -> None:
     """Ripiego quando il sink dei segnali non e' scrivibile (B2/R-08).
 
-    Log strutturato locale, senza contenuti: solo il nome dell'evento,
-    il tenant e i campi chiusi gia' filtrati da `_filter_payload`.
+    Giro 3 (G17/G17b): il nome dell'evento, il tenant e i campi chiusi sono
+    nel **messaggio** del log (non solo in `extra`, che va perso con la
+    formattazione di default), e nessun campo passa come `extra` (alcuni
+    nomi di campo, come `name`, sono riservati da `logging.LogRecord` e
+    farebbero fallire la chiamata con un `KeyError` inghiottito dal ripiego
+    di ultima istanza: nessun log veniva scritto).
     """
     safe_payload = _filter_payload(payload)
-    _fallback_logger.warning("segnale_non_scrivibile", extra={"event": event, "tenant_id": tenant_id, **safe_payload})
+    parts = [f"event={event}", f"tenant_id={tenant_id}"]
+    parts.extend(f"{key}={value}" for key, value in safe_payload.items())
+    _fallback_logger.warning("segnale_non_scrivibile " + " ".join(parts))
 
 
 def _filter_payload(payload: dict[str, Any]) -> dict[str, Any]:

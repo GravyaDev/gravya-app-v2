@@ -1,38 +1,56 @@
 """Helper di scrittura `start_segment`/`end_segment` (E1 §5, passo 3 del §9).
 
-Giro 2 (dopo BLOCCA di code-reviewer e compliance-auditor): riscrittura per i
-bloccanti B1-B7. Vedi `docs/revisioni/impl-e1/report-implementer.md`,
-sezione "Giro 2", per il collegamento rilievo -> modifica -> test.
+Giro 3 (dopo il secondo BLOCCA di code-reviewer e compliance-auditor):
+riscrittura della scrittura come coda asincrona vera, con un thread di
+sfondo e una connessione propria dell'helper creata alla costruzione (mai
+derivata dalla connessione del chiamante). Vedi
+`docs/revisioni/impl-e1/report-implementer.md`, sezione "Giro 3", per il
+collegamento rilievo -> modifica -> test.
 
-Architettura (B5). L'helper scrive sempre con una connessione propria, mai
-quella del chiamante: la connessione passata alle funzioni pubbliche serve
-solo a leggere i parametri di connessione (host/porta/utente/database) per
-aprire, la prima volta, la connessione dedicata dell'helper (riusata poi per
-tutte le scritture successive, protetta da un lock perche' psycopg non e'
-pensato per l'uso concorrente della stessa connessione).
+Architettura (G4a/b, G5, G7, G14a, G19).
+- `start_trace`/`end_trace`/`start_segment`/`end_segment` validano i campi
+  e gli attributi **sincronamente** (cosi' in sviluppo un valore non
+  conforme fa fallire subito la chiamata, come richiesto da §6), poi mettono
+  in coda un "job" con un inserimento **non bloccante**
+  (`queue.Queue(maxsize=e1.write_buffer_size)`, numero di segmenti) e
+  tornano subito: la riga non e' necessariamente gia' scritta quando la
+  chiamata ritorna (si usa `flush()` per aspettare che lo sia). Coda piena:
+  perdita contata e segnalata, nessuna attesa.
+- Il parametro `conn` delle funzioni pubbliche non e' piu' usato per nulla
+  (ne' per scrivere ne' per leggere parametri di connessione): resta nella
+  firma solo per compatibilita' con i chiamanti esistenti. I parametri di
+  connessione dell'helper (DSN/parametri espliciti, o le variabili
+  d'ambiente standard di libpq quando non specificati) si ricevono **alla
+  creazione** (`conninfo`), mai da una connessione del chiamante: una
+  connessione del chiamante gia' chiusa non ha piu' alcun effetto (G14a).
+- Un thread di sfondo (avviato alla creazione) consuma la coda con una
+  connessione propria, riconnettendosi dopo un errore. Ogni connessione ha
+  un `connect_timeout` (`e1.write_connect_timeout_ms`) e keepalive TCP
+  (`e1.write_tcp_keepalives_*`); ogni scrittura ha uno `statement_timeout`
+  (`e1.write_statement_timeout_ms`). `flush(timeout)` aspetta che la coda si
+  svuoti; `close()` ferma il thread e chiude la connessione.
 
-Ogni scrittura e' soggetta a: (1) un limite di concorrenza
-(`e1.write_buffer_size` tentativi in corso contemporaneamente: oltre, e'
-"buffer pieno", perdita immediata senza nemmeno provare la scrittura); (2)
-un timeout di istruzione (`e1.write_statement_timeout_ms`, letto
-dall'istantanea E5 come `e1.write_buffer_size`: DX-22, giro 3, nessun valore
-fisso nel codice) che assicura che un DB lento o bloccato non faccia
-attendere il chiamante indefinitamente. In entrambi i casi: perdita contata
-e segnalata, il chiamante non aspetta oltre il timeout e non vede mai
-l'eccezione (criterio 5/6, E1 §5/§6).
+Fail-open vero (B2, giro 2). Nessuna eccezione, ne' della scrittura ne'
+dell'invio di un segnale, esce mai da queste funzioni pubbliche verso il
+chiamante. Se il sink dei segnali stesso fallisce, c'e' un ripiego di log
+strutturato locale (`signals.log_fallback`), senza contenuti.
 
-Fail-open vero (B2). Nessuna eccezione, ne' della scrittura ne' dell'invio
-di un segnale, esce mai da queste funzioni pubbliche verso il chiamante.
-Se il sink dei segnali stesso fallisce, c'e' un ripiego di log strutturato
-locale (`signals.log_fallback`), senza contenuti, e la perdita resta in
-sospeso per essere ri-segnalata alla prima occasione successiva in cui il
-sink torna disponibile.
+Contesto del tenant (G16, CA R-04). `TracingHelper` puo' ricevere un
+`tenant_context` alla creazione: se dato, ogni modello con `tenant_id`
+diverso e' rifiutato (scartato con segnale in produzione, errore fuori
+produzione) e il GUC si imposta dal contesto, non dal modello. Se NON dato
+(default, `None`), per compatibilita' con i chiamanti che gestiscono piu'
+tenant con lo stesso helper (passo 4+, dove non esiste ancora un'identita'
+applicativa prima di A6) il tenant resta quello del modello, comportamento
+preesistente: dichiarato qui, non nascosto (vedi report, sezione "Giro 3").
 """
 from __future__ import annotations
 
 import json
 import logging
+import queue
 import threading
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
@@ -50,6 +68,8 @@ from gravya_e1.signals import SignalSink, log_fallback
 logger = logging.getLogger("gravya_e1.tracing")
 
 TRACE_REQUIRED_FIELDS = frozenset({"run_id"})
+
+_SENTINEL = object()
 
 
 class AttributeRejectedError(ValueError):
@@ -76,6 +96,7 @@ class _InsertTraceJob:
     workflow_id: str | None
     workflow_version: str | None
     retention_class: str | None
+    table: str = "gravya_traces"
 
 
 @dataclass
@@ -84,6 +105,7 @@ class _UpdateTraceJob:
     trace_id: str
     ended_at: Any
     status: str | None
+    table: str = "gravya_traces"
 
 
 @dataclass
@@ -96,6 +118,7 @@ class _InsertSegmentJob:
     name: str | None
     started_at: Any
     attributes: dict = field(default_factory=dict)
+    table: str = "gravya_trace_segments"
 
 
 @dataclass
@@ -106,6 +129,7 @@ class _UpdateSegmentJob:
     status: str | None
     attributes: dict
     expected_kind: str
+    table: str = "gravya_trace_segments"
 
 
 def _validate_decision_outcome(attrs: dict[str, Any]) -> tuple[bool, str | None]:
@@ -132,18 +156,28 @@ def _validate_prompt_hash_context(attrs: dict[str, Any]) -> tuple[bool, str | No
 
 
 def validate_attributes(kind: str, attributes: dict[str, Any], max_value_bytes: int) -> _ValidationResult:
-    if kind not in wl.ATTRIBUTE_WHITELIST:
-        raise ValueError(f"kind non riconosciuto: {kind!r}")
     if not isinstance(attributes, dict):
-        return _ValidationResult(clean={}, discarded=[wl.DiscardReason(kind=kind, key="attributes", reason="non e' un oggetto")])
+        attributes = {}
+
+    if kind not in wl.ATTRIBUTE_WHITELIST:
+        # G6: un kind sconosciuto non deve sollevare un'eccezione non gestita
+        # (prima: ValueError propagato fino al chiamante anche in
+        # produzione). Si scartano tutti gli attributi con lo stesso motivo,
+        # passando dallo stesso percorso di scarto/segnale o errore in
+        # sviluppo degli altri casi.
+        discarded = [wl.DiscardReason(kind=kind, key=key, reason="kind sconosciuto") for key in attributes]
+        if not discarded:
+            discarded = [wl.DiscardReason(kind=kind, key="", reason="kind sconosciuto")]
+        return _ValidationResult(clean={}, discarded=discarded)
+
     spec = wl.ATTRIBUTE_WHITELIST[kind]
     clean: dict[str, Any] = {}
     discarded: list[wl.DiscardReason] = []
 
-    # Coppia legata (decision): se gravya.decision.outcome e' presente e non
-    # valido per il gravya.decision.kind dichiarato, scarta anche
-    # gravya.decision.kind (un kind senza un esito valido e coerente non e'
-    # un record di decisione completo e affidabile, giro 2).
+    # Coppia legata (decision, giro 2): se gravya.decision.outcome e'
+    # presente e non valido per il gravya.decision.kind dichiarato, scarta
+    # anche gravya.decision.kind (un kind senza un esito valido e coerente
+    # non e' un record di decisione completo e affidabile).
     skip_keys: set[str] = set()
     if kind == "decision" and "gravya.decision.outcome" in attributes:
         try:
@@ -234,11 +268,15 @@ class TracingHelper:
         key_provider: TenantKeyProvider,
         *,
         production_override: bool | None = None,
+        tenant_context: str | None = None,
+        conninfo: str | None = None,
     ) -> None:
         self._variables = variables
         self._signals = signal_sink
         self._keys = key_provider
         self._production_override = production_override
+        self._tenant_context = str(tenant_context) if tenant_context is not None else None
+        self._conninfo = conninfo
 
         # Avvio dell'helper (criterio 17): legge subito le variabili "da
         # definire" di E1; con la guardia di produzione attiva, un valore
@@ -246,19 +284,25 @@ class TracingHelper:
         self._write_buffer_size = self._variables.get("e1.write_buffer_size").value
         self._max_value_bytes = self._variables.get("e1.attributes.max_value_bytes").value
         self._write_statement_timeout_ms = self._variables.get("e1.write_statement_timeout_ms").value
+        self._write_connect_timeout_ms = self._variables.get("e1.write_connect_timeout_ms").value
+        self._keepalives_idle_s = self._variables.get("e1.write_tcp_keepalives_idle_s").value
+        self._keepalives_interval_s = self._variables.get("e1.write_tcp_keepalives_interval_s").value
+        self._keepalives_count = self._variables.get("e1.write_tcp_keepalives_count").value
 
         self._loss_lock = threading.Lock()
         self.loss_count = 0
         self._pending_signal_loss = 0
 
-        # "Buffer" come limite di concorrenza (B5): oltre questo numero di
-        # scritture gia' in corso, una nuova richiesta e' "buffer pieno" e
-        # non prova nemmeno a scrivere (perdita immediata).
-        self._capacity = threading.BoundedSemaphore(max(1, self._write_buffer_size))
+        self._queue: "queue.Queue" = queue.Queue(maxsize=self._write_buffer_size)
+        self._pending = 0
+        self._pending_cv = threading.Condition()
 
         self._conn_lock = threading.Lock()
         self._own_conn: psycopg.Connection | None = None
-        self._conn_params: dict | None = None
+        self._closed = False
+
+        self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
+        self._worker_thread.start()
 
         if self._production_override is None and not is_declared():
             self._safe_emit(
@@ -268,8 +312,9 @@ class TracingHelper:
 
     # -- ambiente -------------------------------------------------------
     def _is_production(self) -> bool:
-        if self._production_override is not None:
-            return self._production_override
+        # G9: l'override puo' solo irrigidire la guardia, mai spegnerla.
+        if self._production_override:
+            return True
         return is_production()
 
     # -- segnali, mai propagati (B2) --------------------------------------
@@ -310,6 +355,37 @@ class TracingHelper:
             self.loss_count += 1
         self._safe_emit("trace.write_failed", tenant_id=tenant_id, table=table, reason=exc.__class__.__name__, count=1)
 
+    # -- contesto del tenant (G16) ------------------------------------------
+    def _resolve_tenant(self, model_tenant_id: Any) -> str | None:
+        """Ritorna il tenant autoritativo, o None se e' in conflitto col contesto."""
+        model_tenant = str(model_tenant_id)
+        if self._tenant_context is None:
+            return model_tenant
+        if model_tenant != self._tenant_context:
+            return None
+        return self._tenant_context
+
+    def _enforce_tenant_context(self, model_tenant_id: Any) -> str | None:
+        """Come `_resolve_tenant`, ma gestisce scarto/segnale o errore in sviluppo.
+
+        Ritorna il tenant da usare, o None se la scrittura va abbandonata
+        (gia' scartata e segnalata in produzione).
+        """
+        tenant_id = self._resolve_tenant(model_tenant_id)
+        if tenant_id is not None:
+            return tenant_id
+        if not self._is_production():
+            raise AttributeRejectedError(
+                f"tenant_id del modello ({model_tenant_id}) diverso dal contesto ({self._tenant_context})"
+            )
+        self._safe_emit(
+            "trace.tenant_context_mismatch",
+            tenant_id=self._tenant_context,
+            reason="tenant_id del modello diverso dal contesto",
+            count=1,
+        )
+        return None
+
     # -- HMAC -------------------------------------------------------------
     def hash_tool_args(self, tenant_id: str, argument_bytes: bytes) -> tuple[str, str] | None:
         """HMAC-SHA-256 degli argomenti con la chiave del tenant (criterio 15).
@@ -331,17 +407,28 @@ class TracingHelper:
             return None
         return digest, key_ref
 
-    def _inject_args_hash(self, kind: str, tenant_id: str, raw_arguments: bytes | None, clean_attrs: dict[str, Any]) -> None:
-        """Calcola e inietta l'HMAC degli argomenti (B6): mai accettato dal chiamante."""
+    def _inject_args_hash(self, kind: str, tenant_id: str, segment: Any, clean_attrs: dict[str, Any]) -> None:
+        """Calcola e inietta l'HMAC degli argomenti (B6): mai accettato dal chiamante.
+
+        Azzera `segment.raw_arguments` dopo l'uso (CA minore, giro 3): il
+        riferimento ai byte in chiaro non deve sopravvivere oltre il calcolo.
+        """
+        raw_arguments = getattr(segment, "raw_arguments", None)
         if raw_arguments is None or kind not in ("tool", "decision"):
             return
-        result = self.hash_tool_args(tenant_id, raw_arguments)
-        if result is None:
-            return
-        digest, key_ref = result
-        field_name = "gravya.tool.args_hash" if kind == "tool" else "gravya.decision.args_hash"
-        clean_attrs[field_name] = digest
-        clean_attrs["gravya.hash.key_ref"] = key_ref
+        try:
+            result = self.hash_tool_args(tenant_id, raw_arguments)
+            if result is None:
+                return
+            digest, key_ref = result
+            field_name = "gravya.tool.args_hash" if kind == "tool" else "gravya.decision.args_hash"
+            clean_attrs[field_name] = digest
+            clean_attrs["gravya.hash.key_ref"] = key_ref
+        finally:
+            try:
+                segment.raw_arguments = None
+            except Exception:  # noqa: BLE001 - modello non mutabile: non e' critico
+                pass
 
     # -- validazione campi/attributi ---------------------------------------
     def _apply_whitelist(self, kind: str, attributes: dict[str, Any], tenant_id: str) -> dict[str, Any]:
@@ -363,52 +450,122 @@ class TracingHelper:
         for d in result.discarded:
             self._signal_discard(d, tenant_id)
 
-    # -- connessione propria (B5) -------------------------------------------
-    def _set_conn_template(self, conn: psycopg.Connection) -> None:
-        if self._conn_params is None:
-            with self._conn_lock:
-                if self._conn_params is None:
-                    self._conn_params = conn.info.get_parameters()
-
+    # -- connessione propria, coda e thread di sfondo (G4/G5/G7/G14a/G19) ---
     def _get_own_connection(self) -> psycopg.Connection:
+        """Chiamato solo dal thread di sfondo (consumatore unico della coda)."""
         if self._own_conn is None or self._own_conn.closed:
-            self._own_conn = psycopg.connect(**self._conn_params)
+            connect_timeout_s = max(1, round(self._write_connect_timeout_ms / 1000))
+            kwargs = dict(
+                connect_timeout=connect_timeout_s,
+                keepalives=1,
+                keepalives_idle=self._keepalives_idle_s,
+                keepalives_interval=self._keepalives_interval_s,
+                keepalives_count=self._keepalives_count,
+            )
+            with self._conn_lock:
+                if self._conninfo:
+                    self._own_conn = psycopg.connect(self._conninfo, **kwargs)
+                else:
+                    # Nessun parametro esplicito: le variabili d'ambiente
+                    # standard di libpq (PGHOST, PGPORT, PGUSER, PGDATABASE,
+                    # PGPASSWORD) forniscono la destinazione e la credenziale
+                    # (mai una connessione del chiamante, G7/G14a).
+                    self._own_conn = psycopg.connect(**kwargs)
         return self._own_conn
 
-    def _attempt_write(self, conn_template: psycopg.Connection, table: str, tenant_id: str, fn: Callable[[psycopg.Connection], None]) -> None:
-        """Esegue `fn` sulla connessione propria dell'helper, mai quella del chiamante.
-
-        Limite di concorrenza (`e1.write_buffer_size`) e timeout di
-        istruzione (`e1.write_statement_timeout_ms`): un buffer pieno o un
-        DB lento sono una perdita contata e segnalata, mai un'attesa
-        indefinita per il chiamante (B5, criterio 5/6).
-        """
-        try:
-            self._set_conn_template(conn_template)
-        except Exception as exc:  # noqa: BLE001 - connessione del chiamante gia' rotta: fail-open comunque
-            self._record_loss(exc, table, tenant_id)
-            return
-        if not self._capacity.acquire(blocking=False):
-            self._record_loss(RuntimeError("buffer pieno (e1.write_buffer_size)"), table, tenant_id)
-            return
-        try:
-            with self._conn_lock:
+    def _invalidate_connection(self) -> None:
+        with self._conn_lock:
+            if self._own_conn is not None:
                 try:
-                    own_conn = self._get_own_connection()
-                    fn(own_conn)
-                except Exception as exc:  # noqa: BLE001 - fail-open deliberato (B2/B5)
-                    try:
-                        if self._own_conn is not None:
-                            self._own_conn.rollback()
-                    except Exception:  # noqa: BLE001
-                        pass
-                    self._record_loss(exc, table, tenant_id)
-        finally:
-            self._capacity.release()
+                    self._own_conn.close()
+                except Exception:  # noqa: BLE001
+                    pass
+                self._own_conn = None
 
-    # -- scritture effettive (sulla connessione propria) ----------------
-    def _write_insert_trace(self, conn: psycopg.Connection, job: _InsertTraceJob) -> None:
+    def _worker_loop(self) -> None:
+        handlers = {
+            _InsertTraceJob: self._handle_insert_trace,
+            _UpdateTraceJob: self._handle_update_trace,
+            _InsertSegmentJob: self._handle_insert_segment,
+            _UpdateSegmentJob: self._handle_update_segment,
+        }
+        while True:
+            job = self._queue.get()
+            if job is _SENTINEL:
+                self._queue.task_done()
+                break
+            try:
+                conn = self._get_own_connection()
+                handlers[type(job)](conn, job)
+                self._flush_pending_loss(job.tenant_id)
+            except Exception as exc:  # noqa: BLE001 - fail-open deliberato (B2), solo per le tracce
+                try:
+                    if self._own_conn is not None:
+                        self._own_conn.rollback()
+                except Exception:  # noqa: BLE001
+                    pass
+                self._invalidate_connection()
+                self._record_loss(exc, job.table, job.tenant_id)
+            finally:
+                with self._pending_cv:
+                    self._pending -= 1
+                    self._pending_cv.notify_all()
+                self._queue.task_done()
+
+    def _enqueue(self, job: Any) -> None:
+        if self._closed:
+            self._record_loss(RuntimeError("helper chiuso"), job.table, job.tenant_id)
+            return
+        try:
+            self._queue.put_nowait(job)
+        except queue.Full:
+            self._record_loss(RuntimeError("buffer pieno (e1.write_buffer_size)"), job.table, job.tenant_id)
+            return
+        with self._pending_cv:
+            self._pending += 1
+
+    def flush(self, timeout: float | None = None) -> bool:
+        """Aspetta che la coda si svuoti (tutte le scritture accodate finora completate).
+
+        Ritorna False se il timeout scade prima che la coda sia vuota.
+        """
+        deadline = None if timeout is None else time.monotonic() + timeout
+        with self._pending_cv:
+            while self._pending > 0:
+                if deadline is None:
+                    self._pending_cv.wait()
+                    continue
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
+                self._pending_cv.wait(remaining)
+        return True
+
+    def close(self, timeout: float = 5.0) -> None:
+        """Ferma il thread di sfondo e chiude la connessione propria (test e spegnimento)."""
+        if self._closed:
+            return
+        self._closed = True
+        self.flush(timeout)
+        self._queue.put(_SENTINEL)
+        self._worker_thread.join(timeout)
+        self._invalidate_connection()
+
+    # -- handler delle scritture (sulla connessione propria dell'helper) ----
+    def _handle_insert_trace(self, conn: psycopg.Connection, job: _InsertTraceJob) -> None:
         with writer_transaction(conn, job.tenant_id, statement_timeout_ms=self._write_statement_timeout_ms) as c, c.cursor() as cur:
+            # G8a: start_trace controlla anche lui che il trace_id non sia
+            # gia' di un altro tenant (stesso controllo di start_segment).
+            cur.execute("SELECT gravya_e1_trace_owned_by_other_tenant(%s)", (job.trace_id,))
+            if cur.fetchone()[0]:
+                self._safe_emit(
+                    "trace.trace_tenant_mismatch",
+                    tenant_id=job.tenant_id,
+                    table="gravya_traces",
+                    reason="trace_id appartiene a un altro tenant",
+                    count=1,
+                )
+                return
             cur.execute(
                 """
                 INSERT INTO gravya_traces
@@ -429,7 +586,7 @@ class TracingHelper:
                 ),
             )
 
-    def _write_update_trace(self, conn: psycopg.Connection, job: _UpdateTraceJob) -> None:
+    def _handle_update_trace(self, conn: psycopg.Connection, job: _UpdateTraceJob) -> None:
         with writer_transaction(conn, job.tenant_id, statement_timeout_ms=self._write_statement_timeout_ms) as c, c.cursor() as cur:
             cur.execute("SELECT ended_at FROM gravya_traces WHERE trace_id = %s FOR UPDATE", (job.trace_id,))
             row = cur.fetchone()
@@ -448,15 +605,10 @@ class TracingHelper:
                 (job.ended_at, job.status, job.trace_id),
             )
 
-    def _write_insert_segment(self, conn: psycopg.Connection, job: _InsertSegmentJob) -> None:
+    def _handle_insert_segment(self, conn: psycopg.Connection, job: _InsertSegmentJob) -> None:
         with writer_transaction(conn, job.tenant_id, statement_timeout_ms=self._write_statement_timeout_ms) as c, c.cursor() as cur:
-            # Il writer non puo' leggere le tracce di un altro tenant (RLS):
-            # una funzione SECURITY DEFINER verifica, senza esporre i dati
-            # altrui, se il trace_id e' gia' di un tenant diverso (CA R-04,
-            # CR R11). Un trace_id che non esiste affatto per nessuno non e'
-            # un conflitto rilevabile qui (nessuna riga da confrontare).
             cur.execute(
-                "SELECT gravya_e1_trace_owned_by_other_tenant(%s, %s)", (job.trace_id, job.tenant_id)
+                "SELECT gravya_e1_trace_owned_by_other_tenant(%s)", (job.trace_id,)
             )
             if cur.fetchone()[0]:
                 self._safe_emit(
@@ -487,7 +639,7 @@ class TracingHelper:
                 ),
             )
 
-    def _write_update_segment(self, conn: psycopg.Connection, job: _UpdateSegmentJob) -> None:
+    def _handle_update_segment(self, conn: psycopg.Connection, job: _UpdateSegmentJob) -> None:
         with writer_transaction(conn, job.tenant_id, statement_timeout_ms=self._write_statement_timeout_ms) as c, c.cursor() as cur:
             cur.execute(
                 "SELECT kind, ended_at FROM gravya_trace_segments WHERE segment_id = %s FOR UPDATE", (job.segment_id,)
@@ -534,7 +686,9 @@ class TracingHelper:
 
     # -- API pubblica ---------------------------------------------------
     def start_trace(self, conn: psycopg.Connection, trace: TraceStart) -> None:
-        tenant_id = str(trace.tenant_id)
+        tenant_id = self._enforce_tenant_context(trace.tenant_id)
+        if tenant_id is None:
+            return
         field_values = {
             "run_id": trace.run_id,
             "execution_ticket_id": trace.execution_ticket_id,
@@ -559,10 +713,12 @@ class TracingHelper:
             workflow_version=clean.get("workflow_version"),
             retention_class=clean.get("retention_class"),
         )
-        self._attempt_write(conn, "gravya_traces", tenant_id, lambda c: self._write_insert_trace(c, job))
+        self._enqueue(job)
 
     def end_trace(self, conn: psycopg.Connection, trace_end: TraceEnd) -> None:
-        tenant_id = str(trace_end.tenant_id)
+        tenant_id = self._enforce_tenant_context(trace_end.tenant_id)
+        if tenant_id is None:
+            return
         result = self._apply_field_whitelist(wl.TRACE_FIELD_WHITELIST, {"status": trace_end.status}, tenant_id)
         job = _UpdateTraceJob(
             tenant_id=tenant_id,
@@ -570,13 +726,15 @@ class TracingHelper:
             ended_at=trace_end.ended_at,
             status=result.clean.get("status"),
         )
-        self._attempt_write(conn, "gravya_traces", tenant_id, lambda c: self._write_update_trace(c, job))
+        self._enqueue(job)
 
     def start_segment(self, conn: psycopg.Connection, segment: SegmentStart) -> None:
-        tenant_id = str(segment.tenant_id)
+        tenant_id = self._enforce_tenant_context(segment.tenant_id)
+        if tenant_id is None:
+            return
         clean_attrs = self._apply_whitelist(segment.kind, segment.attributes, tenant_id)
         field_result = self._apply_field_whitelist(wl.SEGMENT_FIELD_WHITELIST, {"name": segment.name}, tenant_id)
-        self._inject_args_hash(segment.kind, tenant_id, segment.raw_arguments, clean_attrs)
+        self._inject_args_hash(segment.kind, tenant_id, segment, clean_attrs)
         job = _InsertSegmentJob(
             tenant_id=tenant_id,
             segment_id=str(segment.segment_id),
@@ -587,13 +745,15 @@ class TracingHelper:
             started_at=segment.started_at,
             attributes=clean_attrs,
         )
-        self._attempt_write(conn, "gravya_trace_segments", tenant_id, lambda c: self._write_insert_segment(c, job))
+        self._enqueue(job)
 
     def end_segment(self, conn: psycopg.Connection, segment_end: SegmentEnd, kind: str) -> None:
-        tenant_id = str(segment_end.tenant_id)
+        tenant_id = self._enforce_tenant_context(segment_end.tenant_id)
+        if tenant_id is None:
+            return
         clean_attrs = self._apply_whitelist(kind, segment_end.attributes, tenant_id)
         field_result = self._apply_field_whitelist(wl.SEGMENT_FIELD_WHITELIST, {"status": segment_end.status}, tenant_id)
-        self._inject_args_hash(kind, tenant_id, segment_end.raw_arguments, clean_attrs)
+        self._inject_args_hash(kind, tenant_id, segment_end, clean_attrs)
         job = _UpdateSegmentJob(
             tenant_id=tenant_id,
             segment_id=str(segment_end.segment_id),
@@ -602,4 +762,4 @@ class TracingHelper:
             attributes=clean_attrs,
             expected_kind=kind,
         )
-        self._attempt_write(conn, "gravya_trace_segments", tenant_id, lambda c: self._write_update_segment(c, job))
+        self._enqueue(job)

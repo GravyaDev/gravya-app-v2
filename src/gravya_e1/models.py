@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 RootKind = Literal["agent", "workflow", "eval"]
 SegmentKind = Literal["llm", "tool", "agent", "retrieval", "decision", "eval_case"]
@@ -41,7 +41,9 @@ class SegmentStart(BaseModel):
     attributes: dict[str, Any] = {}
     # Argomenti grezzi da cui l'helper calcola l'HMAC (giro 2, B6): mai un
     # hash gia' calcolato dal chiamante. Solo per kind 'tool'/'decision'.
-    raw_arguments: bytes | None = None
+    # repr=False (CA minore, giro 3): non deve comparire in repr/log del
+    # modello; l'helper azzera il riferimento dopo il calcolo dell'HMAC.
+    raw_arguments: bytes | None = Field(default=None, repr=False)
 
 
 class SegmentEnd(BaseModel):
@@ -50,4 +52,4 @@ class SegmentEnd(BaseModel):
     ended_at: datetime
     status: str
     attributes: dict[str, Any] = {}
-    raw_arguments: bytes | None = None
+    raw_arguments: bytes | None = Field(default=None, repr=False)
