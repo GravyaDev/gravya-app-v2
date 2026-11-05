@@ -1,0 +1,11 @@
+run 1 | tests/: 80 passed in 2.44s | giro1: 1 failed, 38 passed, 1 error in 5.94s | giro2: 13 failed, 34 passed in 1.53s | giro3: 3 failed, 10 passed in 9.26s | giro4: 3 failed, 8 passed in 21.58s
+run 2 | tests/: 80 passed in 2.55s | giro1: 1 failed, 38 passed, 1 error in 6.06s | giro2: 13 failed, 34 passed in 1.62s | giro3: 3 failed, 10 passed in 9.21s | giro4: 3 failed, 8 passed in 21.50s
+run 3 | tests/: 80 passed in 2.20s | giro1: 1 failed, 38 passed, 1 error in 5.97s | giro2: 13 failed, 34 passed in 1.50s | giro3: 3 failed, 10 passed in 9.23s | giro4: 3 failed, 8 passed in 21.60s
+run 4 | tests/: 80 passed in 2.47s | giro1: 1 failed, 38 passed, 1 error in 6.04s | giro2: 13 failed, 34 passed in 1.62s | giro3: 3 failed, 10 passed in 9.31s | giro4: 3 failed, 8 passed in 21.51s
+run 5 | tests/: 80 passed in 2.48s | giro1: 1 failed, 38 passed, 1 error in 5.92s | giro2: 13 failed, 34 passed in 1.57s | giro3: 3 failed, 10 passed in 9.29s | giro4: 3 failed, 8 passed in 21.55s
+run 6 | tests/: 80 passed in 2.44s | giro1: 1 failed, 38 passed, 1 error in 5.98s | giro2: 13 failed, 34 passed in 1.58s | giro3: 3 failed, 10 passed in 9.34s | giro4: 3 failed, 8 passed in 21.52s
+run 7 | tests/: 80 passed in 2.26s | giro1: 1 failed, 38 passed, 1 error in 5.94s | giro2: 13 failed, 34 passed in 1.49s | giro3: 3 failed, 10 passed in 9.35s | giro4: 3 failed, 8 passed in 21.51s
+run 8 | tests/: 80 passed in 2.39s | giro1: 1 failed, 38 passed, 1 error in 5.92s | giro2: 13 failed, 34 passed in 1.54s | giro3: 3 failed, 10 passed in 9.42s | giro4: 3 failed, 8 passed in 21.53s
+run 9 | tests/: 80 passed in 2.38s | giro1: 1 failed, 38 passed, 1 error in 5.99s | giro2: 13 failed, 34 passed in 1.58s | giro3: 3 failed, 10 passed in 9.10s | giro4: 3 failed, 8 passed in 21.48s
+run 10 | tests/: 80 passed in 2.28s | giro1: 1 failed, 38 passed, 1 error in 5.99s | giro2: 13 failed, 34 passed in 1.47s | giro3: 3 failed, 10 passed in 9.17s | giro4: 3 failed, 8 passed in 21.45s
+FINE
