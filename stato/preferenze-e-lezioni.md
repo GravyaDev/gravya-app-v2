@@ -25,6 +25,7 @@ Solo il modo di lavorare, nella forma in vigore. Le decisioni di progetto stanno
 - Massimo 25 thread per sessione e l'utente non può archiviarli singolarmente: riusare con `send_to_agent` i thread inattivi dello stesso tipo («NUOVO INCARICO», dicendo quali file non toccare più); thread nuovo solo per un tipo non ancora lanciato; a limite raggiunto, proporre una sessione nuova.
 
 ## Lezioni (keywords: errori, verifiche, risultati negativi)
+- **Un solo branch** (utente, 2026-11-05, molto irritato): lavorare sempre su un unico branch di lavoro; niente branch separati per l'implementer, che crea commit avanti e indietro difficili da seguire. Se due agenti lavorano in parallelo, su file diversi dello stesso branch.
 - Verificare che un percorso esista prima di scriverlo in un prompt o in un task.
 - Modello e strumenti di un agente si verificano nella configurazione, non chiedendoli all'agente.
 - I report degli agenti sono indizi: verificarli sui file (attribuzioni del registrar, file:riga del code-reader, «verificato sul codice» del doc-writer, «nessun file in /tmp» dell'implementer).
