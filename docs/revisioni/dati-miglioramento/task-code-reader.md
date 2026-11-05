@@ -1,6 +1,6 @@
 # Task per il code-reader: meccanismo di anonimizzazione di gravya v1 (G1 (b))
 
-Preparato dal coordinator il 2026-11-04 (sessione 7). Non ancora lanciato: limite di 25 thread raggiunto, in attesa che l'utente archivi i thread finiti.
+Preparato dal coordinator il 2026-11-04 (sessione 7); lanciato nella sessione 8 (2026-11-05) su gravya-app@6ac6443c e gravya-app-kloudify@efe366c.
 
 Ambito: storico. Repository: gravya-app (/workspace/gravya-app; riportare il commit con git rev-parse), se serve gravya-app-kloudify. Solo riferimento (PV-03).
 
