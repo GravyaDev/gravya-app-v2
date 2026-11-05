@@ -61,7 +61,7 @@ def _prod_registry(sink, extra=None):
         "e1.attributes.max_value_bytes": {"value": 2048, "unit": "bytes", "status": "deciso"},
         "e1.write_statement_timeout_ms": {"value": 2000, "unit": "ms", "status": "deciso"},
         "e1.partition_interval_months": {"value": 1, "unit": "months", "status": "deciso"},
-        "e1.write_connect_timeout_ms": {"value": 2000, "unit": "ms", "status": "deciso"},
+        "e1.write_connect_timeout_s": {"value": 2, "unit": "s", "status": "deciso", "min": 2},
         "e1.write_tcp_keepalives_idle_s": {"value": 10, "unit": "s", "status": "deciso"},
         "e1.write_tcp_keepalives_interval_s": {"value": 5, "unit": "s", "status": "deciso"},
         "e1.write_tcp_keepalives_count": {"value": 3, "unit": "count", "status": "deciso"},
