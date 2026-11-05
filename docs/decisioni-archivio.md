@@ -428,3 +428,9 @@ Versioni superate di «Ultimo aggiornamento», di una riga di §6 e di un punto 
 Testo alla lettera della risposta dell'utente alla proposta sui punti (a)-(f) della catena di fornitura e sui job. La regola corrente è in [DECISIONS.md](DECISIONS.md) §6, righe «Catena di fornitura» e «Minuti di GitHub Actions», e §4, punto «Catena di fornitura e aggiornamenti».
 
 - Catena di fornitura e minuti di GitHub Actions, 2026-11-05, risposta alla proposta sui punti (a)-(f) e sui job in locale: «Ok a tutto. Per quanto riguarda i job, devi configurare tutto quello che puoi sulla macchina locale e non su github per le actions mensili sono 3000 minuti ed è successo più volte di sforare e bloccare tutto.»
+
+## 2026-11-05 — testi dell'utente (deroga a DX-22 per gli strumenti di sviluppo)
+
+Testo alla lettera della risposta dell'utente alla domanda del coordinator sui valori fissi negli script locali (assegnatario delle issue, soglia di ritardo, orario del timer). La regola corrente è in [DECISIONS.md](DECISIONS.md) §6, riga «DX-22: ambito».
+
+- Valori fissi negli strumenti di sviluppo, 2026-11-05, risposta alla domanda sulla deroga a DX-22: «2. valori fissi: approvo deroga, quelle istruzioni valgono solo sul prodotto e non qui».

@@ -72,7 +72,7 @@ CLAUSOLE_COMUNI = [
 CLAUSOLE = {
     "implementer": [
         "Se un test contraddice il task o una decisione, fermati e chiedi (riporta il punto in `decisioni_mancanti` o `divergenze`).",
-        "Nessun valore nel codice, nemmeno minimi, massimi o valori decisi (DX-22): vanno nel registro delle variabili.",
+        "Nessun valore nel codice del prodotto, nemmeno minimi, massimi o valori decisi (DX-22): vanno nel registro delle variabili. Negli strumenti di sviluppo e CI, costanti dichiarate in testa al file con il motivo (DECISIONS §6 «DX-22: ambito»).",
         "Lavora sul branch indicato; non creare branch nuovi.",
     ],
     "registrar": [

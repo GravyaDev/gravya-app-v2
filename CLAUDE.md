@@ -36,4 +36,4 @@ Regole:
 Commit e push del lavoro; aggiornamento di `stato/handoff-sessione.md` (stato, ultimo commit di lavoro pushato, agenti in corso con il loro task, decisioni in attesa, prossimi passi), committato e pushato subito. La sessione può interrompersi in qualunque momento: ciò che non è nel repository pushato è perso. A un cambio di fase si propone all'utente una sessione nuova.
 
 ## Promemoria
-Fonti in ordine di prevalenza: `docs/PRINCIPI.md`, righe decise di `docs/DECISIONS.md`, documenti di dettaglio e `docs/index.md`, `docs/fonti/`. `DECISIONS.md` e `index.md` li modifica solo il `registrar`, con il testo dell'utente alla lettera. Italiano; nessuna stima temporale (taglie S/M/L); nessun valore fisso nel codice (DX-22).
+Fonti in ordine di prevalenza: `docs/PRINCIPI.md`, righe decise di `docs/DECISIONS.md`, documenti di dettaglio e `docs/index.md`, `docs/fonti/`. `DECISIONS.md` e `index.md` li modifica solo il `registrar`, con il testo dell'utente alla lettera. Italiano; nessuna stima temporale (taglie S/M/L); nessun valore fisso nel codice del prodotto (DX-22; non vale per gli strumenti di sviluppo e CI, DECISIONS §6 «DX-22: ambito»).

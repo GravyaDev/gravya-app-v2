@@ -1,0 +1,13 @@
+{
+  "registri_modificati": [
+    "docs/DECISIONS.md",
+    "docs/decisioni-archivio.md"
+  ],
+  "righe_aggiornate": [
+    "DX-22: ambito (§6): nuova riga, DX-22 invariata in §1",
+    "Ultimo aggiornamento: sostituita la riga con quella della deroga a DX-22",
+    "decisioni-archivio.md: aggiunta in coda la sezione «2026-11-05 — testi dell'utente (deroga a DX-22 per gli strumenti di sviluppo)» con il testo dell'utente alla lettera"
+  ],
+  "documenti_da_aggiornare": [],
+  "conflitti_da_riportare": []
+}
