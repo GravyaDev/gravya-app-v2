@@ -342,3 +342,13 @@ Testi alla lettera delle decisioni dell'utente sul registro e sulla memoria. La 
 
 - Registro, 2026-11-05: «Decisions deve contenere solo quelle correnti e non anche quelle superate, altrimenti cresce indefinitamente e inoltre una lettura troncata rischia di sbagliare recupero.» e «Fanno eccezione solo regole utili per capire il motivo di una scelta senza dover ricostruire l'intero percorso logico (e in quel caso quando è possibile vanno aggiunti sulla regola corrente)» e «Ok per le decisioni» (alle tre raccomandazioni del coordinator: storico e testi alla lettera in `docs/decisioni-archivio.md`, non letto all'avvio; ristrutturazione una tantum fatta dal coordinator su una copia, verificata dal plan-auditor, sostituita dal registrar; subito).
 - Memoria e istruzioni, 2026-11-05: «Dopo aver ricopiato ti do ok ed elimino la memoria. Istruzioni solo in Claude.md, nessun'altra sessione avrà istruzioni sull'uso della memoria».
+
+## 2026-11-05 — righe superate
+
+Versioni precedenti di punti e righe di `DECISIONS.md` sostituite il 2026-11-05 dalla chiusura definitiva di E1 (giro 6). Il contenuto corrente è in [DECISIONS.md](DECISIONS.md) §4 e §6.
+
+- §4, «E1, chiusura della v1.8» (2026-11-05): «Rilievi della revisione di E1 v1.8 e catalogo v1.6 e della verifica del giro 4 (`docs/revisioni/e1-v1.8/`, `docs/revisioni/impl-e1/report-code-reviewer-giro4.md`), in chiusura con il giro unico (§6).»
+- §4, «`API_ENV` assente» (2026-11-05): «Oggi il codice di E1 e il catalogo §18 lo trattano come sviluppo, con segnale: comportamento non deciso dall'utente.» Chiuso dalla decisione dell'utente («ok»): `API_ENV` non impostata blocca l'avvio con segnale, come un valore fuori dall'insieme chiuso (PV-01).
+- §6, «E1: chiusura della v1.8» (2026-11-05): «In corso un giro unico: codice (giro 5 su `claude/impl-e1`), E1 v1.9 e catalogo v1.7, poi verifica mirata di code-reviewer, plan-auditor e compliance-auditor.» Sostituita da «E1: chiusura definitiva».
+- §6, «E1: ambiente e avvio» (2026-11-05), versione precedente della sola frase sull'avvio: «`API_ENV` in un insieme chiuso (`production`, `development`, `test`): un valore fuori insieme blocca l'avvio con segnale.» Aggiornata con «o `API_ENV` non impostata» e il rimando a PV-01.
+- §6, «E1: robustezza della scrittura e ruoli del database» (2026-11-05), versione precedente della sola frase finale: «`production_override` può solo irrigidire la guardia.» Aggiunta la regola «`e1.write_tcp_user_timeout_ms` non inferiore a `e1.write_statement_timeout_ms`, altrimenti valore non valido e avvio bloccato con segnale (DX-17)».
