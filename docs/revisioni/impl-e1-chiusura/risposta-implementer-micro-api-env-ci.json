@@ -1,0 +1,34 @@
+{
+  "branch": "main",
+  "commit": [
+    "aa20e20 E1 v1.10: API_ENV nella CI e arresto di test-non-superuser.sh se manca"
+  ],
+  "criteri": [
+    {
+      "id": "Micro-correzione API_ENV (DECISIONS §6 «E1: ambiente e avvio») - CI",
+      "stato": "implementato",
+      "test": "assente (modifica di configurazione CI; verificata con grep)",
+      "eseguito": "grep -n API_ENV .github/workflows/ci.yml → riga 29 (job test) e riga 90 (job test-non-superuser), entrambe 'API_ENV: development'. Il YAML non è stato parsato (PyYAML assente nel venv)."
+    },
+    {
+      "id": "Micro-correzione API_ENV - arresto di scripts/test-non-superuser.sh se API_ENV manca",
+      "stato": "implementato",
+      "test": "assente (nessun test automatico per lo script; prova manuale)",
+      "eseguito": "bash -n scripts/test-non-superuser.sh → ok. env -u API_ENV bash scripts/test-non-superuser.sh → exit 1 con messaggio chiaro su stderr, prima di qualsiasi uso di psql. API_ENV= (vuota) → stesso arresto."
+    }
+  ],
+  "file_modificati": [
+    ".github/workflows/ci.yml",
+    "scripts/test-non-superuser.sh",
+    "docs/revisioni/impl-e1/report-implementer.md"
+  ],
+  "decisioni_mancanti": [],
+  "divergenze": [],
+  "non_verificato": [
+    "Il giro completo di scripts/test-non-superuser.sh con API_ENV impostata non è stato eseguito: in locale manca psql.",
+    "Il workflow non è stato eseguito su GitHub Actions e il YAML non è stato parsato: PyYAML non è disponibile nel venv, quindi la verifica è solo un grep.",
+    "Il commit è stato fatto con GIT_AUTHOR_* e GIT_COMMITTER_* impostate per quel solo comando (kloud-ai, come db41169), perché in questo ambiente git non ha un'identità configurata. Non ho modificato nessuna configurazione git.",
+    "Il working tree contiene altre modifiche e file non tracciati che non sono miei (DECISIONS.md, stato/, scripts/agenti.py e altri). Non li ho inclusi nel commit."
+  ],
+  "report": "docs/revisioni/impl-e1/report-implementer.md"
+}

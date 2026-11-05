@@ -1,0 +1,31 @@
+{
+  "branch": "main",
+  "commit": [
+    "db41169 E1: API_ENV non impostata blocca sempre l'avvio, anche con production_override"
+  ],
+  "criteri": [
+    {
+      "id": "Micro-correzione API_ENV (blocco sempre, anche con production_override)",
+      "stato": "implementato",
+      "test": "tests/test_giro4_misc.py::test_api_env_assente_blocca_anche_con_production_override (parametrizzato False/True)",
+      "eseguito": "pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp, 10 esecuzioni: 88 passed ciascuna; un'11ª con API_ENV tolta dalla shell: 88 passed"
+    }
+  ],
+  "file_modificati": [
+    "src/gravya_e1/tracing.py",
+    "tests/conftest.py",
+    "tests/test_giro4_misc.py",
+    "README.md",
+    "scripts/_verify_nonsuperuser.py",
+    "docs/revisioni/impl-e1/report-implementer.md"
+  ],
+  "decisioni_mancanti": [],
+  "divergenze": [],
+  "non_verificato": [
+    "Prove dei revisori non eseguite, come da task (il percorso /workspace/wt-impl-e1 è scritto nei loro file): le esegue il coordinator.",
+    "scripts/test-non-superuser.sh non eseguito (manca psql). Lo script _verify_nonsuperuser.py ora richiede API_ENV esportata, e il .sh non la esporta. Ho cambiato solo il commento nello script. Il coordinator deve esportare API_ENV quando lo lancia, oppure decidere di farla esportare dal .sh.",
+    "Il working tree aveva modifiche preesistenti non mie: docs/DECISIONS.md, docs/decisioni-archivio.md, scripts/agenti.py, il file del task e file non tracciati. Non le ho incluse nel commit.",
+    "Git non aveva un'identità configurata. Ho committato con -c user.name/user.email di kloud-ai solo per quel comando, senza modificare la configurazione."
+  ],
+  "report": "docs/revisioni/impl-e1/report-implementer.md (sottosezione «Micro-correzione API_ENV»)"
+}
