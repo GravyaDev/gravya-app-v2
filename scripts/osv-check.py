@@ -37,19 +37,33 @@ TIMEOUT_SECONDI = 30
 HTTP_OK = http.HTTPStatus.OK
 # Riga di un pacchetto fissato nel lockfile: `nome==versione \` (i marcatori
 # di ambiente dopo `;` e il backslash finale non fanno parte della versione).
-RE_PACCHETTO = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\s;\\]+)")
+# La riga deve finire li': `nome[extra]==v`, `nome @ url`, `nome>=v` non passano.
+RE_PACCHETTO = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([A-Za-z0-9][^\s;\\]*)(?:\s*;[^\\]*)?\s*\\?\s*$")
 
 
 class ErroreOsv(Exception):
     """Risposta di OSV assente o non valida (fail-closed)."""
 
 
+class ErroreLockfile(Exception):
+    """Lockfile con una riga di pacchetto in formato non atteso (fail-closed)."""
+
+
 def leggi_lockfile(testo: str) -> list[tuple[str, str]]:
+    """Ogni riga a colonna 0 non vuota e non commento apre un blocco di pacchetto
+    e deve essere `nome==versione`; altrimenti errore (mai ignorata in silenzio)."""
     trovati: list[tuple[str, str]] = []
-    for riga in testo.splitlines():
+    blocchi = 0
+    for n, riga in enumerate(testo.splitlines(), start=1):
+        if not riga.strip() or riga[0].isspace() or riga.startswith("#"):
+            continue
+        blocchi += 1
         m = RE_PACCHETTO.match(riga)
-        if m:
-            trovati.append((m.group(1), m.group(2)))
+        if not m:
+            raise ErroreLockfile(f"riga {n} del lockfile non e' nel formato nome==versione: {riga!r}")
+        trovati.append((m.group(1), m.group(2)))
+    if len(trovati) != blocchi:
+        raise ErroreLockfile(f"pacchetti letti ({len(trovati)}) diversi dai blocchi del lockfile ({blocchi})")
     return trovati
 
 
@@ -115,7 +129,11 @@ def main(argv: list[str]) -> int:
     except OSError as e:
         print(f"ERRORE: lockfile non leggibile ({percorso}): {e}", file=sys.stderr)
         return 2
-    pacchetti = leggi_lockfile(testo)
+    try:
+        pacchetti = leggi_lockfile(testo)
+    except ErroreLockfile as e:
+        print(f"ERRORE: {e}", file=sys.stderr)
+        return 2
     if not pacchetti:
         print(f"ERRORE: nessun pacchetto fissato (nome==versione) in {percorso}", file=sys.stderr)
         return 2

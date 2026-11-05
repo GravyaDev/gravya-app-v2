@@ -195,3 +195,37 @@ def test_invia_http_risposta_valida_passa_per_la_rete_reale(tmp_path, monkeypatc
             s.shutdown()
             s.server_close()
         assert codice == atteso
+
+
+# --- Lockfile fail-closed ----------------------------------------------------
+
+@pytest.mark.parametrize(
+    "riga",
+    [
+        "requests[security]==2.0.0 \\",
+        "pkg @ https://example.org/pkg.whl",
+        "pkg>=1.0",
+        "pkg===1.0",
+        "pkg==1.0 extra",
+        "--index-url https://example.org/simple",
+        "-e .",
+    ],
+)
+def test_lockfile_riga_di_formato_inatteso_fa_errore(riga, tmp_path, capsys):
+    with pytest.raises(osv.ErroreLockfile):
+        osv.leggi_lockfile(LOCK + riga + "\n")
+    lock = tmp_path / "l.txt"
+    lock.write_text(LOCK + riga + "\n")
+    assert osv.main(["x", str(lock)]) == 2
+    assert "ERRORE:" in capsys.readouterr().err
+
+
+def test_lockfile_numero_pacchetti_uguale_ai_blocchi():
+    testo = LOCK + "ultimo==9.9 ; python_version >= \"3.9\"\n"
+    blocchi = [r for r in testo.splitlines() if r.strip() and not r[0].isspace() and not r.startswith("#")]
+    assert len(osv.leggi_lockfile(testo)) == len(blocchi) == 3
+
+
+def test_lockfile_attuale_e_conforme():
+    testo = (Path(__file__).resolve().parent.parent / "requirements.lock.txt").read_text(encoding="utf-8")
+    assert len(osv.leggi_lockfile(testo)) > 0
