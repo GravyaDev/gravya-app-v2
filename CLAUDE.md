@@ -27,7 +27,7 @@ Sta nel repository ed è committata e pushata insieme al lavoro: è l'unica memo
 Regole:
 - Mai copiare decisioni o contenuti dei documenti: si scrive il rimando (`DECISIONS.md` DX-22, `docs/C3-punto-hitl.md` §12).
 - Niente percorsi effimeri (`/tmp`, identificativi di thread o di esecuzioni) senza la marcatura «effimero»: in un altro ambiente non esistono.
-- **Solo contenuto corrente:** una nota superata si corregge o si toglie subito, senza lasciarne traccia nel file (la storia è in git); a fine sessione si rileggono i file e si toglie ciò che non vale più. Vale anche per `docs/DECISIONS.md` (solo decisioni in vigore e aperte). Motivo: i file non crescono senza limite e una lettura troncata non recupera una regola vecchia.
+- **Solo contenuto corrente:** una nota superata si corregge o si toglie subito, senza lasciarne traccia nel file (la storia è in git); a fine sessione si rileggono i file e si toglie ciò che non vale più. Vale anche per `docs/DECISIONS.md` (solo decisioni in vigore e aperte). Motivo: i file non crescono senza limite e una lettura troncata non recupera una regola vecchia. Unica eccezione: ciò che serve a capire il motivo di una scelta senza ricostruire l'intero percorso; quando possibile si scrive come motivo nella regola o decisione corrente, non come voce separata.
 - Formato: sezioni `## Argomento (keywords: …)`. Mai segreti o credenziali.
 - Solo il `coordinator` scrive in `stato/`.
 

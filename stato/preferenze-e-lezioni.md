@@ -9,7 +9,7 @@ Solo il modo di lavorare, nella forma in vigore. Le decisioni di progetto stanno
 
 ## Come vuole che si lavori (keywords: punto di verità, sì/no, push, file pronti)
 - **Un solo punto di verità.** Un dato in un solo file; se deve stare in due (schema di risposta in descrizione e prompt dello stesso agente), si aggiornano entrambi nello stesso commit. Un aggiornamento a metà lo fa arrabbiare molto.
-- **Solo contenuto corrente** nei registri e in `stato/` (DECISIONS.md, memoria, ambiente): ciò che è superato si toglie; la storia sta in git (e, per le decisioni, nell'archivio se deciso). Motivo: i file non devono crescere senza limite e una lettura troncata non deve recuperare una regola vecchia.
+- **Solo contenuto corrente** nei registri e in `stato/` (DECISIONS.md, memoria, ambiente): ciò che è superato si toglie; la storia sta in git (e, per le decisioni, nell'archivio se deciso). Motivo: i file non devono crescere senza limite e una lettura troncata non deve recuperare una regola vecchia. Eccezione (utente, 2026-11-05): resta ciò che serve a capire il motivo di una scelta senza ricostruire il percorso, scritto quando possibile come motivo sulla regola corrente.
 - **Rispondere esattamente alla domanda**: se è sì/no, la prima parola è sì o no.
 - Le decisioni dell'utente passano dal registrar con il testo alla lettera; mai modificare a mano DECISIONS.md e index.md (salvo eccezione autorizzata dall'utente).
 - Chiedere conferma prima di cancellare o spostare file del repository.
