@@ -14,16 +14,15 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 - Decisioni del 2026-11-05 su E1 v1.7 registrate (deroga C2 per l'ondata 1, DA-E1-13, tenant di contesto, avvio bloccato in produzione).
 
 ## In corso (agenti lanciati, non conclusi)
-- Ristrutturazione di DECISIONS.md **conclusa**: registro solo corrente, storia in `docs/decisioni-archivio.md`. Da fare nelle revisioni dei documenti: rimandi a vecchi titoli di §4 (E1 §3 e A1 App. C sulle mutazioni del grafo, ora §6; B1 sulla base giuridica delle evidenze, ora §5).
-- Decisioni M1-M5 dell'utente («ok», 2026-11-05): ultimo giro unico. Catalogo v1.7 fatto dal coordinator.
-- Giro 5 dell'implementer **concluso**: `claude/impl-e1` a 41607af (verificato: 80 test; falliti attesi dichiarati, refuso confermato nel conftest del code-reviewer giro 4 r.74).
-- **Verifica finale** in corso: code-reviewer (task `docs/revisioni/impl-e1/task-code-reviewer-giro5.md` sul branch del codice), plan-auditor e compliance-auditor su E1 v1.9 e catalogo v1.7 (task `docs/revisioni/e1-v1.9/task-auditor.md`). Se interrotti: rilanciare dai task. Compliance-auditor: RIPORTA, 5 minori. Plan-auditor: RIPORTA, 3 da riportare (F1 API_ENV assente scritto come regola ma non deciso; F2 regola tcp_user_timeout ≥ statement_timeout che blocca l'avvio, non decisa e fuori dalla regola 8 del catalogo; F3 ripartizione B1/B2/E16/C1 di DA-E1-13 aggiunta dal doc-writer) + minori (rimandi a DECISIONS da aggiornare, App. B superata). Code-reviewer giro 5: RIPORTA (1 da riportare X1: close() con riconnessione in corso lascia una connessione orfana e scrive dopo la chiusura; minori: blocco API_ENV aggirato con production_override, minimo 2 di connect_timeout solo nell'istantanea, durate fisse 0.2 s e 5.0 s nel codice (DX-22), sink diversi da PostgreSQL senza guardiano, README con DATABASE_URL senza default). Report su impl `13c59ad`. Presentate all'utente le decisioni N1-N4 (API_ENV assente; regola tcp ≥ statement; giro 6 mirato finale; merge di impl-e1): in attesa.
-- E1 v1.9 fatta (doc-writer, Storico verificato intatto) e committata.
-- Registrar concluso: decisioni M1-M5 ed esiti registrati, commit 1ecfe11.
+- Decisioni N1-N4 dell'utente («ok», 2026-11-05): API_ENV non impostata blocca; regola tcp ≥ statement confermata; giro 6 definitivo; dopo il giro 6 merge di `claude/impl-e1` in `claude/docs-ondata-1`. Catalogo v1.8 fatto dal coordinator.
+- **Implementer, giro 6** — task `docs/revisioni/impl-e1/task-implementer-giro6.md` (branch `claude/impl-e1`, commit 0865f6e).
+- **Doc-writer, E1 v1.10** — task `docs/revisioni/e1-v1.10/task-doc-writer.md`; controllare dopo le righe 1.0-1.9 dello Storico.
+- **Registrar** (senza Bash) — task `docs/revisioni/e1-v1.10/task-registrar.md`.
+Se interrotti: rilanciare dai task.
 
 ## Prossimi passi, in ordine
-1. Esiti della verifica finale, poi registrar.
-2. Chiedere all'utente quando e dove unire `claude/impl-e1`.
+1. Verificare giro 6, E1 v1.10 e registrar; code-reviewer solo sui punti del giro 6 (task da scrivere); residui in DECISIONS §4.
+2. Merge di `claude/impl-e1` in `claude/docs-ondata-1` (deciso).
 3. Poi: A1 (passi 3-4) sull'ossatura; v1.7 di allineamento degli altri documenti (F2, `run_id` UUID, `gravya.tool.outcome` in B2, C3 con F4); approvazione dei sette documenti; ondata 2 (A5, A6, F6).
 
 ## In attesa di risposta dall'utente
