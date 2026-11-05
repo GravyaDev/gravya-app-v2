@@ -1,0 +1,131 @@
+{
+  "branch": "impl/ci-locale",
+  "commit": [
+    "39bd1b5 pip-tools fissato con hash in requirements-strumenti.lock.txt, installato con --require-hashes",
+    "97ad7fc fornitura-locale: errori fail-closed provati, controlli isolati, base origin/main, traccia e --stato, issue con commento e senza credenziali, gh -R",
+    "d0e8412 agenti.py worktree-unisci: HEAD uguale alla punta del branch, main antenato, prove non superuser, OSV degli strumenti, fornitura recente o --forza-fornitura",
+    "b5bbdbb Installazione del timer: daemon-reload e restart se era gia' attivo",
+    "c346807 Workflow: solo push di branch, i tag non avviano nulla; test dei filtri",
+    "e64ee23 Test del file dei requisiti degli strumenti: versioni esatte, hash, intestazione, OSV su entrambi i lockfile",
+    "470784d README: traccia e --stato, strumenti fissati e limite dell'isolamento, worktree-unisci rafforzato, tag",
+    "19683a9 Report ci-locale: giro 2"
+  ],
+  "criteri": [
+    {
+      "id": "Bloccante 1 - percorsi di errore fail-closed",
+      "stato": "implementato",
+      "test": "tests/test_fornitura_locale.py::test_lockfile_errore_degli_strumenti_non_diventa_gia_aggiornato; ::test_lockfile_ogni_errore_di_git_e_errore_con_issue; ::test_compila_con_pip_tools_ogni_errore_solleva; ::test_esegui_timeout_e_errore_con_output_parziale_come_testo; ::test_esegui_comando_non_eseguibile_e_errore",
+      "eseguito": "mutanti.py del code-reviewer: base 103 test verdi, 15 UCCISO su 15 (prima ne sopravvivevano 11). Suite completa nel worktree con ci-locale.env: 302 passed"
+    },
+    {
+      "id": "Bloccante 2 - isolamento dei controlli",
+      "stato": "implementato",
+      "test": "tests/test_fornitura_locale.py::test_osv_con_vulnerabilita_e_lockfile_non_conforme_aprono_entrambe_le_issue; ::test_eccezione_inattesa_in_un_controllo_non_fa_perdere_le_issue_degli_altri; ::test_eccezione_in_segnala_non_si_propaga_e_da_codice_32",
+      "eseguito": "pytest completo: 302 passed. test_rotture.py R1 ora fallisce, cioè il difetto non è più riproducibile"
+    },
+    {
+      "id": "worktree-unisci (HEAD=punta, main antenato, non-superuser, OSV strumenti, fornitura recente o --forza-fornitura)",
+      "stato": "implementato",
+      "test": "tests/test_agenti_unisci.py::test_head_del_worktree_diverso_dal_branch_rifiuta; ::test_main_andato_avanti_rifiuta_senza_eseguire_i_controlli; ::test_fornitura_non_recente_con_forzatura_unisce_e_lo_scrive_nel_messaggio; ::test_prove_non_superuser_fallite_rifiutano_e_main_non_cambia; ::test_stato_fornitura_legge_la_traccia_reale_del_job",
+      "eseguito": "pytest tests/test_agenti_unisci.py: 24 passed. test_rotture.py R4 ora rifiutato. Non eseguito un worktree-unisci reale"
+    },
+    {
+      "id": "Base della rigenerazione (fetch, origin/main, commit locali non pubblicati)",
+      "stato": "implementato",
+      "test": "tests/test_fornitura_locale.py::test_lockfile_main_locale_con_commit_non_pubblicati_su_lockfile_nessuna_pr; ::test_lockfile_fetch_fallito_non_rigenera_su_una_base_vecchia; ::test_lockfile_parte_da_origin_main_dopo_il_fetch",
+      "eseguito": "pytest completo: 302 passed"
+    },
+    {
+      "id": "Traccia delle esecuzioni e --stato",
+      "stato": "implementato",
+      "test": "tests/test_fornitura_locale.py::test_registra_una_riga_json_per_esecuzione_in_coda; ::test_main_registra_anche_l_esecuzione_fallita; ::test_stato_oltre_la_soglia_e_errore; ::test_stato_senza_traccia_o_senza_riuscite_e_errore",
+      "eseguito": "pytest completo: 302 passed. Dal vivo: --prova ha scritto la riga, --stato ha dato 64 (nessuna esecuzione vera)"
+    },
+    {
+      "id": "Issue (commento se il contenuto cambia, credenziali tolte)",
+      "stato": "implementato",
+      "test": "tests/test_fornitura_locale.py::test_issue_aperta_con_contenuto_cambiato_riceve_un_commento; ::test_issue_aperta_con_contenuto_invariato_nessun_commento; ::test_ripulisci_toglie_i_pattern_di_credenziali; ::test_nessuna_credenziale_in_issue_commenti_e_pr",
+      "eseguito": "pytest completo: 302 passed"
+    },
+    {
+      "id": "pip-tools fissato con hash (--require-hashes) e OSV anche sul file",
+      "stato": "implementato",
+      "test": "tests/test_fornitura_strumenti.py (5 test); tests/test_fornitura_locale.py::test_compila_con_pip_tools_sequenza_e_hash_obbligatori",
+      "eseguito": "pytest completo: 302 passed. Dal vivo: --prova ha installato dal file con hash, OSV pulito su 8 pacchetti"
+    },
+    {
+      "id": "Minori: gh -R, timeout come testo, --digest-attuale solo con --prova, timer daemon-reload/restart",
+      "stato": "implementato",
+      "test": "tests/test_fornitura_locale.py::test_ogni_comando_gh_ha_R_con_il_repository_del_remoto; ::test_main_digest_attuale_solo_con_prova; tests/test_timer_fornitura.py::test_installazione_su_timer_gia_attivo_rilegge_e_riavvia",
+      "eseguito": "pytest completo: 302 passed. systemd-analyze --user verify: rc 0"
+    },
+    {
+      "id": "Tag (workflow solo push di branch)",
+      "stato": "implementato",
+      "test": "tests/test_ci_workflow_minuti.py::test_un_push_di_tag_non_avvia_nulla_un_push_di_branch_si",
+      "eseguito": "pytest completo: 302 passed. Il comportamento reale di GitHub per i tag non è provato con un push di tag"
+    },
+    {
+      "id": "Criterio di fine: CI verde sul branch dopo l'unico push",
+      "stato": "implementato",
+      "test": "assente (verifica su GitHub)",
+      "eseguito": "gh run list: «CI» e «Catena di fornitura» success sul commit 19683a9"
+    }
+  ],
+  "file_modificati": [
+    "scripts/fornitura-locale.py",
+    "scripts/agenti.py",
+    "scripts/installa-timer-fornitura.sh",
+    ".github/workflows/ci.yml",
+    ".github/workflows/fornitura.yml",
+    "requirements-strumenti.in",
+    "requirements-strumenti.lock.txt",
+    "tests/test_fornitura_locale.py",
+    "tests/test_fornitura_strumenti.py",
+    "tests/test_agenti_unisci.py",
+    "tests/test_timer_fornitura.py",
+    "tests/test_ci_workflow_minuti.py",
+    "README.md",
+    "docs/revisioni/ci-locale/report-implementer.md"
+  ],
+  "decisioni_mancanti": [
+    {
+      "punto": "Eccezione a DX-22/DX-13 per gli strumenti locali: assegnatario, titoli delle issue, FILE_ESITI, soglia di 9 giorni, timeout, TimeoutStartSec e OnCalendar restano costanti in testa agli script",
+      "riferimento": "DX-22, DX-13; code-reviewer 10; compliance-auditor 8",
+      "cosa_serve": "Confermare che DX-22 non vale per il tooling di sviluppo, oppure indicare dove tenere questi valori (voce di catalogo o file di configurazione del tooling). La soglia di 9 giorni (7 del timer più 2 di margine) è una mia scelta e il ritardo massimo accettabile va deciso dall'utente."
+    },
+    {
+      "punto": "Credenziale `gh` del job: oggi un PAT classico con scope repo, workflow e read:org, usato da un servizio non presidiato",
+      "riferimento": "compliance-auditor 2; DX-22(b)",
+      "cosa_serve": "Decisione dell'utente su un token fine-grained limitato a gravya-app-v2, con scadenza e inventario. Non l'ho toccato."
+    },
+    {
+      "punto": "Isolamento della rigenerazione in un contenitore e tempo minimo di anzianità delle versioni nuove",
+      "riferimento": "compliance-auditor 3 (proposte residue)",
+      "cosa_serve": "Il task escludeva l'isolamento: è dichiarato come limite nel README. Se l'utente vuole l'anzianità minima delle versioni serve una decisione e una variabile."
+    }
+  ],
+  "divergenze": [
+    {
+      "dove": "task-implementer-giro2.md punto 1 vs mutanti.py",
+      "problema": "La prova a mutanti copia solo scripts/, ci.yml, il lockfile, .gitignore e tests/test_fornitura_locale.py. Ho tenuto in quel file tutti i test che i mutanti devono uccidere e ho messo in un file separato (test_fornitura_strumenti.py) quelli che leggono requirements-strumenti.lock.txt. Ho conservato letteralmente le righe di codice che i mutanti sostituiscono, anche dove il codice sarebbe stato più pulito."
+    },
+    {
+      "dove": "task-implementer-giro2.md punto 3 vs test_agenti_unisci.py del giro 1",
+      "problema": "Con il rifiuto quando main non è antenato, il test del conflitto di merge non è più raggiungibile. L'ho sostituito con un merge che fallisce per un hook pre-merge-commit; il ramo «merge annullato» resta coperto."
+    },
+    {
+      "dove": "Task, vincolo «un solo push alla fine»",
+      "problema": "Il report in repository dice che l'esito della CI è in fondo, ma la sezione «Giro 2» non riporta l'esito della CI sul commit 19683a9 (success). Aggiungerlo avrebbe richiesto un secondo push, quindi l'esito è solo in questa risposta."
+    }
+  ],
+  "non_verificato": [
+    "Esecuzione vera di scripts/fornitura-locale.py senza --prova: aprirebbe issue e PR vere. I rami issue, commento e PR sono provati solo con esecutore finto e git reale su repository temporanei. Il timer non è installato e non è stato eseguito da systemd.",
+    "`--stato` dal vivo restituisce 64, perché in ~/.local/state/gravya-fornitura/esiti.jsonl c'è solo la riga di una --prova, che per definizione non conta come riuscita.",
+    "worktree-unisci reale (OSV, suite e test-non-superuser.sh con PostgreSQL del worktree): provato con controlli finti, non con quelli veri.",
+    "Un push di tag reale su GitHub: il filtro `branches: [\"**\"]` è provato solo con il modello dei filtri riprodotto nel test, secondo la documentazione di GitHub.",
+    "Il Graph Update e le esecuzioni di Dependabot (code-reviewer 11): non toccati.",
+    "Ho lanciato mutanti.py da ../../docs/..., come chiesto dal task. Lo script crea e poi cancella una cartella `lavoro-mutanti` accanto a sé. Dopo ogni lancio ho rimosso quella cartella e i __pycache__ residui."
+  ],
+  "report": "docs/revisioni/ci-locale/report-implementer.md (sezione «Giro 2»)"
+}
