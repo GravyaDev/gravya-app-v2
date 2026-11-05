@@ -21,6 +21,17 @@ caso blocca con `VariableUnavailableError` tipizzato e un segnale, mai
 un'eccezione non gestita (`AttributeError`/`TypeError`). L'interfaccia
 accetta anche valori booleani e stringhe di vocabolario, non solo interi
 positivi (CR 12).
+
+Giro 3 (G13): le variabili elencate in `_EXPECTED_INT_VARIABLES` devono
+essere intere (un valore di tipo sbagliato blocca con segnale, mai un
+`TypeError`); `min`/`max` non numerici bloccano allo stesso modo (mai un
+confronto che solleva un'eccezione); nessuna correzione silenziosa come
+`max(1, valore)`.
+
+Giro 3 (G9): `production_override` puo' solo irrigidire la guardia di
+produzione (`is_production() or override`), mai spegnerla: con
+`API_ENV=production` nell'ambiente, nessun valore di `production_override`
+puo' far accettare una variabile "da definire".
 """
 from __future__ import annotations
 
@@ -37,6 +48,26 @@ DEFAULT_SNAPSHOT_PATH = Path(__file__).resolve().parents[3] / "config" / "e5-sna
 _VALID_STATUSES = {"deciso", "proposta_da_validare", "da_definire"}
 
 VariableScalar = Union[int, bool, str]
+
+# Variabili di E1 il cui tipo atteso e' un intero (giro 3, G13): un valore
+# di un altro tipo (stringa, lista, ecc.) blocca con segnale invece di
+# propagare un TypeError piu' avanti nel codice (per esempio in
+# threading.BoundedSemaphore). Le variabili non elencate qui mantengono la
+# tipizzazione dinamica (intero non negativo, booleano o stringa non vuota),
+# usata per esempio da variabili non ancora consumate da E1 nei test.
+_EXPECTED_INT_VARIABLES = frozenset(
+    {
+        "e1.partition_interval_months",
+        "e1.overhead_p95_ms",
+        "e1.write_buffer_size",
+        "e1.attributes.max_value_bytes",
+        "e1.write_statement_timeout_ms",
+        "e1.write_connect_timeout_ms",
+        "e1.write_tcp_keepalives_idle_s",
+        "e1.write_tcp_keepalives_interval_s",
+        "e1.write_tcp_keepalives_count",
+    }
+)
 
 
 class VariableUnavailableError(RuntimeError):
@@ -100,8 +131,10 @@ class SnapshotVariableRegistry:
         return variables
 
     def _is_production(self) -> bool:
-        if self._production_override is not None:
-            return self._production_override
+        # Giro 3 (G9): l'override puo' solo irrigidire la guardia, mai
+        # spegnerla: is_production() or override (mai "override" da solo).
+        if self._production_override:
+            return True
         return is_production()
 
     def get(self, name: str) -> VariableValue:
@@ -135,12 +168,20 @@ class SnapshotVariableRegistry:
         if isinstance(value, int) and not isinstance(value, bool):
             minimum = entry.get("min")
             maximum = entry.get("max")
-            if minimum is not None and value < minimum:
-                self._signal_sink.emit("e5.variable_invalid", name=name, reason="valore sotto il minimo")
-                raise VariableUnavailableError(f"variabile '{name}' sotto il minimo ({value} < {minimum})")
-            if maximum is not None and value > maximum:
-                self._signal_sink.emit("e5.variable_invalid", name=name, reason="valore sopra il massimo")
-                raise VariableUnavailableError(f"variabile '{name}' sopra il massimo ({value} > {maximum})")
+            if minimum is not None:
+                if not isinstance(minimum, int) or isinstance(minimum, bool):
+                    self._signal_sink.emit("e5.variable_invalid", name=name, reason="minimo non numerico")
+                    raise VariableUnavailableError(f"variabile '{name}' con minimo non numerico: {minimum!r}")
+                if value < minimum:
+                    self._signal_sink.emit("e5.variable_invalid", name=name, reason="valore sotto il minimo")
+                    raise VariableUnavailableError(f"variabile '{name}' sotto il minimo ({value} < {minimum})")
+            if maximum is not None:
+                if not isinstance(maximum, int) or isinstance(maximum, bool):
+                    self._signal_sink.emit("e5.variable_invalid", name=name, reason="massimo non numerico")
+                    raise VariableUnavailableError(f"variabile '{name}' con massimo non numerico: {maximum!r}")
+                if value > maximum:
+                    self._signal_sink.emit("e5.variable_invalid", name=name, reason="valore sopra il massimo")
+                    raise VariableUnavailableError(f"variabile '{name}' sopra il massimo ({value} > {maximum})")
 
         if status == "proposta_da_validare" and name not in self._proposal_signalled:
             self._proposal_signalled.add(name)
@@ -160,6 +201,29 @@ class SnapshotVariableRegistry:
 
     def _validate_scalar(self, name: str, entry: dict) -> VariableScalar:
         raw_value = entry.get("value")
+
+        if name in _EXPECTED_INT_VARIABLES:
+            if not isinstance(raw_value, int) or isinstance(raw_value, bool):
+                self._signal_sink.emit(
+                    "e5.variable_invalid", name=name, reason="tipo atteso intero"
+                )
+                raise VariableUnavailableError(f"variabile '{name}' deve essere un intero: {raw_value!r}")
+            # Le variabili di E1 elencate qui sono tutte conteggi/durate: il
+            # minimo tecnico e' 1 come invariante di codice (giro 3, G13;
+            # catalogo: "validita' tecnica"), non dipende da un campo "min"
+            # facoltativo nell'istantanea (che potrebbe mancare o essere
+            # sbagliato in una voce specifica). Se l'istantanea dichiara un
+            # proprio "min" esplicito, il controllo qui sotto E il controllo
+            # su `entry.get("min")` in `get()` si applicano entrambi in
+            # sequenza: vale il piu' restrittivo dei due (1, o il "min"
+            # dichiarato se superiore a 1).
+            if raw_value < 1:
+                self._signal_sink.emit(
+                    "e5.variable_invalid", name=name, reason="valore sotto il minimo tecnico (1)"
+                )
+                raise VariableUnavailableError(f"variabile '{name}' sotto il minimo tecnico: {raw_value!r}")
+            return raw_value
+
         if isinstance(raw_value, bool):
             return raw_value
         if isinstance(raw_value, int):
