@@ -1,6 +1,6 @@
 # Agenti di governance del progetto
 
-Versione 1.22, 2026-11-05.
+Versione 1.23, 2026-11-05.
 
 Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
@@ -15,7 +15,7 @@ Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno
 | `compliance-auditor` | [compliance-auditor.md](../../.claude/agents/compliance-auditor.md) | Cerca violazioni di GDPR, NIS2, AI Act, osservabilità AI (PV-01) e delle altre norme del registro in documenti e codice | Solo il proprio report | Avversariale |
 | `doc-writer` | [doc-writer.md](../../.claude/agents/doc-writer.md) | Redige o aggiorna un documento di dettaglio secondo il template | Solo il file del documento assegnato e le sue righe in `docs/catalogo-variabili.md` | Collaborativa |
 | `code-reader` | [code-reader.md](../../.claude/agents/code-reader.md) | Risponde a domande precise sul codice, con citazioni: ambito "storico" (gravya-app, kloudify, solo riferimento) o "v2" (stato reale rispetto ai documenti) | Solo il proprio report | Ricognizione, sola lettura |
-| `implementer` | [implementer.md](../../.claude/agents/implementer.md) | Implementa codice e test di un documento approvato, un perimetro alla volta, su un branch dedicato; non fa merge | Codice e test sul proprio branch, il proprio report | Collaborativa |
+| `implementer` | [implementer.md](../../.claude/agents/implementer.md) | Implementa codice e test di un documento approvato, un perimetro alla volta, sul branch di lavoro indicato dal task; non fa merge | Codice e test sul branch di lavoro, il proprio report | Collaborativa |
 | `regulatory-researcher` | [regulatory-researcher.md](../../.claude/agents/regulatory-researcher.md) | Cura il registro delle norme `docs/norme-di-riferimento.md`, verificato sulle fonti ufficiali; non dà pareri legali | Solo `docs/norme-di-riferimento.md` | Ricerca |
 
 ## Quando si attivano
@@ -49,11 +49,11 @@ L'agente consegna la risposta come messaggio (sulla piattaforma con `send_to_par
 
 Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Claude Code rispetta quando l'agente sta in `.claude/agents/`. **Agenti configurati sulla piattaforma** (es. l'agente Registrar della sessione di pianificazione): sono una copia fuori dal repository. A ogni modifica di un file in `.claude/agents/` vanno aggiornati a mano (prompt e strumenti).
 
-**Limite noto:** una sessione che gira su Opus e lancia agenti inline (workflow) non può scegliere Sonnet o Haiku: gli agenti ereditano il modello della sessione. Per rispettare questa regola, le sequenze vanno eseguite da una sessione Claude Code aperta nel repository, che usi gli agenti di `.claude/agents/`, oppure da una sessione impostata su Sonnet.
+**Limite noto:** agenti creati al volo da una sessione su Opus (non definiti in `.claude/agents/`) ereditano il modello della sessione. Per questo si usano solo gli agenti di `.claude/agents/`: in Claude Code il campo `model:` è rispettato sia dallo strumento Agent sia da `claude -p --agent` (verificato il 2026-11-05: il `registrar` lanciato con `scripts/agenti.py` gira su Haiku).
 
 ## Come si invocano
 
-- **In Claude Code (consigliato):** gli agenti si trovano in `.claude/agents/` e vengono invocati per nome; il campo `model:` assicura Sonnet o Haiku.
+- **In Claude Code (consigliato):** gli agenti si trovano in `.claude/agents/` e si lanciano con `scripts/agenti.py` (scheletro del task con `nuovo-task`, esecuzione con `lancia`; uso in `CLAUDE.md`) o con lo strumento Agent; il campo `model:` assicura Sonnet o Haiku.
 - **In una sessione di pianificazione:** solo gli agenti predefiniti (sulla piattaforma o in `.claude/agents/`), che girano con il proprio modello. Mai agenti creati al volo da una sessione su Opus.
 - **Nel repository:** quando esisterà la CI di v2, `code-reviewer` e `compliance-auditor` diventano controlli obbligatori sulle PR. Il loro esito `BLOCCA` fa fallire il controllo.
 
@@ -93,3 +93,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 | 1.20 | 2026-11-05 | Memoria di sessione spostata da `.claude/memoria/` alla cartella `stato/` alla radice del repository (richiesta dell'utente: una cartella di stato unica, usata allo stesso modo dalle sessioni sulla piattaforma e in locale). Aggiornati catalogo, regola comune 6, `CLAUDE.md` e i prompt di tutti gli agenti. Da ricopiare sulla piattaforma: il prompt di tutti gli agenti. |
 | 1.21 | 2026-11-05 | Istruzioni su avvio, cartella `stato/` e chiusura dei turni solo in `CLAUDE.md` (decisione dell'utente: nessun'altra sessione ha istruzioni sull'uso della memoria; la memoria della piattaforma `/mnt/memory/` sarà eliminata dall'utente). Il prompt del `coordinator` rimanda a `CLAUDE.md`; tolti dai prompt degli agenti e dalla regola comune 6 i riferimenti a `/mnt/memory/`. Da ricopiare sulla piattaforma: il prompt di tutti gli agenti. |
 | 1.22 | 2026-11-05 | `registrar`: DECISIONS.md solo con decisioni in vigore e aperte, archivio `docs/decisioni-archivio.md` per la storia e i testi alla lettera, stati solo quelli della legenda (tolti dal prompt «Decisa con riserva», «Bloccante», «Assorbita», «Chiusa», che il registrar usava inventando stati). Decisione dell'utente del 2026-11-05. Da ricopiare sulla piattaforma: il prompt del `registrar`. |
+| 1.23 | 2026-11-05 | Passaggio a Claude Code locale. Script `scripts/agenti.py` per creare i task dal template della descrizione e lanciare gli agenti (`claude -p --agent`), con salvataggio della risposta, controllo delle chiavi dello schema e dei file comparsi. `implementer`: lavora sul branch di lavoro indicato dal task e non su un branch dedicato (decisione dell'utente del 2026-11-05: un solo branch). Aggiornato il «Limite noto» sul modello. Da ricopiare sulla piattaforma: descrizione e prompt dell'`implementer`, prompt del `coordinator`. |

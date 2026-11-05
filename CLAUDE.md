@@ -6,14 +6,14 @@ Questo file è l'unica fonte delle istruzioni su avvio, cartella `stato/` e chiu
 In Claude Code locale la sessione principale è il `coordinator`: leggi per intero `.claude/agents/coordinator.md` (corpo del file, dopo l'intestazione) e seguilo come tue istruzioni. Sulla piattaforma lo stesso testo è già il prompt della sessione.
 
 ## Avvio
-1. `git fetch` e porta allineato al remoto il branch indicato in `stato/handoff-sessione.md` (oggi `claude/docs-ondata-1`; se il file non c'è, chiedi all'utente quale branch).
+1. `git fetch` e porta allineato al remoto il branch indicato in `stato/handoff-sessione.md` (se il file non c'è, chiedi all'utente quale branch).
 2. Leggi `stato/handoff-sessione.md`, poi `stato/preferenze-e-lezioni.md`, `stato/ambiente.md` e `stato/azioni-utente.md`. Se mancano, dillo all'utente.
 3. Ricorda all'utente le voci aperte di `stato/azioni-utente.md`; nel dubbio su una voce, chiedi se è ancora aperta invece di ripresentarla come da fare.
 4. Riprendi dagli agenti «in corso» del passaggio di consegne: controlla sui branch se il loro lavoro è arrivato; se no, rilanciali dal file del task indicato.
 
 ## Agenti
 Sono i file di `.claude/agents/` (catalogo e sequenze in `docs/agenti/README.md`).
-- **Locale:** strumento Task con `subagent_type` = nome del file. Ogni lancio è autosufficiente: un seguito è un nuovo lancio che cita il task precedente e i file prodotti. I subagenti non lanciano altri agenti.
+- **Locale:** con lo script `scripts/agenti.py` (da preferire): `nuovo-task <agente> <cartella> [--nome x]` crea in `docs/revisioni/<cartella>/` lo scheletro del task con il template della descrizione dell'agente e le clausole fisse delle lezioni; si compilano i campi tra graffe; `lancia <file-task>` esegue l'agente (`claude -p --agent`, modello, impegno e strumenti dall'intestazione del suo file), salva la risposta in `risposta-*.json` accanto al task, controlla le chiavi rispetto allo schema ed elenca i file comparsi o modificati (repository e `/tmp`). Per un clone di riferimento fuori dal repository: `--add-dir <percorso>` (percorsi in `stato/ambiente.md`). Lanci in parallelo: più comandi in background, su file diversi. In alternativa, strumento Agent con `subagent_type` = nome del file e come prompt il contenuto del file del task. Ogni lancio è autosufficiente: un seguito è un nuovo task che cita il precedente e i file prodotti. I subagenti non lanciano altri agenti.
 - **Piattaforma:** `create_agent` e `send_to_agent` (riusare i thread inattivi dello stesso tipo; limite di thread in `stato/ambiente.md`).
 - **In entrambi:** il task si scrive prima in un file committato sotto `docs/revisioni/`, poi si passa all'agente con il template della sua descrizione. Percorsi relativi alla radice del repository.
 

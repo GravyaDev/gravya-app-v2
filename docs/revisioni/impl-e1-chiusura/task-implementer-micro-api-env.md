@@ -1,8 +1,10 @@
 # Task per l'implementer: micro-correzione API_ENV (dopo il BLOCCA del giro 6)
 
+Agente: implementer
+
 Preparato dal coordinator il 2026-11-05 (sessione 8). Decisione dell'utente (2026-11-05): «(a, micro-correzione)».
 
-Branch unico `claude/docs-ondata-1` (il codice di E1 è stato unito con il merge 9311762; non creare branch nuovi). Fonte: `docs/revisioni/impl-e1/report-code-reviewer-giro6.md`, sezione 3.
+Branch unico `main` (il codice di E1 è stato unito con il merge 9311762, poi in `main` con la PR #1; non creare branch nuovi). Push: no. Fonte: `docs/revisioni/impl-e1/report-code-reviewer-giro6.md`, sezione 3.
 
 Correzione (solo questa):
 1. `src/gravya_e1/tracing.py`, `TracingHelper.__init__`: togliere la condizione `self._production_override is None and` dal blocco per `API_ENV` non impostata, così il blocco con segnale vale sempre, come per un valore fuori insieme (DECISIONS §6 «E1: ambiente e avvio»; catalogo v1.8 §18).
