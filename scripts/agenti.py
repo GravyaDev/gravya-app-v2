@@ -246,7 +246,9 @@ def cmd_lancia(a: argparse.Namespace) -> None:
         else:
             print("Chiavi della risposta conformi allo schema.")
 
-    cartelle = [RADICE, Path("/tmp")] + [Path(d) for d in (a.add_dir or [])]
+    # Le cartelle --add-dir (clone di riferimento) non si controllano: sono in sola lettura
+    # (hook .claude/hooks/riferimenti-sola-lettura.py) e cambiano per il lavoro dell'utente.
+    cartelle = [RADICE, Path("/tmp")]
     nuovi = [f for f in file_modificati_da(marcatore, cartelle) if Path(f) not in esclusi]
     print("File comparsi o modificati durante il lancio:" if nuovi else "Nessun altro file comparso o modificato.")
     for f in nuovi:
