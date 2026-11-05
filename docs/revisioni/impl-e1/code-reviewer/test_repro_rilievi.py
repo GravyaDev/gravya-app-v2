@@ -198,9 +198,19 @@ def test_R10c_update_cross_tenant_non_ha_effetto(admin_conn, partitions):
 def test_R10d_writer_non_puo_leggere_segnali_di_tutti_i_tenant(admin_conn, partitions):
     # tabella provvisoria senza RLS: il writer (multi-tenant) legge i segnali di ogni tenant
     sink = PostgresSignalSink(admin_conn); sink.emit("trace.write_failed", tenant_id=str(uuid.uuid4()), count=1)
-    with writer_transaction(admin_conn, str(uuid.uuid4())) as c, c.cursor() as cur:
-        cur.execute("SELECT count(*) FROM gravya_signals_min_audit")
-        assert cur.fetchone()[0] == 0, "il writer del tenant X legge i segnali di altri tenant (nessuna RLS sulla tabella provvisoria)"
+    # Giro 3 (decisione dell'utente, "tabella dei segnali provvisoria, solo
+    # inserimento"): il writer non ha piu' SELECT su questa tabella, quindi
+    # la lettura e' rifiutata con un errore di privilegio; "0 righe" (RLS)
+    # resta accettato come esito altrettanto corretto se in futuro tornasse
+    # ad avere SELECT. Autorizzato dal coordinator, task-implementer-giro3.md.
+    try:
+        with writer_transaction(admin_conn, str(uuid.uuid4())) as c, c.cursor() as cur:
+            cur.execute("SELECT count(*) FROM gravya_signals_min_audit")
+            assert cur.fetchone()[0] == 0, "il writer del tenant X legge i segnali di altri tenant"
+    except psycopg.errors.InsufficientPrivilege:
+        pass
+    finally:
+        admin_conn.rollback()
 
 
 # R11 -- segmento di un tenant agganciato al trace_id di un altro tenant
