@@ -1,0 +1,27 @@
+{
+  "registri_modificati": [
+    "docs/DECISIONS.md",
+    "docs/decisioni-archivio.md"
+  ],
+  "righe_aggiornate": [
+    "DECISIONS §6 «Catena di fornitura»: punti 1 e 2 attuati con il merge 46659bd, Dependabot pip non configurato (punto aperto in §4); data invariata 2026-11-05",
+    "DECISIONS §4 «Catena di fornitura e aggiornamenti»: sostituito con i punti aperti (a)-(f) con report di provenienza; resta il rilievo minore sull'intestazione di requirements.lock.txt",
+    "DECISIONS «Ultimo aggiornamento»: riga aggiornata (2026-11-05, esito della revisione della catena di fornitura)",
+    "decisioni-archivio.md: in coda le versioni superate di «Ultimo aggiornamento», della riga §6 «Catena di fornitura» e del punto §4 precedente"
+  ],
+  "documenti_da_aggiornare": [
+    {
+      "doc": "E1-tracing-distribuito.md",
+      "motivo": "§4 «Catena di fornitura e aggiornamenti» indica E1 tra i documenti coinvolti (punti aperti su lockfile, CI, Dependabot); il contenuto del documento va verificato dal doc-writer."
+    },
+    {
+      "doc": "CI (nessun file di dettaglio in docs/ né in index.md)",
+      "motivo": "§4 e §6 citano «CI» come documento coinvolto, ma non esiste un documento di dettaglio con questo nome; da stabilire dove stanno le note della CI (workflow «CI» e «Catena di fornitura», Dependabot, digest PostgreSQL)."
+    }
+  ],
+  "conflitti_da_riportare": [
+    "Conflitto tra decisione e attuazione: §6 «Catena di fornitura» (1) prevede Dependabot settimanale per i pacchetti Python, non configurato (report-implementer.md; report-compliance-auditor.md, rilievo 1). Registrato come punto (a) in §4 con la scelta da fare; la riga §6 dichiara la mancata attuazione.",
+    "Rilievo RIPORTA non registrato: report-compliance-auditor.md, rilievo 7 (password casuale del ruolo di prova negli argomenti di docker run, visibile nell'elenco dei processi del runner, minore, «nessuna azione richiesta»). Non compare nell'elenco (a)-(f) del task; non è stato aggiunto. Da decidere se registrarlo come rischio accettato.",
+    "Termine «attuati» nella riga §6: non è uno stato della legenda, ma descrive l'attuazione; se si preferisce una formulazione neutra, va concordata con il coordinator."
+  ]
+}
