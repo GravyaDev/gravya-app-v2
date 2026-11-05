@@ -1,0 +1,13 @@
+# Una volta a settimana (DECISIONS §6 «Catena di fornitura»: i nuovi
+# avvisi di sicurezza compaiono anche senza push).
+[Unit]
+Description=Gravya: controlli settimanali della catena di fornitura
+
+[Timer]
+OnCalendar=Mon *-*-* 08:00:00
+# Se il computer (WSL2) era spento all'ora prevista, parte all'accensione successiva.
+Persistent=true
+Unit=gravya-fornitura.service
+
+[Install]
+WantedBy=timers.target

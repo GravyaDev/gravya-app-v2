@@ -1,0 +1,22 @@
+# Controlli settimanali della catena di fornitura (DECISIONS §6 «Catena di
+# fornitura» e «Minuti di GitHub Actions»). Modello: @RADICE@ e' sostituito da
+# scripts/installa-timer-fornitura.sh con il percorso del repository principale.
+[Unit]
+Description=Gravya: controlli settimanali della catena di fornitura (OSV, digest PostgreSQL, lockfile)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@RADICE@
+# `gh`, `docker` e `git` devono essere raggiungibili: il servizio utente non legge il profilo della shell.
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/usr/bin/env python3 @RADICE@/scripts/fornitura-locale.py
+# 16 = lockfile aggiornato e PR aperta: esito normale, non un guasto.
+# Gli altri codici non nulli (1, 2, 4, 8, 32 e somme) segnano il servizio come fallito nel journal.
+SuccessExitStatus=16
+# Un controllo appeso non deve restare per sempre.
+TimeoutStartSec=2h
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=gravya-fornitura
