@@ -39,6 +39,9 @@ class SegmentStart(BaseModel):
     parent_segment_id: UUID | None = None
     started_at: datetime
     attributes: dict[str, Any] = {}
+    # Argomenti grezzi da cui l'helper calcola l'HMAC (giro 2, B6): mai un
+    # hash gia' calcolato dal chiamante. Solo per kind 'tool'/'decision'.
+    raw_arguments: bytes | None = None
 
 
 class SegmentEnd(BaseModel):
@@ -47,3 +50,4 @@ class SegmentEnd(BaseModel):
     ended_at: datetime
     status: str
     attributes: dict[str, Any] = {}
+    raw_arguments: bytes | None = None
