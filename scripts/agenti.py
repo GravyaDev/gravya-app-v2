@@ -14,6 +14,14 @@ Due comandi:
               rispetto allo schema dell'agente ed elenca i file comparsi o
               modificati durante il lancio (repository e /tmp).
 
+  worktree-crea / worktree-elenco / worktree-chiudi
+              Un worktree per task in .worktrees/<nome> sul branch impl/<nome>, con
+              .venv e PostgreSQL in Docker propri (porta libera da 5433 in su), così
+              più implementer lavorano in parallelo. Un task con la riga
+              «Worktree: <nome>» viene lanciato dentro il suo worktree.
+              `worktree-chiudi` cancella worktree, branch locale e remoto e container
+              solo se il branch è già unito in main e il worktree è pulito.
+
 Esempi:
   python3 scripts/agenti.py nuovo-task implementer impl-e1-chiusura --nome micro-api-env
   python3 scripts/agenti.py lancia docs/revisioni/impl-e1-chiusura/task-implementer-micro-api-env.md
@@ -35,6 +43,14 @@ import time
 from pathlib import Path
 
 RADICE = Path(__file__).resolve().parent.parent
+WORKTREE = RADICE / ".worktrees"
+PREFISSO_BRANCH = "impl/"
+PREFISSO_CONTAINER = "gravya-v2-wt-"
+BRANCH_BASE = "main"
+# Immagine PostgreSQL dei worktree: DECISIONS §6 «Versioni di runtime». Si cambia con
+# --immagine o con la variabile d'ambiente GRAVYA_PG_IMMAGINE.
+IMMAGINE_PG = os.environ.get("GRAVYA_PG_IMMAGINE", "postgres:18")
+PORTA_INIZIALE = 5433
 AGENTI = RADICE / ".claude" / "agents"
 REVISIONI = RADICE / "docs" / "revisioni"
 
@@ -154,7 +170,7 @@ def file_modificati_da(marcatore: float, cartelle: list[Path]) -> list[str]:
         if not base.is_dir():
             continue
         for radice, dirs, files in os.walk(base):
-            dirs[:] = [d for d in dirs if d not in (".git", ".venv", "__pycache__", ".pytest_cache")
+            dirs[:] = [d for d in dirs if d not in (".git", ".venv", "__pycache__", ".pytest_cache", ".worktrees")
                        and not d.startswith("claude-")]  # file di servizio di Claude Code in /tmp
             for f in files:
                 p = Path(radice) / f
@@ -204,13 +220,20 @@ def cmd_lancia(a: argparse.Namespace) -> None:
     for d in a.add_dir or []:
         cmd += ["--add-dir", d]
 
+    cwd = RADICE
+    mw = re.search(r"^Worktree:\s*([\w-]+)\s*$", testo, re.M)
+    if mw:
+        cwd = WORKTREE / mw.group(1)
+        if not cwd.is_dir():
+            sys.exit(f"Worktree {cwd.relative_to(RADICE)} inesistente: crealo con `worktree-crea {mw.group(1)}`.")
+
     risposta_json = task.with_name(task.stem.replace("task-", "risposta-", 1) + ".json")
     risposta_txt = risposta_json.with_suffix(".txt")
 
     marcatore = time.time() - 1
     print(f"Lancio {nome} (modello {ag['model']}, impegno {ag['effort']}) con {task.relative_to(RADICE)}…",
           file=sys.stderr)
-    proc = subprocess.run(cmd, input=testo, text=True, capture_output=True, cwd=RADICE)
+    proc = subprocess.run(cmd, input=testo, text=True, capture_output=True, cwd=cwd)
     if proc.returncode != 0:
         print(proc.stdout, proc.stderr, sep="\n", file=sys.stderr)
         sys.exit(f"claude è uscito con codice {proc.returncode}")
@@ -248,7 +271,7 @@ def cmd_lancia(a: argparse.Namespace) -> None:
 
     # Le cartelle --add-dir (clone di riferimento) non si controllano: sono in sola lettura
     # (hook .claude/hooks/riferimenti-sola-lettura.py) e cambiano per il lavoro dell'utente.
-    cartelle = [RADICE, Path("/tmp")]
+    cartelle = [RADICE, Path("/tmp")] + ([cwd] if cwd != RADICE else [])
     nuovi = [f for f in file_modificati_da(marcatore, cartelle) if Path(f) not in esclusi]
     print("File comparsi o modificati durante il lancio:" if nuovi else "Nessun altro file comparso o modificato.")
     for f in nuovi:
@@ -256,6 +279,139 @@ def cmd_lancia(a: argparse.Namespace) -> None:
             print(f"  {Path(f).relative_to(RADICE)}")
         except ValueError:
             print(f"  {f}  (fuori dal repository)")
+
+
+def git(*args: str, cwd: Path = RADICE, check: bool = True) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=cwd, text=True, capture_output=True, check=check)
+
+
+def nome_valido(nome: str) -> str:
+    if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,40}", nome):
+        sys.exit("Nome del worktree: minuscole, cifre e trattini (es. e1-runtime).")
+    return nome
+
+
+def porta_libera() -> int:
+    import socket
+    usate = set()
+    out = subprocess.run(["docker", "ps", "-a", "--format", "{{.Ports}}"], text=True, capture_output=True).stdout
+    usate.update(int(p) for p in re.findall(r":(\d+)->", out))
+    porta = PORTA_INIZIALE
+    while True:
+        if porta not in usate:
+            with socket.socket() as so:
+                try:
+                    so.bind(("127.0.0.1", porta))
+                    return porta
+                except OSError:
+                    pass
+        porta += 1
+
+
+def file_env(nome: str) -> Path:
+    return WORKTREE / f"{nome}.env"
+
+
+def cmd_worktree_crea(a: argparse.Namespace) -> None:
+    nome = nome_valido(a.nome)
+    dove = WORKTREE / nome
+    branch = PREFISSO_BRANCH + nome
+    container = PREFISSO_CONTAINER + nome
+    if dove.exists():
+        sys.exit(f"Esiste già: {dove.relative_to(RADICE)}")
+    python = (RADICE / ".venv" / "bin" / "python").resolve()
+    if not python.is_file():
+        sys.exit("Manca il .venv del repository principale: il worktree usa lo stesso interprete.")
+    WORKTREE.mkdir(exist_ok=True)
+    git("worktree", "add", "-b", branch, str(dove), BRANCH_BASE)
+    print(f"Worktree {dove.relative_to(RADICE)} sul branch {branch} (da {BRANCH_BASE})")
+
+    venv = dove / ".venv"
+    subprocess.run([str(python), "-m", "venv", str(venv)], check=True)
+    pip = [str(venv / "bin" / "python"), "-m", "pip", "install", "-q", "--disable-pip-version-check"]
+    subprocess.run(pip + ["--require-hashes", "-r", "requirements.lock.txt"], cwd=dove, check=True)
+    subprocess.run(pip + ["--no-build-isolation", "--no-deps", "-e", "."], cwd=dove, check=True)
+    print(f".venv con {python.name} dal lockfile")
+
+    porta = porta_libera()
+    subprocess.run(["docker", "run", "-d", "--name", container, "-p", f"127.0.0.1:{porta}:5432",
+                    "-e", "POSTGRES_USER=root", "-e", "POSTGRES_HOST_AUTH_METHOD=trust", a.immagine],
+                   check=True, capture_output=True)
+    for _ in range(60):
+        if subprocess.run(["docker", "exec", container, "pg_isready", "-U", "root"],
+                          capture_output=True).returncode == 0:
+            break
+        time.sleep(1)
+    else:
+        sys.exit(f"PostgreSQL nel container {container} non risponde.")
+    time.sleep(1)
+    subprocess.run(["docker", "exec", container, "createdb", "-U", "root", "-O", "root", "gravya_e1_test"],
+                   check=True, capture_output=True)
+    env = {
+        "PGHOST": "127.0.0.1", "PGPORT": str(porta), "PGUSER": "root",
+        "GRAVYA_E1_TEST_DSN": f"host=127.0.0.1 port={porta} user=root",
+        "API_ENV": "development",
+    }
+    if (dove / "alembic.ini").is_file():
+        url = f"postgresql+psycopg://root@127.0.0.1:{porta}/gravya_e1_test"
+        subprocess.run([str(venv / "bin" / "alembic"), "upgrade", "head"], cwd=dove, check=True,
+                       env=dict(os.environ, **env, DATABASE_URL=url), capture_output=True)
+    riga = " ".join(f'{k}="{v}"' if " " in v else f"{k}={v}" for k, v in env.items())
+    file_env(nome).write_text(riga + "\n", encoding="utf-8")
+    print(f"PostgreSQL {a.immagine} nel container {container}, porta {porta}, database gravya_e1_test migrato")
+    print("\nDa scrivere nel task:")
+    print(f"Worktree: {nome}")
+    print(f"Repository: .worktrees/{nome}; branch di lavoro: {branch}")
+    print(f"Ambiente: `. .venv/bin/activate` (nel worktree) e variabili {riga}")
+
+
+def stato_worktree(nome: str) -> dict:
+    dove = WORKTREE / nome
+    branch = PREFISSO_BRANCH + nome
+    esiste_branch = git("rev-parse", "--verify", "--quiet", branch, check=False).returncode == 0
+    unito = esiste_branch and git("merge-base", "--is-ancestor", branch, BRANCH_BASE, check=False).returncode == 0
+    avanti = git("rev-list", "--count", f"{BRANCH_BASE}..{branch}", check=False).stdout.strip() if esiste_branch else "-"
+    sporco = git("status", "--porcelain", cwd=dove, check=False).stdout.strip() if dove.is_dir() else ""
+    cont = subprocess.run(["docker", "inspect", "-f", "{{.State.Status}}", PREFISSO_CONTAINER + nome],
+                          text=True, capture_output=True).stdout.strip() or "assente"
+    return {"branch": branch, "esiste_branch": esiste_branch, "unito": unito, "avanti": avanti,
+            "sporco": bool(sporco), "container": cont}
+
+
+def cmd_worktree_elenco(a: argparse.Namespace) -> None:
+    nomi = sorted(p.name for p in WORKTREE.iterdir() if p.is_dir()) if WORKTREE.is_dir() else []
+    if not nomi:
+        print("Nessun worktree aperto.")
+        return
+    for n in nomi:
+        s = stato_worktree(n)
+        print(f"{n}: branch {s['branch']}, commit non in {BRANCH_BASE}: {s['avanti']}, "
+              f"{'unito' if s['unito'] else 'NON unito'}, {'modifiche non committate' if s['sporco'] else 'pulito'}, "
+              f"container {s['container']}")
+
+
+def cmd_worktree_chiudi(a: argparse.Namespace) -> None:
+    nome = nome_valido(a.nome)
+    dove = WORKTREE / nome
+    s = stato_worktree(nome)
+    if s["sporco"]:
+        sys.exit(f"Il worktree {nome} ha modifiche non committate: non lo chiudo.")
+    if s["esiste_branch"] and not s["unito"]:
+        sys.exit(f"Il branch {s['branch']} non è unito in {BRANCH_BASE}: non lo chiudo (prima il merge).")
+    if dove.is_dir():
+        git("worktree", "remove", "--force", str(dove))  # --force solo per il .venv non tracciato; pulizia verificata sopra
+        print(f"Worktree {dove.relative_to(RADICE)} rimosso")
+    git("worktree", "prune")
+    if s["esiste_branch"]:
+        git("branch", "-d", s["branch"])
+        print(f"Branch locale {s['branch']} cancellato")
+    if git("ls-remote", "--exit-code", "--heads", "origin", s["branch"], check=False).returncode == 0:
+        git("push", "origin", "--delete", s["branch"])
+        print(f"Branch remoto {s['branch']} cancellato")
+    if s["container"] != "assente":
+        subprocess.run(["docker", "rm", "-fv", PREFISSO_CONTAINER + nome], check=True, capture_output=True)
+        print(f"Container {PREFISSO_CONTAINER + nome} rimosso")
+    file_env(nome).unlink(missing_ok=True)
 
 
 def main() -> None:
@@ -274,6 +430,18 @@ def main() -> None:
                    help="cartella in più leggibile dall'agente (es. un clone di riferimento); ripetibile")
     l.add_argument("--forza", action="store_true", help="lancia anche con campi {da compilare}")
     l.set_defaults(f=cmd_lancia)
+
+    wc = sub.add_parser("worktree-crea", help="worktree, branch, .venv e PostgreSQL propri per un task")
+    wc.add_argument("nome")
+    wc.add_argument("--immagine", default=IMMAGINE_PG, help=f"immagine PostgreSQL (default {IMMAGINE_PG})")
+    wc.set_defaults(f=cmd_worktree_crea)
+
+    we = sub.add_parser("worktree-elenco", help="worktree aperti e loro stato")
+    we.set_defaults(f=cmd_worktree_elenco)
+
+    wx = sub.add_parser("worktree-chiudi", help="cancella worktree, branch e container dopo il merge")
+    wx.add_argument("nome")
+    wx.set_defaults(f=cmd_worktree_chiudi)
 
     a = p.parse_args()
     a.f(a)

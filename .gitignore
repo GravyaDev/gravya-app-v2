@@ -6,3 +6,4 @@ __pycache__/
 *.db
 src/gravya_e1.egg-info/
 .pytest_basetemp/
+.worktrees/

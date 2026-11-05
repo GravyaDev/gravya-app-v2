@@ -1,6 +1,6 @@
 # Agenti di governance del progetto
 
-Versione 1.23, 2026-11-05.
+Versione 1.24, 2026-11-05.
 
 Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
@@ -94,3 +94,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 | 1.21 | 2026-11-05 | Istruzioni su avvio, cartella `stato/` e chiusura dei turni solo in `CLAUDE.md` (decisione dell'utente: nessun'altra sessione ha istruzioni sull'uso della memoria; la memoria della piattaforma `/mnt/memory/` sarà eliminata dall'utente). Il prompt del `coordinator` rimanda a `CLAUDE.md`; tolti dai prompt degli agenti e dalla regola comune 6 i riferimenti a `/mnt/memory/`. Da ricopiare sulla piattaforma: il prompt di tutti gli agenti. |
 | 1.22 | 2026-11-05 | `registrar`: DECISIONS.md solo con decisioni in vigore e aperte, archivio `docs/decisioni-archivio.md` per la storia e i testi alla lettera, stati solo quelli della legenda (tolti dal prompt «Decisa con riserva», «Bloccante», «Assorbita», «Chiusa», che il registrar usava inventando stati). Decisione dell'utente del 2026-11-05. Da ricopiare sulla piattaforma: il prompt del `registrar`. |
 | 1.23 | 2026-11-05 | Passaggio a Claude Code locale. Script `scripts/agenti.py` per creare i task dal template della descrizione e lanciare gli agenti (`claude -p --agent`), con salvataggio della risposta, controllo delle chiavi dello schema e dei file comparsi. `implementer`: lavora sul branch di lavoro indicato dal task e non su un branch dedicato (decisione dell'utente del 2026-11-05: un solo branch). Aggiornato il «Limite noto» sul modello. Da ricopiare sulla piattaforma: descrizione e prompt dell'`implementer`, prompt del `coordinator`. |
+| 1.24 | 2026-11-05 | Worktree per l'`implementer` (decisione dell'utente, DECISIONS §6 «Branch di lavoro»): `scripts/agenti.py` crea per ogni task un worktree `.worktrees/<nome>` sul branch `impl/<nome>`, con `.venv` e PostgreSQL in Docker propri, così più implementer lavorano in parallelo; dopo il merge in `main` un comando cancella worktree, branch e container. Nel prompt dell'`implementer` la cartella di lavoro è quella del campo Repository. Da ricopiare sulla piattaforma (se servirà, a cura dell'utente): prompt dell'`implementer`. |
