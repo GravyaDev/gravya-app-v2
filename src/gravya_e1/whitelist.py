@@ -6,28 +6,31 @@ scartato (§6, criterio 4). Whitelist, nomi degli header e formato
 `traceparent` sono invarianti (catalogo §18): non sono variabili di
 piattaforma e non passano dall'istantanea E5.
 
-Giro 2 (dopo BLOCCA di code-reviewer e compliance-auditor):
+Giro 3 (dopo il secondo BLOCCA):
+- **G1/G2.** Tutte le espressioni regolari usano `fullmatch` (mai `match`
+  con un `$` finale, che in Python accetta anche un `\\n` finale). Gli UUID
+  sono accettati solo nella forma canonica minuscola con trattini (36
+  caratteri): si confronta `str(uuid.UUID(x)) == x`, cosi' forme come
+  `urn:uuid:...`, `{...}`, senza trattini o con prefisso `0x` sono scartate.
+- **G3 (decisione dell'utente, provvisorio fino ad A6).** `run_id` e'
+  ora un UUID canonico (si assume generato da Gravya, come `trace_id`), non
+  piu' un identificativo libero. `gravya.decision.reviewer_ref` e' un
+  prefisso fisso (`reviewer_`) piu' un UUID canonico.
+- Il formato "prefisso_corpo" (`opaque_id`, `destination_id`) resta un
+  formato, non un vocabolario: una PII con un prefisso e un underscore
+  (`mario_rossi`, `tel_3331234567`) passa ancora. E' un limite dichiarato,
+  non un vocabolario chiuso: vedi report, sezione sui formati provvisori.
 
-- Formati stretti per identificativo (CA R-02, CR R9, "identificativi
-  opachi"): UUID dove l'identificativo e' generato da Gravya; altrimenti
-  prefisso fisso breve + corpo alfanumerico breve (niente stringhe libere,
-  niente codici fiscali/IBAN/numeri di telefono che "sembrano" opachi).
-  `destination` non ammette punti ne' `/` (niente URL/dominio).
-- `gravya.tool.args_hash` e `gravya.decision.args_hash` NON sono piu'
-  accettati come attributi forniti dal chiamante (B6): l'helper li calcola
-  lui stesso da argomenti grezzi (`tracing.py`) e li inietta dopo la
-  whitelist. Se compaiono nel dizionario di attributi del chiamante sono
-  scartati come fuori whitelist.
+Giro 2 (dopo il primo BLOCCA), invariato:
+- `gravya.tool.args_hash` e `gravya.decision.args_hash` NON sono accettati
+  come attributi forniti dal chiamante (B6): l'helper li calcola lui stesso
+  da argomenti grezzi (`tracing.py`) e li inietta dopo la whitelist.
 - `gravya.prompt.hash` accettato solo insieme a `gravya.prompt.key` e
-  `gravya.prompt.version` (B6); il criterio 16 resta parziale (E1 non puo'
-  distinguere l'hash del template da quello del render: limite dichiarato).
-- Campi di base di traccia/segmento (`name`, `status`, `run_id`,
-  `execution_ticket_id`, `workflow_id`, `workflow_version`,
-  `retention_class`) passano dalla stessa validazione (B1/R-01/R17):
-  vocabolari **provvisori**, da recepire in E1 v1.7 (vedi report).
-- Nuovo attributo `gravya.tool.outcome` (decisione 2 del coordinator):
-  nome scelto per l'esito del tool di E1 §4.2 (non definito dal testo),
-  vocabolario `ok`/`denied`/`approval_required`/`rate_limited`/`error`.
+  `gravya.prompt.version` (B6); il criterio 16 resta parziale.
+- Campi di base di traccia/segmento passano dalla stessa validazione
+  (B1/R-01/R17): vocabolari **provvisori**, da recepire in E1 v1.7.
+- `gravya.tool.outcome` (decisione 2 del coordinator, confermata nel giro 3):
+  nome scelto per l'esito del tool di E1 §4.2 (non definito dal testo).
 - Ogni validatore e' difensivo (B3): un valore di tipo inatteso (lista,
   dict, non hashable) non deve mai sollevare un'eccezione, solo restituire
   False (scartato).
@@ -51,31 +54,35 @@ REDACTION_VERSION = 1
 
 # Identificativo "prefisso_corpo": prefisso alfabetico breve (il tipo di
 # oggetto), underscore, corpo alfanumerico breve. Rifiuta codici fiscali,
-# numeri di telefono, IBAN, indirizzi email e testo libero (non hanno
-# l'underscore nella posizione attesa in quel formato).
-_PREFIXED_ID_RE = re.compile(r"^[a-z]{2,16}_[A-Za-z0-9]{1,40}$")
+# numeri di telefono, IBAN, indirizzi email e testo libero senza prefisso
+# (ma non una PII con prefisso+underscore: formato, non vocabolario, vedi
+# report).
+_PREFIXED_ID_RE = re.compile(r"[a-z]{2,16}_[A-Za-z0-9]{1,40}")
 _PREFIXED_ID_MAX_LEN = 48
 
 # Identificativo di versione: alfanumerico con punti/trattini (semver-like).
-_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.\-]{0,31}$")
+_VERSION_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9.\-]{0,31}")
 
 # Nome di modello/provider: alfanumerico con punti/trattini/underscore/due punti.
-_MODEL_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:\-]{0,127}$")
+_MODEL_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:\-]{0,127}")
 
 # Riferimento di versione della chiave HMAC (gravya.hash.key_ref): "v" + cifre.
-_KEY_REF_RE = re.compile(r"^v[0-9]{1,8}$")
+_KEY_REF_RE = re.compile(r"v[0-9]{1,8}")
 
 # Identificativo "libero" ma senza spazi ne' punteggiatura da prosa: usato
-# dove il formato preciso (chi genera l'identificativo, con quale
-# convenzione) non e' ancora deciso dal documento (per esempio `run_id`),
-# per non bloccare un identificativo legittimo ma comunque non testo libero
-# (niente spazi, niente PII in chiaro con separatori tipici come punti o
-# virgole). Provvisorio: da restringere quando B1/C1 fissano il formato.
-_LOOSE_TOKEN_RE = re.compile(r"^[A-Za-z0-9_\-]{1,64}$")
+# dove il formato preciso non e' ancora deciso dal documento, per non
+# bloccare un identificativo legittimo ma comunque non testo libero.
+_LOOSE_TOKEN_RE = re.compile(r"[A-Za-z0-9_\-]{1,64}")
 
-# Nome di chiave riportabile in un segnale (vincolo B7): identificatore
-# puntato, breve, mai testo libero.
-_SIGNAL_KEY_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$")
+# Prefisso fisso per lo pseudonimo del revisore HITL (provvisorio, fino ad
+# A6): "reviewer_" + UUID canonico.
+_REVIEWER_REF_PREFIX = "reviewer_"
+
+# Nome di chiave riportabile in un segnale (B7/G18): identificatore puntato,
+# minuscolo, al piu' 4 segmenti (invariante strutturale, non una variabile),
+# ciascuno di lunghezza breve.
+_SIGNAL_KEY_SEGMENT = r"[a-z][a-z0-9_]{0,19}"
+_SIGNAL_KEY_NAME_RE = re.compile(rf"{_SIGNAL_KEY_SEGMENT}(\.{_SIGNAL_KEY_SEGMENT}){{0,3}}")
 _SIGNAL_KEY_NAME_MAX_LEN = 64
 
 
@@ -97,25 +104,39 @@ def opaque_id(value: object, max_bytes: int) -> bool:
         return False
     if len(value) > _PREFIXED_ID_MAX_LEN or len(value.encode("utf-8")) > max_bytes:
         return False
-    return bool(_PREFIXED_ID_RE.match(value))
+    return bool(_PREFIXED_ID_RE.fullmatch(value))
+
+
+def _is_canonical_uuid(value: str) -> bool:
+    try:
+        parsed = _uuid.UUID(value)
+    except (ValueError, AttributeError, TypeError):
+        return False
+    return str(parsed) == value
 
 
 @_safe
 def uuid_identifier(value: object, max_bytes: int) -> bool:
     if not isinstance(value, str):
         return False
-    try:
-        _uuid.UUID(value)
-    except (ValueError, AttributeError, TypeError):
+    return _is_canonical_uuid(value)
+
+
+@_safe
+def reviewer_ref_format(value: object, max_bytes: int) -> bool:
+    """Pseudonimo del revisore HITL, provvisorio fino ad A6: `reviewer_` + UUID canonico."""
+    if not isinstance(value, str):
         return False
-    return True
+    if not value.startswith(_REVIEWER_REF_PREFIX):
+        return False
+    return _is_canonical_uuid(value[len(_REVIEWER_REF_PREFIX):])
 
 
 @_safe
 def version_identifier(value: object, max_bytes: int) -> bool:
     if not isinstance(value, str):
         return False
-    return bool(_VERSION_RE.match(value))
+    return bool(_VERSION_RE.fullmatch(value))
 
 
 @_safe
@@ -124,14 +145,14 @@ def model_identifier(value: object, max_bytes: int) -> bool:
         return False
     if len(value.encode("utf-8")) > max_bytes:
         return False
-    return bool(_MODEL_RE.match(value))
+    return bool(_MODEL_RE.fullmatch(value))
 
 
 @_safe
 def key_ref_format(value: object, max_bytes: int) -> bool:
     if not isinstance(value, str):
         return False
-    return bool(_KEY_REF_RE.match(value))
+    return bool(_KEY_REF_RE.fullmatch(value))
 
 
 @_safe
@@ -140,7 +161,7 @@ def loose_token(value: object, max_bytes: int) -> bool:
         return False
     if len(value.encode("utf-8")) > max_bytes:
         return False
-    return bool(_LOOSE_TOKEN_RE.match(value))
+    return bool(_LOOSE_TOKEN_RE.fullmatch(value))
 
 
 @_safe
@@ -155,7 +176,7 @@ def destination_id(value: object, max_bytes: int) -> bool:
         return False
     if len(value) > _PREFIXED_ID_MAX_LEN or len(value.encode("utf-8")) > max_bytes:
         return False
-    return bool(_PREFIXED_ID_RE.match(value))
+    return bool(_PREFIXED_ID_RE.fullmatch(value))
 
 
 @_safe
@@ -194,7 +215,7 @@ HITL_OUTCOMES = frozenset(
 EXEC_RESULTS = frozenset({"ok", "refused", "error"})
 DECISION_KINDS = frozenset({"policy", "hitl"})  # "router": non implementato, vedi docstring
 
-# --- Vocabolari PROVVISORI (decisione 2 del coordinator, giro 2) -----------
+# --- Vocabolari PROVVISORI (decisione 2/3 del coordinator) -----------------
 # Non sono nel testo di E1 v1.6: minimi, scelti per non lasciare passare
 # testo libero, da recepire/confermare in E1 v1.7 con i documenti che li
 # producono davvero (A3/B1/C1/C3). Vedi report, sezione "Vocabolari
@@ -245,7 +266,7 @@ ATTRIBUTE_WHITELIST: dict[str, dict[str, Callable[[object, int], bool]]] = {
         "config_version": opaque_id,
         "gravya.policy.bundle_version": version_identifier,
         "gravya.policy.bundle_hash": hash_hex,
-        "gravya.decision.reviewer_ref": opaque_id,
+        "gravya.decision.reviewer_ref": reviewer_ref_format,  # giro 3: prefisso fisso + UUID canonico
         "gravya.decision.exec_result": closed_vocab(EXEC_RESULTS),
         "gravya.decision.exec_code": opaque_id,
         "gravya.workflow.id": opaque_id,
@@ -265,12 +286,10 @@ INTERNAL_ONLY_ATTRIBUTE_KEYS = frozenset(
 )
 
 # Campi di base di traccia/segmento, fuori da `attributes` (B1/R-01/R17).
-# Vocabolari/formati PROVVISORI (decisione 2): vedi report.
+# Vocabolari/formati PROVVISORI: vedi report. `run_id` e' un UUID canonico
+# (decisione dell'utente, giro 3: si assume generato da Gravya).
 TRACE_FIELD_WHITELIST: dict[str, Callable[[object, int], bool]] = {
-    # Formato non fissato dal documento (ne' se Gravya generi sempre un
-    # UUID): identificativo largo ma senza spazi/testo libero, da
-    # restringere quando il formato sara' deciso (vedi report).
-    "run_id": loose_token,
+    "run_id": uuid_identifier,
     "execution_ticket_id": opaque_id,
     "root_kind": closed_vocab(PROVISIONAL_ROOT_KINDS),
     "workflow_id": opaque_id,
@@ -292,17 +311,30 @@ class DiscardReason:
     reason: str
 
 
-def safe_signal_key_name(key: str) -> tuple[str | None, int]:
-    """Nome di chiave da riportare in un segnale (vincolo B7).
+# Nomi di chiave "conosciuti" (whitelist reale di E1): un segnale puo'
+# sempre riportarli per intero (G18). Qualunque altra chiave passa solo dal
+# formato strutturale limitato sotto.
+_KNOWN_SIGNAL_KEYS = (
+    frozenset(key for spec in ATTRIBUTE_WHITELIST.values() for key in spec)
+    | frozenset(TRACE_FIELD_WHITELIST)
+    | frozenset(SEGMENT_FIELD_WHITELIST)
+    | INTERNAL_ONLY_ATTRIBUTE_KEYS
+)
 
-    Ritorna (nome, lunghezza): il nome compare solo se e' un identificativo
-    puntato breve (whitelist); altrimenti None e solo la lunghezza originale.
+
+def safe_signal_key_name(key: str) -> tuple[str | None, int]:
+    """Nome di chiave da riportare in un segnale (vincolo B7, G18).
+
+    Ritorna (nome, lunghezza): il nome compare per intero solo se e' una
+    chiave della whitelist reale di E1, oppure un identificativo puntato
+    minuscolo con al piu' 4 segmenti brevi (invariante strutturale);
+    altrimenti None e solo la lunghezza originale (mai il contenuto).
     """
     length = len(key) if isinstance(key, str) else -1
-    if (
-        isinstance(key, str)
-        and len(key) <= _SIGNAL_KEY_NAME_MAX_LEN
-        and _SIGNAL_KEY_NAME_RE.match(key)
-    ):
+    if not isinstance(key, str) or len(key) > _SIGNAL_KEY_NAME_MAX_LEN:
+        return None, length
+    if key in _KNOWN_SIGNAL_KEYS:
+        return key, length
+    if _SIGNAL_KEY_NAME_RE.fullmatch(key):
         return key, length
     return None, length

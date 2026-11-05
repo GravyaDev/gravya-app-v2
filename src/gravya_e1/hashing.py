@@ -6,8 +6,8 @@ che accetta `0x`, underscore e spazi). La chiave viene dall'interfaccia
 `TenantKeyProvider` (keys.py). Senza chiave valida l'helper non scrive
 l'attributo hash (criterio 15).
 
-Lunghezza minima della chiave (giro 2, B6): 16 byte (128 bit), invariante di
-formato non ancora confermata da A6 (da riportare nel report).
+Lunghezza minima della chiave (giro 3, decisione dell'utente): 32 byte
+(256 bit), provvisoria fino ad A6 (da riportare nel report).
 """
 from __future__ import annotations
 
@@ -18,12 +18,12 @@ import re
 from gravya_e1.keys import KeyNotFoundError, TenantKeyProvider
 
 HEX_SHA256_LEN = 64
-_HEX_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+_HEX_SHA256_RE = re.compile(r"[0-9a-f]{64}")
 
 # Invariante di formato (non una variabile di piattaforma): lunghezza minima
-# della chiave HMAC. Da confermare con A6 quando la pagina credenziali
-# esistera' (vedi report, decisioni_mancanti).
-MIN_KEY_BYTES = 16
+# della chiave HMAC. Provvisoria (decisione dell'utente, giro 3), da
+# confermare con A6 quando la pagina credenziali esistera'.
+MIN_KEY_BYTES = 32
 
 
 class HashUnavailableError(RuntimeError):
@@ -75,4 +75,4 @@ def verify_args_hmac(
 def is_well_formed_hex_sha256(value: object) -> bool:
     if not isinstance(value, str):
         return False
-    return bool(_HEX_SHA256_RE.match(value))
+    return bool(_HEX_SHA256_RE.fullmatch(value))
