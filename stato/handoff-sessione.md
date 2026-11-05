@@ -17,7 +17,7 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 - Ristrutturazione di DECISIONS.md **conclusa**: registro solo corrente, storia in `docs/decisioni-archivio.md`. Da fare nelle revisioni dei documenti: rimandi a vecchi titoli di §4 (E1 §3 e A1 App. C sulle mutazioni del grafo, ora §6; B1 sulla base giuridica delle evidenze, ora §5).
 - Decisioni M1-M5 dell'utente («ok», 2026-11-05): ultimo giro unico. Catalogo v1.7 fatto dal coordinator.
 - Giro 5 dell'implementer **concluso**: `claude/impl-e1` a 41607af (verificato: 80 test; falliti attesi dichiarati, refuso confermato nel conftest del code-reviewer giro 4 r.74).
-- **Verifica finale** in corso: code-reviewer (task `docs/revisioni/impl-e1/task-code-reviewer-giro5.md` sul branch del codice), plan-auditor e compliance-auditor su E1 v1.9 e catalogo v1.7 (task `docs/revisioni/e1-v1.9/task-auditor.md`). Se interrotti: rilanciare dai task.
+- **Verifica finale** in corso: code-reviewer (task `docs/revisioni/impl-e1/task-code-reviewer-giro5.md` sul branch del codice), plan-auditor e compliance-auditor su E1 v1.9 e catalogo v1.7 (task `docs/revisioni/e1-v1.9/task-auditor.md`). Se interrotti: rilanciare dai task. Compliance-auditor concluso: RIPORTA, solo 5 minori (report in `docs/revisioni/e1-v1.9/`, da committare).
 - E1 v1.9 fatta (doc-writer, Storico verificato intatto) e committata.
 - Registrar concluso: decisioni M1-M5 ed esiti registrati, commit 1ecfe11.
 
