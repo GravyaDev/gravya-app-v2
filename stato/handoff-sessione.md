@@ -14,15 +14,14 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 - Decisioni del 2026-11-05 su E1 v1.7 registrate (deroga C2 per l'ondata 1, DA-E1-13, tenant di contesto, avvio bloccato in produzione).
 
 ## In corso (agenti lanciati, non conclusi)
-- Giro 4 dell'implementer **concluso**: `claude/impl-e1` a 8dfb1de (verificato: 69 test, prove giro 3 con N4/N10 attesi, script non superuser OK; README «Esecuzione locale» alla radice del branch).
-- **Code-reviewer, verifica mirata del giro 4** — task `docs/revisioni/impl-e1/task-code-reviewer-giro4.md` (branch `claude/impl-e1`, commit 14a743e). Se interrotto: rilanciare da quel task (report atteso `report-code-reviewer-giro4.md`).
-- E1 v1.8 **fatta** (doc-writer, Storico verificato intatto), commit su `claude/docs-ondata-1`.
-- **Plan-auditor e compliance-auditor su E1 v1.8 e catalogo v1.6** — task `docs/revisioni/e1-v1.8/task-auditor.md`. Se interrotti: rilanciare da quel task (report attesi in `docs/revisioni/e1-v1.8/`). Plan-auditor concluso: RIPORTA (2 da riportare: E1 e catalogo §18 in contrasto sui formati/chiave minima come invarianti; API_ENV fuori insieme = scelta del coordinator senza riga decisa, da portare all'utente). Compliance-auditor concluso: RIPORTA (3 da riportare: connect_timeout non onorato sotto 2 s e troncato a secondi interi [verificato]; isolamento dipende da chi imposta app.tenant_id, ruolo di migrazione 'non deve essere usato a runtime'; §9 senza condizione che vieti dati reali prima di DA-E1-13, segnali durevoli A5, deploy approvato). Code-reviewer giro 4: RIPORTA (close() oltre timeout e worker che non si ferma; sink segnali senza timeout/riconnessione/rollback; connect_timeout <1 s = attesa infinita [verificato]; README non eseguibile altrove: migrazioni richiedono superuser, test con root fisso; minori: kind nel segnale, tipo di e1.write_tcp_user_timeout_ms, ruolo gravya_e1_pwtest lasciato). Report su impl. Presentate all'utente le decisioni M1-M5 (giro 5 + E1 v1.9 + catalogo v1.7; chiave 32 byte invariante provvisoria; API_ENV fuori insieme; connect timeout in secondi; condizione §9 prima dei dati reali): in attesa.
-- Catalogo v1.6 fatto dal coordinator.
+- Decisioni M1-M5 dell'utente («ok», 2026-11-05): ultimo giro unico. Catalogo v1.7 fatto dal coordinator.
+- **Implementer, giro 5** — task `docs/revisioni/impl-e1/task-implementer-giro5.md` (branch `claude/impl-e1`, commit 09b7162). Se interrotto: controllare i commit dopo 09b7162 e la sezione «Giro 5» del report; altrimenti rilanciare da quel task.
+- **Doc-writer, E1 v1.9** — task `docs/revisioni/e1-v1.9/task-doc-writer.md` (branch `claude/docs-ondata-1`). Se interrotto: rilanciare; poi controllare le righe 1.0-1.8 dello Storico di E1.
+- **Registrar** — esiti della revisione di E1 v1.8 e del giro 4 e decisioni M1-M5 (testo nel messaggio; se interrotto, ricostruirlo da questo file: «ok» ai punti 1 ultimo giro unico, 2 e1.write_connect_timeout_s minimo 2, 3 API_ENV fuori insieme blocca l'avvio, 4 chiave 32 byte invariante provvisoria, 5 nessun dato reale prima di DA-E1-13, segnali durevoli di A5 e procedura di installazione approvata).
 
 ## Prossimi passi, in ordine
-1. Esito del code-reviewer sul giro 4.
-2. Esiti degli auditor su E1 v1.8, poi registrar. Contenuto chiesto alla v1.8: chiudere i rilievi della voce «Da riportare. Revisione di E1 v1.7 e catalogo v1.5» di DECISIONS §4 (report in `docs/revisioni/e1-v1.7/`), con DA-E1-13 in App. C, deroga C2, tenant di contesto, avvio bloccato, formati e chiave minima 32 byte nel catalogo §18, regola 11 per le variabili `e1.write_*`, valore di sviluppo di `e1.write_tcp_user_timeout_ms`. Poi plan-auditor e compliance-auditor, poi registrar.
+1. Verificare giro 5, E1 v1.9 e il diff del registrar; commit.
+2. Verifica mirata finale: code-reviewer sulle modifiche del giro 5; plan-auditor e compliance-auditor su E1 v1.9 e catalogo v1.7. Poi registrar.
 3. Chiedere all'utente quando e dove unire `claude/impl-e1`.
 4. Poi: A1 (passi 3-4) sull'ossatura; v1.7 di allineamento degli altri documenti (F2, `run_id` UUID, `gravya.tool.outcome` in B2, C3 con F4); approvazione dei sette documenti; ondata 2 (A5, A6, F6).
 
