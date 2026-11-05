@@ -26,6 +26,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
+      API_ENV: development
       DATABASE_URL: postgresql+psycopg://ci_writer@localhost:5432/gravya_e1_test
       GRAVYA_E1_TEST_DSN: host=localhost user=ci_writer dbname=gravya_e1_test
       PGHOST: localhost
@@ -86,6 +87,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
+      API_ENV: development
       PGHOST: localhost
       PGPORT: "5432"
       PGUSER: ci_writer

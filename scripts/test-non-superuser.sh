@@ -39,7 +39,15 @@
 #   PGHOST (default: localhost), PGPORT (default: 5432), PGUSER (default:
 #   utente corrente della shell). SCRATCH_DB: nome del database usa e getta
 #   (default: gravya_e1_ci_nonsuper).
+#   API_ENV: OBBLIGATORIA, nessun valore implicito (DECISIONS §6 «E1: ambiente
+#   e avvio»): se manca lo script si ferma subito, prima di toccare il database.
 set -euo pipefail
+
+if [[ -z "${API_ENV:-}" ]]; then
+    echo "ERRORE: API_ENV non impostata. Lo script non usa un valore implicito (fail-closed): esportala prima di lanciarlo (es. API_ENV=development)." >&2
+    exit 1
+fi
+export API_ENV
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
