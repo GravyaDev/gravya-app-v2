@@ -1,0 +1,16 @@
+{
+  "registri_modificati": [
+    "docs/DECISIONS.md",
+    "docs/decisioni-archivio.md"
+  ],
+  "righe_aggiornate": [
+    "§6 «Catena di fornitura»: aggiunto il punto (8), token fine-grained dedicato del job locale (attuazione con docs/revisioni/ci-locale/task-implementer-giro3.md, punto 4; valore del token non riportato)",
+    "«Ultimo aggiornamento»: sostituita con la riga del 2026-11-05 sul token dedicato del job locale",
+    "§4: nuovo punto «Scadenza del token del job locale» (data o durata non registrata, da comunicare dall'utente)",
+    "decisioni-archivio.md: in coda la versione superata di «Ultimo aggiornamento» e della riga «Catena di fornitura», e il testo dell'utente «Token creato, dimmi dove metterlo» alla lettera (sezione 2026-11-05)"
+  ],
+  "documenti_da_aggiornare": [],
+  "conflitti_da_riportare": [
+    "DECISIONS §4, punto «Catena di fornitura e aggiornamenti»: cita ancora solo docs/revisioni/ci-locale/task-implementer.md come attuazione in corso e non il task giro3 (punto 4 del token). Non modificato, perché il task non lo prevede: da aggiornare."
+  ]
+}

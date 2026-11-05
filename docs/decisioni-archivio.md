@@ -434,3 +434,17 @@ Testo alla lettera della risposta dell'utente alla proposta sui punti (a)-(f) de
 Testo alla lettera della risposta dell'utente alla domanda del coordinator sui valori fissi negli script locali (assegnatario delle issue, soglia di ritardo, orario del timer). La regola corrente è in [DECISIONS.md](DECISIONS.md) §6, riga «DX-22: ambito».
 
 - Valori fissi negli strumenti di sviluppo, 2026-11-05, risposta alla domanda sulla deroga a DX-22: «2. valori fissi: approvo deroga, quelle istruzioni valgono solo sul prodotto e non qui».
+
+## 2026-11-05 — righe superate (token del job locale)
+
+Versioni superate di «Ultimo aggiornamento» e di una riga di §6 di `DECISIONS.md`, sostituite il 2026-11-05 dal token fine-grained dedicato del job locale. Il contenuto corrente è in [DECISIONS.md](DECISIONS.md) §4 e §6.
+
+- «Ultimo aggiornamento» (2026-11-05), versione superata: «Ultimo aggiornamento: 2026-11-05, deroga dell'utente a DX-22 per gli strumenti di sviluppo e di CI (§6, riga «DX-22: ambito»).»
+- §6, «Catena di fornitura» (2026-11-05), versione superata: «| Catena di fornitura | CI, E1 | (1) Controllo delle vulnerabilità in locale: un job settimanale su timer locale esegue il controllo OSV del lockfile e il controllo del digest di PostgreSQL; il controllo OSV è obbligatorio prima del merge in `main` ed eseguito in locale. Se un controllo fallisce, il job apre una issue su GitHub assegnata all'utente; il segnale verso A5 arriverà quando A5 esisterà. (2) Aggiornamento dei pacchetti Python: lo stesso job settimanale locale rigenera il lockfile alle ultime versioni e, se cambia, apre una PR che passa dalla CI e dalle revisioni come ogni altra; Dependabot non si usa per i pacchetti Python. Dependabot settimanale resta per le action. (3) Eccezioni per le vulnerabilità senza correzione disponibile: rinviate al primo caso reale; allora un elenco versionato con motivo e scadenza. (4) Componenti della CI fissati: runner `ubuntu-24.04`, che è un nome di versione e non un'immagine fissa (rischio accettato); `psql` dalla stessa immagine `postgres:18` della CI, non da apt; action su versioni con Node 24, fissate per SHA; immagine PostgreSQL in un solo punto del workflow. (5) Minori, da sistemare nel task di attuazione in corso (`docs/revisioni/ci-locale/task-implementer.md`): verifica del ramo «digest cambiato» e delle costanti dello script con test non tautologici; alias YAML dei servizi per Dependabot delle action; nessuna esecuzione doppia con `push` e `pull_request`. (6) Lockfile unico per esecuzione e sviluppo: separazione rinviata al primo deploy, quando servirà un'immagine di produzione. (7) `requires-python = ">=3.15"` senza limite superiore. Motivo: il lockfile fissato invecchia senza monitoraggio (NIS2 art. 21, dedotto); gli hash del lockfile proteggono già, e un limite superiore di solito crea più problemi di quanti ne eviti; i controlli programmati girano in locale per il limite dei minuti di GitHub Actions. | 2026-11-05 |»
+
+## 2026-11-05 — testi dell'utente (token dedicato per il job locale)
+
+Testo alla lettera della risposta dell'utente alla proposta del coordinator sul token del job locale. La regola corrente è in [DECISIONS.md](DECISIONS.md) §6, riga «Catena di fornitura», e in §4, punto «Scadenza del token del job locale».
+
+- Token del job locale, 2026-11-05, risposta alla proposta del coordinator (token fine-grained solo per `gravya-app-v2`, letto dal servizio da file con permessi 600): «Token creato, dimmi dove metterlo».
+
