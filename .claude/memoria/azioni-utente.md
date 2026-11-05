@@ -15,3 +15,6 @@ Cose che il coordinator non può fare. Origine: revisione della sessione 3 (2026
 
 ## Ricopiature in sospeso (keywords: doc-writer, bash, strumenti)
 - [X] (2026-11-04, sessione 7) doc-writer: togliere lo strumento Bash sulla piattaforma. FATTO: confermato dall'utente il 2026-11-05 (sessione 8). Non riproporre.
+
+## Ricopiature in sospeso, sessione 8 (keywords: prompt, ricopiatura, piattaforma, memoria)
+- [ ] (2026-11-05) Ricopiare sulla piattaforma il **prompt** di tutti e 9 gli agenti da `.claude/agents/*.md` (commit dd478a0 o successivo): memoria spostata in `.claude/memoria/`, percorsi relativi, sezione ambienti nel coordinator. Descrizioni, modelli e strumenti invariati. Finché non è fatto, la sessione sulla piattaforma trova in `/mnt/memory/gravya/` solo il rimando al repository.
