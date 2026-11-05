@@ -455,3 +455,23 @@ retention del criterio 8; fail-closed di B2/A3 non implementato; benchmark overh
 dall'ambiente). Aggiunta: l'architettura di connessione descritta per l'applicazione reale (ruolo
 dedicato con membership di `gravya_writer`) e' una dichiarazione per il report, non implementata (fuori
 perimetro, passo 4+).
+
+### Correzioni richieste dal coordinator dopo la verifica del giro 2
+
+- **DX-22, timeout di scrittura.** `_STATEMENT_TIMEOUT_MS` e' uscito dal codice: ora e' la variabile
+  `e1.write_statement_timeout_ms` nell'istantanea (stato "da definire", valore di sviluppo 2000,
+  `dev_only`), letta da `TracingHelper.__init__` con lo stesso trattamento di `e1.write_buffer_size`
+  (avvio bloccato in produzione se manca; test `test_helper_non_parte_in_produzione_senza_write_statement_timeout_ms`
+  in `tests/test_criterio17_variabili_e5.py`). Per farlo senza rompere i test di riproduzione, il
+  coordinator ha autorizzato un'aggiunta minima alla fixture `prod_variables` di
+  `docs/revisioni/impl-e1/code-reviewer/conftest.py` (la sola voce `e1.write_statement_timeout_ms`,
+  stesso stato e forma delle altre due gia' presenti): commit separato e dichiarato, nessun test
+  modificato. La variabile va aggiunta a `catalogo-variabili.md` (lo fa il coordinator): tolta dalle
+  decisioni mancanti del giro 2.
+- **`writer_transaction`, ripristino invece di azzeramento (B5/R13).** Il giro 2 faceva `RESET ROLE` e
+  `set_config('app.tenant_id', '')` incondizionati a fine blocco: corretto solo se il chiamante non
+  aveva gia' un proprio ruolo/tenant (caso A1/B2, che condividono lo stesso GUC per la propria RLS). Ora
+  `db.writer_transaction` legge ruolo e `app.tenant_id` del chiamante **prima** di sovrascriverli e li
+  ripristina com'erano (stesso livello `LOCAL`) alla fine del blocco di successo, invece di azzerarli;
+  lo stesso per `statement_timeout`, non richiesto esplicitamente ma stessa classe di problema. Test
+  `test_writer_transaction_ripristina_ruolo_e_tenant_del_chiamante` in `tests/test_criterio3_rls.py`.
