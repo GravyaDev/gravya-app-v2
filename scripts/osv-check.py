@@ -13,6 +13,8 @@ Uso: python3 scripts/osv-check.py [percorso-lockfile]
 """
 from __future__ import annotations
 
+import http
+import http.client
 import json
 import re
 import sys
@@ -31,6 +33,8 @@ LOCKFILE_DEFAULT = "requirements.lock.txt"
 DIMENSIONE_BLOCCO = 1000
 # Tempo massimo di una richiesta: oltre, errore (la CI non deve restare appesa).
 TIMEOUT_SECONDI = 30
+# Unico stato HTTP accettato da OSV per una risposta valida.
+HTTP_OK = http.HTTPStatus.OK
 # Riga di un pacchetto fissato nel lockfile: `nome==versione \` (i marcatori
 # di ambiente dopo `;` e il backslash finale non fanno parte della versione).
 RE_PACCHETTO = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._-]*)==([^\s;\\]+)")
@@ -58,8 +62,12 @@ def invia_http(url: str, corpo: dict) -> dict:
     )
     try:
         with urllib.request.urlopen(richiesta, timeout=TIMEOUT_SECONDI) as risposta:
+            if risposta.status != HTTP_OK:
+                raise ErroreOsv(f"stato HTTP {risposta.status} da {url} (atteso {HTTP_OK})")
             return json.loads(risposta.read().decode("utf-8"))
-    except (OSError, ValueError) as e:
+    # OSError: rete, timeout, HTTPError; ValueError: corpo non JSON/UTF-8;
+    # HTTPException: risposta troncata (IncompleteRead) o malformata.
+    except (OSError, ValueError, http.client.HTTPException) as e:
         raise ErroreOsv(f"richiesta a {url} fallita: {e}") from e
 
 
