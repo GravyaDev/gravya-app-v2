@@ -43,4 +43,4 @@ Nota: con `--strip-extras` la riga `psycopg[binary]` diventa `psycopg` + `psycop
 - `.venv` ricreato (Python 3.15.2) con `pip install --require-hashes -r requirements.lock.txt`; `pip check`: nessun errore.
 - `pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp` (PostgreSQL 18, porta 5433): 88 passed, 10 esecuzioni su 10.
 - `bash scripts/test-non-superuser.sh`: riuscito.
-- CI: vedi sotto (aggiornata dopo il push).
+- CI (GitHub, run 42084513531 sul commit 3834130): successo nei due job, `test` e `test-non-superuser`. Avvisi non bloccanti: Node.js 20 deprecato per le action fissate; `ubuntu-latest` migrerà a Ubuntu 26 dal 2026-10-19.
