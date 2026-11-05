@@ -51,6 +51,7 @@ def test_G1b_hash_con_newline_scritto_in_db(admin_conn, prod_variables, key_prov
     h = helper(prod_variables, InMemorySignalSink(), key_provider)
     s = seg("llm", {"gravya.prompt.key": "prompt_greeting", "gravya.prompt.version": "1.0", "gravya.prompt.hash": "a" * 64 + "\n"})
     h.start_segment(admin_conn, s)
+    assert h.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     attrs, _, _ = stored(admin_conn, s.segment_id)
     assert "gravya.prompt.hash" not in attrs, repr(attrs.get("gravya.prompt.hash"))
 
@@ -221,6 +222,7 @@ def test_G8a_tenant_puo_creare_una_traccia_con_il_trace_id_di_un_altro_e_bloccar
     h.start_trace(admin_conn, TraceStart(trace_id=tid, tenant_id=a, run_id="run-a", root_kind="agent", started_at=NOW()))
     s = seg("agent", {"gen_ai.agent.id": "agent_b"}, tenant=b, trace=tid)
     h.start_segment(admin_conn, s)
+    assert h.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     assert stored(admin_conn, s.segment_id) is not None, "segmento legittimo di B rifiutato per colpa della traccia di A"
 
 
@@ -284,6 +286,7 @@ def test_G11_trigger_e_privilegi_di_colonna(admin_conn, partitions, prod_variabl
     h = helper(prod_variables, InMemorySignalSink(), key_provider)
     t, tid = uuid.uuid4(), uuid.uuid4()
     h.start_trace(admin_conn, TraceStart(trace_id=tid, tenant_id=t, run_id="run-1", root_kind="agent", started_at=NOW()))
+    assert h.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     with admin_conn.cursor() as cur:
         cur.execute("UPDATE gravya_traces SET ended_at=now() WHERE trace_id=%s", (str(tid),))
     admin_conn.commit()
@@ -345,13 +348,16 @@ def test_G14b_scrittura_realmente_fallita_e_fail_open_e_poi_si_riprende(admin_co
     sink = InMemorySignalSink()
     h = helper(prod_variables, sink, key_provider)
     h.start_segment(admin_conn, seg("agent", {"gen_ai.agent.id": "agent_a"}))
+    assert h.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator (apre la connessione propria)
     with psycopg.connect(f"dbname={DB}", autocommit=True) as k:
         k.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid <> pg_backend_pid() AND datname=%s "
                   "AND application_name='' AND pid <> %s", (DB, admin_conn.info.backend_pid))
     h.start_segment(admin_conn, seg("agent", {"gen_ai.agent.id": "agent_a"}))
+    assert h.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     assert h.loss_count >= 1 and "trace.write_failed" in sink.kinds()
     s = seg("agent", {"gen_ai.agent.id": "agent_a"})
     h.start_segment(admin_conn, s)
+    assert h.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     assert stored(admin_conn, s.segment_id) is not None
 
 
@@ -362,6 +368,7 @@ def test_G14c_nessuna_partizione_perdita_contata(admin_conn, prod_variables, key
     s = SegmentStart(segment_id=uuid.uuid4(), trace_id=uuid.uuid4(), tenant_id=uuid.uuid4(), kind="agent",
                      started_at=datetime(2099, 1, 1, tzinfo=timezone.utc), attributes={})
     h.start_segment(admin_conn, s)
+    assert h.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     assert h.loss_count == 1
 
 

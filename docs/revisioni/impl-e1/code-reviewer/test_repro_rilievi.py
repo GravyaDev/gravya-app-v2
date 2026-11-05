@@ -51,6 +51,7 @@ def test_R1b_hash_fuori_formato_scritto_in_db(admin_conn, variables, prod_variab
     helper = TracingHelper(prod_variables, InMemorySignalSink(), key_provider, production_override=True)
     s = seg("llm", {"gravya.prompt.hash": " " + "a" * 62 + " "})
     helper.start_segment(admin_conn, s)
+    assert helper.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     assert stored(admin_conn, s.segment_id) == {}, "valore fuori formato scritto"
 
 
@@ -60,6 +61,7 @@ def test_R2_outcome_non_hashable_non_deve_far_crashare_l_esecuzione(admin_conn, 
     helper = TracingHelper(prod_variables, sink, key_provider, production_override=True)
     s = seg("decision", {"gravya.decision.kind": "policy", "gravya.decision.outcome": ["allow"]})
     helper.start_segment(admin_conn, s)  # deve scartare e segnalare, non sollevare
+    assert helper.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     assert stored(admin_conn, s.segment_id) == {}
 
 
@@ -87,6 +89,7 @@ def test_R5_hash_non_hmac_senza_chiave_non_deve_essere_scritto(admin_conn, prod_
     plain = hashlib.sha256(b'{"email": "mario.rossi@example.com"}').hexdigest()
     s = seg("tool", {"gen_ai.tool.name": "send-email", "gravya.tool.args_hash": plain})  # nessuna chiave per il tenant
     helper.start_segment(admin_conn, s)
+    assert helper.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     attrs = stored(admin_conn, s.segment_id)
     assert "gravya.tool.args_hash" not in attrs, "SHA-256 semplice di argomenti PII scritto senza chiave del tenant"
 
@@ -97,6 +100,7 @@ def test_R6_hash_del_render_in_prompt_hash(admin_conn, prod_variables, key_provi
     render_hash = hashlib.sha256("Ciao Mario Rossi, mario.rossi@example.com".encode()).hexdigest()
     s = seg("llm", {"gravya.prompt.hash": render_hash})
     helper.start_segment(admin_conn, s)
+    assert helper.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     assert stored(admin_conn, s.segment_id).get("gravya.prompt.hash") != render_hash
 
 
@@ -107,6 +111,7 @@ def test_R7a_segmento_chiuso_non_modificabile(admin_conn, prod_variables, key_pr
     helper.start_segment(admin_conn, s)
     helper.end_segment(admin_conn, SegmentEnd(segment_id=s.segment_id, tenant_id=t, ended_at=NOW(), status="ok"), "agent")
     helper.end_segment(admin_conn, SegmentEnd(segment_id=s.segment_id, tenant_id=t, ended_at=NOW(), status="error"), "agent")
+    assert helper.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     with admin_conn.cursor() as cur:
         cur.execute("SELECT status FROM gravya_trace_segments WHERE segment_id=%s", (str(s.segment_id),))
         assert cur.fetchone()[0] == "ok", "segmento chiuso riscritto (E1 §6/§7: nessuna modifica dopo la chiusura)"
@@ -118,6 +123,7 @@ def test_R7b_end_segment_kind_sbagliato_scrive_attributi_di_un_altro_kind(admin_
     helper.start_segment(admin_conn, s)
     helper.end_segment(admin_conn, SegmentEnd(segment_id=s.segment_id, tenant_id=t, ended_at=NOW(), status="ok",
                        attributes={"gravya.decision.kind": "policy"}), "decision")
+    assert helper.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     assert "gravya.decision.kind" not in stored(admin_conn, s.segment_id), "attributo di decision scritto in un segmento agent"
 
 
@@ -299,6 +305,7 @@ def test_R16_valore_fuori_formato_in_chiave_ammessa_scartato(admin_conn, prod_va
     helper = TracingHelper(prod_variables, PostgresSignalSink(admin_conn), key_provider, production_override=True)
     s = seg("agent", {"gen_ai.agent.name": f"Mario Rossi chiede {SENT}-val"})
     helper.start_segment(admin_conn, s)
+    assert helper.flush(timeout=5)  # giro 3: scrittura asincrona, autorizzato dal coordinator
     assert stored(admin_conn, s.segment_id) == {}
     with admin_conn.cursor() as cur:
         cur.execute("SELECT count(*) FROM gravya_signals_min_audit WHERE payload::text LIKE %s", (f"%{SENT}-val%",))
