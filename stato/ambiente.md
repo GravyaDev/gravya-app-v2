@@ -3,14 +3,20 @@
 Solo informazioni in vigore. Istruzioni su avvio, `stato/` e chiusura: `CLAUDE.md`.
 
 ## Repository (keywords: clone, token, branch)
-- `gravya-app-v2` (privato, `https://github.com/GravyaDev/gravya-app-v2.git`): **un solo branch di lavoro, `claude/docs-ondata-1`**, con documenti e codice; `master` è vuoto. Non si creano branch per l'implementer (decisione dell'utente, 2026-11-05).
+- `gravya-app-v2` (privato, `https://github.com/GravyaDev/gravya-app-v2.git`): **un solo branch di lavoro, `main`** (unico branch del remoto dopo la PR #1; decisione dell'utente, 2026-11-05), con documenti e codice. Non si creano branch per l'implementer.
 - Sulla piattaforma il token vale solo per `gravya-app-v2` e l'utente può ritirarlo: senza token niente push, si consegna l'elenco dei file modificati. `git push --dry-run` verso un branch nuovo è una prova innocua del permesso di scrittura.
-- `gravya-app` e `gravya-app-kloudify`: solo riferimento (PV-03); non leggibili senza credenziali (verificato 2026-11-05). Per un nuovo dossier del code-reader chiedere all'utente un accesso o il percorso di un clone locale.
+- `gravya-app` e `gravya-app-kloudify`: solo riferimento (PV-03). Sulla piattaforma non leggibili senza credenziali; in locale ci sono i clone `~/Antigravity/gravya-app` e `~/Antigravity/gravya-app-kloudify` (da passare al code-reader con `--add-dir`).
 - Se il branch locale ha una storia non correlata al remoto (remoto riscritto), salvarlo con `git branch backup/<nome>` e riallinearlo con `git checkout -B <branch> origin/<branch>`; chiedere prima di cancellare il backup.
 
 ## Codice di E1, esecuzione (keywords: test, postgres, prerequisiti)
 - Prerequisiti e comandi: `README.md` alla radice del repository (sezione «Esecuzione locale»). Python 3.11, PostgreSQL 16, virtualenv `.venv/`; connessione dalle variabili libpq (`PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`) e `GRAVYA_E1_TEST_DSN`. Il primo avvio delle migrazioni richiede un superuser.
 - Le prove dei revisori in `docs/revisioni/impl-e1/code-reviewer*/` richiedono `PGDATABASE` del loro database di prova e un ruolo PostgreSQL chiamato `root` (dichiarato nel README).
+
+## Claude Code locale (keywords: wsl, script agenti, python, postgres, docker)
+- Macchina dell'utente: WSL2 (Linux), Claude Code 2.x, `gh` autenticato. Repository in `~/Antigravity/gravya-app-v2`.
+- Agenti: `scripts/agenti.py` (uso in `CLAUDE.md`). `claude -p --agent <nome>` rispetta il `model:` del file (verificato 2026-11-05 con il registrar: Haiku). Il controllo dei file comparsi guarda repository, `/tmp` (escluse le cartelle `claude-*` di Claude Code) e le cartelle `--add-dir`.
+- Python: `python3.11` in `~/.local/bin`; `python3` di sistema è la 3.12. Il `.venv/` non è ancora creato.
+- PostgreSQL non installato; Docker disponibile. Per i test di E1 serve un server PostgreSQL (versione da decidere, vedi `handoff-sessione.md`).
 
 ## Piattaforma (keywords: list_agents, configurazione, thread, consegna)
 - La configurazione degli agenti (descrizione, prompt) si carica solo all'apertura della sessione. Il coordinator vede la descrizione, l'agente vede il prompt e il task. L'impegno è fisso per agente.

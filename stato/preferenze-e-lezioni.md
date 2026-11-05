@@ -38,4 +38,5 @@ Solo il modo di lavorare, nella forma in vigore. Le decisioni di progetto stanno
 - Auditor: aggiungono chiavi fuori schema al JSON («controlli», «da_aggiungere_al_registro»): nel task «solo le chiavi dello schema».
 - Regulatory-researcher: un task con molte norme esaurisce il contesto; una norma per volta, ogni atto letto una sola volta, registro aggiornato subito.
 - Azioni dell'utente: appena dice che un'azione è fatta, si aggiorna `stato/azioni-utente.md` nello stesso turno; nel dubbio chiedere se è ancora aperta.
-- Controllo dei file non previsti dopo un agente: `touch` di un marcatore prima del lancio, poi `find / -xdev -newer <marcatore> -type f` escludendo /proc, /sys e i dati di PostgreSQL.
+- Controllo dei file non previsti dopo un agente: in locale lo fa `scripts/agenti.py lancia`; con lo strumento Agent o sulla piattaforma, `touch` di un marcatore prima del lancio, poi `find` con `-newer <marcatore> -type f` sul repository e su `/tmp`.
+- Le clausole per agente delle lezioni qui sopra (implementer, registrar, auditor, doc-writer, regulatory-researcher) le inserisce `scripts/agenti.py nuovo-task`: se cambia una lezione, si aggiorna anche lo script nello stesso commit.
