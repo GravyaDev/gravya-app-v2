@@ -17,7 +17,7 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 - Decisioni N1-N4 dell'utente («ok», 2026-11-05): API_ENV non impostata blocca; regola tcp ≥ statement confermata; giro 6 definitivo; dopo il giro 6 merge di `claude/impl-e1` in `claude/docs-ondata-1`. Catalogo v1.8 fatto dal coordinator.
 - **Implementer, giro 6** — task `docs/revisioni/impl-e1/task-implementer-giro6.md` (branch `claude/impl-e1`, commit 0865f6e).
 - **Doc-writer, E1 v1.10** — task `docs/revisioni/e1-v1.10/task-doc-writer.md`; controllare dopo le righe 1.0-1.9 dello Storico.
-- **Registrar** (senza Bash) — task `docs/revisioni/e1-v1.10/task-registrar.md`.
+- Registrar concluso (decisioni N1-N4 registrate).
 Se interrotti: rilanciare dai task.
 
 ## Prossimi passi, in ordine
