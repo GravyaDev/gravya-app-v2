@@ -1,0 +1,48 @@
+{
+  "branch": "impl/ci-fornitura",
+  "commit": [
+    "796a096 test(ci-osv): proteggono stato 2xx diverso da 200 e timeout reale (E1 v1.10 CI; DECISIONS §6 Catena di fornitura p.1)"
+  ],
+  "criteri": [
+    {
+      "id": "DECISIONS §6 Catena di fornitura p.1 / vincolo 1: stato 2xx diverso da 200 → codice 2",
+      "stato": "implementato",
+      "test": "tests/test_ci_osv_check.py::test_invia_http_stato_2xx_diverso_da_200_con_corpo_valido_codice_2",
+      "eseguito": "pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp (variabili del worktree): 123 passed. Mutante senza controllo dello stato (`if False:`): 6 failed. Mutante `>= 400`: 6 failed."
+    },
+    {
+      "id": "vincolo 2: timeout con risposta tardiva valida → codice 2",
+      "stato": "implementato",
+      "test": "tests/test_ci_osv_check.py::test_invia_http_timeout_codice_2",
+      "eseguito": "Stesso comando: verde sul codice del branch. Mutante `timeout=None`: 1 failed (questo test). Il test dura circa 1 s: usa TIMEOUT_SECONDI ridotto con monkeypatch, il default dello script è invariato."
+    },
+    {
+      "id": "vincolo 3: report corretto (frase sul 204 + sezione Giro 3)",
+      "stato": "implementato",
+      "test": "assente",
+      "eseguito": "non applicabile (documento)"
+    },
+    {
+      "id": "vincolo 4: prove del code-reviewer coerenti",
+      "stato": "implementato",
+      "test": "docs/revisioni/ci-fornitura/prove-code-reviewer-giro2/prova-sopravvissuti.sh (non modificate)",
+      "eseguito": "bash ../../docs/revisioni/ci-fornitura/prove-code-reviewer-giro2/prova-sopravvissuti.sh. Sul codice del branch: 4 passed. La suite del branch fallisce su s1 (6 failed), s2 (1 failed) e s3 (7 failed). Le prove falliscono su s1 (3 failed) e s2 (1 failed)."
+    },
+    {
+      "id": "vincolo 5: suite verde e CI verde dopo il push",
+      "stato": "implementato",
+      "test": "intera suite",
+      "eseguito": "pytest: 123 passed. CI su 796a096: workflow «CI» e «Catena di fornitura» completati con successo (verificato con gh run list)."
+    }
+  ],
+  "file_modificati": [
+    "tests/test_ci_osv_check.py",
+    "docs/revisioni/ci-fornitura/report-implementer.md"
+  ],
+  "decisioni_mancanti": [],
+  "divergenze": [],
+  "non_verificato": [
+    "Il commit usa l'identità degli autori già nello storico (Claude <noreply@anthropic.com>), passata con `-c` sul singolo comando: nel worktree non era configurata alcuna identità git e non ho modificato la configurazione."
+  ],
+  "report": "docs/revisioni/ci-fornitura/report-implementer.md"
+}
