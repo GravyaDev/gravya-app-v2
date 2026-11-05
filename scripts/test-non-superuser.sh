@@ -11,8 +11,12 @@
 #      concedersi da solo (CREATEROLE non basta per BYPASSRLS):
 #      `gravya_migrator` (NOLOGIN NOSUPERUSER CREATEROLE) e
 #      `gravya_e1_so_owner` (NOLOGIN BYPASSRLS, proprietario della funzione
-#      SECURITY DEFINER cross-tenant). Nessun privilegio sullo schema
-#      concesso a `gravya_e1_so_owner`: non gli serve (giro 4, G3-02).
+#      SECURITY DEFINER cross-tenant). Qui si concede anche, temporaneamente,
+#      `CREATE` sullo schema `public` a `gravya_e1_so_owner`: **serve
+#      davvero** (PostgreSQL lo richiede al nuovo proprietario per `ALTER
+#      FUNCTION ... OWNER TO`, verificato con `psql` diretto, vedi report
+#      "Giro 5" - il giro 4 diceva il contrario, corretto qui); revocato al
+#      passo 5, insieme all'appartenenza.
 #   3. `alembic upgrade head` con MIGRATION_ROLE=gravya_migrator: tutte le
 #      istruzioni di migrazione girano con i privilegi di gravya_migrator,
 #      non del superuser che si e' autenticato;
@@ -20,11 +24,13 @@
 #      non superuser autenticato a password scrive con TracingHelper, poi si
 #      controlla che il trigger anti-modifica e la funzione cross-tenant
 #      funzionino sullo schema cosi' creato;
-#   5. (giro 4, G3-02) la sessione superuser revoca subito l'appartenenza
-#      temporanea a `gravya_e1_so_owner` concessa a `gravya_migrator` al
-#      passo 2 (la stessa che ha concesso puo' sempre revocare): dopo questo
-#      punto `gravya_migrator` non puo' piu' fare `SET ROLE
-#      gravya_e1_so_owner`, verificato qui;
+#   5. (giro 4, G3-02) la sessione superuser revoca subito l'appartenenza e i
+#      privilegi temporanei concessi al passo 2 (la stessa sessione che li ha
+#      concessi puo' sempre revocarli): dopo questo punto `gravya_migrator`
+#      non puo' piu' fare `SET ROLE gravya_e1_so_owner`, verificato qui con
+#      un ruolo di prova che NON e' superuser (una sessione superuser
+#      potrebbe sempre fare `SET ROLE` verso qualunque ruolo, a prescindere
+#      dall'appartenenza: non proverebbe nulla);
 #   6. (giro 4, G3-03) un ruolo non superuser membro di `gravya_writer`
 #      scrive un segnale con `PostgresSignalSink` (INSERT riuscito) e non
 #      puo' leggerlo (SELECT negato).

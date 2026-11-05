@@ -19,11 +19,19 @@
   script). Il requisito di deploy - il ruolo di migrazione non e' mai il
   ruolo applicativo e non ha accesso ai dati a runtime - va dichiarato nella
   procedura di deploy (vedi report, sezione "Giro 4").
-- Rimosso anche il `GRANT CREATE ON SCHEMA public TO gravya_e1_so_owner` che
-  lo script di verifica concedeva: non serve (il proprietario della
-  funzione non crea nulla nello schema, la crea `gravya_migrator`; `ALTER
-  FUNCTION ... OWNER TO` non richiede privilegi di schema per il nuovo
-  proprietario).
+- **Rilievo V-07/correzione 7 del giro 5 (testo corretto).** Il punto
+  precedente di questo docstring diceva che il `GRANT CREATE ON SCHEMA
+  public TO gravya_e1_so_owner` era stato tolto dallo script perche' "non
+  serve": **non e' vero, verificato con `psql` diretto** (due database di
+  prova, un ruolo che crea una funzione e un altro a cui provare a
+  trasferirne la proprieta'): PostgreSQL richiede che il NUOVO proprietario
+  di una funzione abbia `CREATE` sullo schema che la contiene, altrimenti
+  `ALTER FUNCTION ... OWNER TO` fallisce con "permission denied for schema
+  public". `scripts/test-non-superuser.sh` concede quel `CREATE` (passo 2,
+  temporaneo) e lo revoca subito dopo le migrazioni (passo 5), insieme
+  all'appartenenza a `gravya_e1_so_owner`: e' un requisito di deploy (due
+  concessioni temporanee, due revoche obbligatorie dopo), non qualcosa che
+  questa migrazione tolga o revochi da sola. Vedi report, sezione "Giro 5".
 - **Task correzione 5 (CR minore).** La policy di RLS della tabella
   provvisoria dei segnali torna ad avere un `WITH CHECK` sul tenant del GUC
   (`tenant_id IS NULL OR tenant_id = current_setting('app.tenant_id')`):
