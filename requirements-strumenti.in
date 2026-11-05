@@ -1,0 +1,3 @@
+# Strumenti di sviluppo del job settimanale (scripts/fornitura-locale.py), fissati a mano.
+# Si cambiano solo con una modifica rivista: scripts/fornitura-locale.py li installa con --require-hashes.
+pip-tools==7.6.2
