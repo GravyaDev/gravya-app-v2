@@ -29,4 +29,5 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 - Testo dell'utente alla lettera (2026-11-05): «Dopo aver ricopiato ti do ok ed elimino la memoria. Istruzioni solo in Claude.md, nessun'altra sessione avrà istruzioni sull'uso della memoria» (regola di processo, DECISIONS §6; applicata nel commit ef40b12).
 
 ## In attesa di risposta dall'utente
-- Nessuna decisione aperta.
+- Ristrutturazione di DECISIONS.md con sole decisioni correnti (richiesta dell'utente): decisioni proposte 1 storico in `docs/decisioni-archivio.md` (rac. a), 2 la fa il coordinator su copia con verifica del plan-auditor (rac. a, eccezione una tantum), 3 subito (rac. a). L'utente ha esteso lo stesso principio a `stato/` (fatto, commit di questa voce).
+- Ok dopo la ricopiatura dei prompt sulla piattaforma.
