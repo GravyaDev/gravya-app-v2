@@ -173,16 +173,31 @@ def test_invia_http_rete_non_raggiungibile_codice_2(tmp_path, monkeypatch, capsy
     assert "ERRORE:" in err
 
 
-def test_invia_http_timeout_codice_2(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(osv, "TIMEOUT_SECONDI", 0.2)
-    s = _server_locale(b"{}", attesa=2)
+@pytest.mark.parametrize("stato", [201, 203, 206])
+@pytest.mark.parametrize("corpo", [b'{"results": [{}]}', b'{"results": [{"vulns": [{"id": "GHSA-x"}]}]}'])
+def test_invia_http_stato_2xx_diverso_da_200_con_corpo_valido_codice_2(stato, corpo, tmp_path, monkeypatch, capsys):
+    """Solo 200 e' una risposta di OSV: un 2xx diverso con corpo valido non e' ne' pulito (0) ne' vulnerabile (1)."""
+    s = _server_locale(corpo, stato=stato)
     try:
         codice, err = _esegui(tmp_path, monkeypatch, f"http://127.0.0.1:{s.server_port}/q", capsys)
     finally:
         s.shutdown()
         s.server_close()
     assert codice == 2
-    assert "ERRORE:" in err
+    assert f"stato HTTP {stato}" in err and "Traceback" not in err
+
+
+def test_invia_http_timeout_codice_2(tmp_path, monkeypatch, capsys):
+    """Risposta tardiva ma VALIDA (pulita): senza timeout l'esito sarebbe 0; con il timeout e' 2."""
+    monkeypatch.setattr(osv, "TIMEOUT_SECONDI", 0.2)
+    s = _server_locale(b'{"results": [{}]}', attesa=1)
+    try:
+        codice, err = _esegui(tmp_path, monkeypatch, f"http://127.0.0.1:{s.server_port}/q", capsys)
+    finally:
+        s.shutdown()
+        s.server_close()
+    assert codice == 2
+    assert "ERRORE:" in err and "timed out" in err
 
 
 def test_invia_http_risposta_valida_passa_per_la_rete_reale(tmp_path, monkeypatch, capsys):

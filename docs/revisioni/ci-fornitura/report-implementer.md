@@ -51,6 +51,26 @@ Test reali (server HTTP locale su `127.0.0.1` avviato nel test, nessuna rete est
 - `pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp` (ambiente come da task): 117 passed.
 - `python3 scripts/osv-check.py requirements.lock.txt`: esito 0 (18 pacchetti).
 - `prova-mutante.sh`: la riga mutata (`raise ErroreOsv(f"richiesta a {url} fallita: {e}") from e`) è rimasta identica, quindi il mutante è quello del reviewer. Suite del branch sul mutante: 8 failed (prima 11 passed); le tre prove del reviewer falliscono sul mutante e passano sul codice del branch (3 passed).
-- Il caso stato 204 non è rilevato dal mutante (ha la sua riga di controllo, che il mutante non tocca): è coperto dal test sul codice corretto.
+- Correzione (giro 3): l'affermazione precedente sul caso 204 era inesatta. Il test sul 204 passa con e senza il controllo dello stato (un corpo vuoto fallisce comunque il parse JSON), quindi non lo protegge. Il rifiuto degli stati diversi da 200 è protetto solo dai test del giro 3 (2xx con corpo valido).
 
 README: il comportamento documentato (errore se OSV non risponde) non cambia; non toccato.
+
+## Giro 3
+
+Correzione del secondo BLOCCA del `code-reviewer`. Perimetro: solo `tests/test_ci_osv_check.py`; `scripts/osv-check.py` non modificato (nessun difetto rivelato).
+
+**Test aggiunti/modificati.**
+- `test_invia_http_stato_2xx_diverso_da_200_con_corpo_valido_codice_2`: stato 201, 203, 206, ciascuno con corpo pulito (`{"results": [{}]}`) e con corpo vulnerabile; atteso codice 2 e messaggio «stato HTTP <n>», senza traceback.
+- `test_invia_http_timeout_codice_2`: la risposta tardiva (1 s) è ora **valida** e pulita; `TIMEOUT_SECONDI` ridotto a 0,2 s dal test con `monkeypatch` (default dello script invariato). Atteso codice 2 e «timed out» nel messaggio. Dura circa 1 s.
+
+**Mutanti** (copie dello script in `docs/revisioni/ci-fornitura/lavoro-mutanti/`, cancellata a fine prova), eseguiti con la suite di `tests/test_ci_osv_check.py`:
+
+| Mutante | Modifica | Esito |
+|---|---|---|
+| m1 | `if risposta.status != HTTP_OK:` → `if False:` | 6 failed, 29 passed (tutti i casi 201/203/206) |
+| m2 | `if risposta.status != HTTP_OK:` → `if risposta.status >= 400:` | 6 failed, 29 passed (tutti i casi 201/203/206) |
+| m3 | `timeout=TIMEOUT_SECONDI` → `timeout=None` | 1 failed (`test_invia_http_timeout_codice_2`), 34 passed |
+
+**Prove del code-reviewer** (`prove-code-reviewer-giro2/prova-sopravvissuti.sh`, non modificate): sul codice del branch 4 passed; la suite del branch ora fallisce su s1 (6 failed) e s2 (1 failed), come le prove (s1: 3 failed, s2: 1 failed). s3 (lockfile) resta rilevato dalla suite (7 failed).
+
+**Verifiche.** `pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp` con le variabili del worktree (`../ci-fornitura.env`, PostgreSQL su 5433): 123 passed. CI sul branch: da verificare dopo il push.
