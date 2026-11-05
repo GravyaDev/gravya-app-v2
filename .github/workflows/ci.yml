@@ -39,11 +39,22 @@ jobs:
       - name: Installa le dipendenze (lockfile con hash)
         run: |
           pip install --require-hashes -r requirements.lock.txt
-          pip install --no-deps -e .
+          # Giro 4 (CA G3-09): nessun isolamento di build (altrimenti pip
+          # scaricherebbe setuptools/wheel non fissati in un venv usa e
+          # getta): sono nel lockfile sopra, con hash.
+          pip install --no-build-isolation --no-deps -e .
       - name: Crea il database di test
+        # Giro 4 (CA G3-09): `psycopg` e' gia' nel lockfile (con hash);
+        # evita un `apt-get install postgresql-client` non fissato per
+        # un solo CREATE DATABASE (il job "test-non-superuser" sotto usa
+        # ancora `psql` per l'intera orchestrazione SQL dello script: non
+        # evitabile senza riscriverlo, dichiarato residuo nel report).
         run: |
-          sudo apt-get install -y postgresql-client
-          psql "postgresql://ci_writer@localhost:5432/postgres" -c "CREATE DATABASE gravya_e1_test;"
+          python -c "
+          import psycopg
+          conn = psycopg.connect('postgresql://ci_writer@localhost:5432/postgres', autocommit=True)
+          conn.execute('CREATE DATABASE gravya_e1_test')
+          "
       - name: Applica le migrazioni
         run: alembic upgrade head
       - name: Esegue i test
@@ -87,7 +98,7 @@ jobs:
       - name: Installa le dipendenze (lockfile con hash)
         run: |
           pip install --require-hashes -r requirements.lock.txt
-          pip install --no-deps -e .
+          pip install --no-build-isolation --no-deps -e .
       - name: Installa psql
         run: sudo apt-get install -y postgresql-client
       - name: Bootstrap, migrazioni e verifica con ruolo non superuser

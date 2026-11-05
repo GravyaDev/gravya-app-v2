@@ -80,6 +80,15 @@
       "catalog_ref": "non ancora nel catalogo (DX-22, giro 3): il coordinator la aggiunge a catalogo-variabili.md",
       "min": 1,
       "max": null
+    },
+    "e1.write_tcp_user_timeout_ms": {
+      "value": 5000,
+      "unit": "ms (tcp_user_timeout di libpq e durata massima applicativa di un job del thread di scrittura/segnali, giro 4, CR N2)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 4): il coordinator la aggiunge a catalogo-variabili.md",
+      "min": 1,
+      "max": null
     }
   }
 }
