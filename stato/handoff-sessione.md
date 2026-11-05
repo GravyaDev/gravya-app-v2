@@ -22,4 +22,3 @@ Riscritto il 2026-11-05 (sessione 9, prima in Claude Code locale). Si riscrive, 
 
 ## In attesa di risposta dall'utente (da presentare in un blocco)
 1. Credenziale del job locale: oggi il PAT classico di `kloud-ai` (scope `repo`, `workflow`, `read:org`, 17 repository in scrittura, senza scadenza), lo stesso di tutte le sessioni della macchina. Raccomandazione del coordinator (spiegata all'utente il 2026-11-05): token fine-grained solo per `gravya-app-v2` (contents, pull requests, issues; niente workflow), con scadenza, letto dal servizio systemd da un file leggibile solo dall'utente e tolto dall'ambiente del passo pip-tools; il login di `gh` resta invariato. Alternativa: rischio accettato e registrato. Scelta dell'utente non ancora data.
-2. Minuti del «Graph Update» del dependency graph: la documentazione non lo dice; le esecuzioni hanno «billable» vuoto. Conferma dal pannello di fatturazione di GitHub o disattivazione dell'invio automatico delle dipendenze.
