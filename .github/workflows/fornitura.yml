@@ -1,18 +1,24 @@
 name: Catena di fornitura
 
-# Controlli sulla catena di fornitura (DECISIONS §4 «Catena di fornitura e
-# aggiornamenti»): vulnerabilita' note del lockfile (OSV) a ogni push e pull
-# request e ogni settimana (nuove vulnerabilita' compaiono anche senza push);
-# digest dell'immagine PostgreSQL solo nell'esecuzione settimanale o manuale.
+# Controllo OSV del lockfile (DECISIONS §4 «Catena di fornitura e
+# aggiornamenti»; §6 «Minuti di GitHub Actions»). Su GitHub gira solo quando
+# cambia cio' che puo' cambiarne l'esito (lockfile, script, questo workflow) o a
+# mano. Il controllo settimanale (nuove vulnerabilita' senza push), il confronto
+# del digest di PostgreSQL e la rigenerazione del lockfile girano in locale:
+# `scripts/fornitura-locale.py`, con un timer systemd utente (vedi README).
+# Niente `schedule` e niente `pull_request`, per non consumare minuti.
 
 on:
   push:
-  pull_request:
-  schedule:
-    # Una volta a settimana (lunedi', 05:17 UTC; minuto non tondo per evitare
-    # il picco di carico di GitHub sulle esecuzioni programmate).
-    - cron: "17 5 * * 1"
+    paths:
+      - "requirements.lock.txt"
+      - "scripts/osv-check.py"
+      - ".github/workflows/fornitura.yml"
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -30,32 +36,3 @@ jobs:
           python-version: "3.15"
       - name: Vulnerabilita' note nel lockfile (OSV)
         run: python3 scripts/osv-check.py requirements.lock.txt
-
-  digest-postgres:
-    # Solo settimanale/manuale: il tag `postgres:18` si muove senza che il
-    # repository cambi.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Il digest fissato in ci.yml e' ancora quello del tag?
-        run: |
-          RIGHE="$(grep -E '^\s*image:\s*postgres:[^@[:space:]]+@sha256:[0-9a-f]{64}\s*$' .github/workflows/ci.yml | sed -E 's/^\s*image:\s*//; s/\s+$//' | sort -u)"
-          if [ "$(printf '%s\n' "$RIGHE" | grep -c .)" -ne 1 ]; then
-            echo "::error::In ci.yml deve esserci una sola immagine postgres fissata per digest; trovate: ${RIGHE:-nessuna}"
-            exit 1
-          fi
-          TAG="${RIGHE%%@*}"
-          FISSATO="${RIGHE##*@}"
-          ATTUALE="$(docker buildx imagetools inspect "$TAG" --format '{{.Manifest.Digest}}')"
-          if [ -z "$ATTUALE" ]; then
-            echo "::error::Digest attuale di $TAG non ottenuto"
-            exit 1
-          fi
-          if [ "$FISSATO" != "$ATTUALE" ]; then
-            echo "::error::Il digest di $TAG e' cambiato: fissato in ci.yml $FISSATO, attuale $ATTUALE. Aggiornare la riga 'image:' dei servizi in .github/workflows/ci.yml (dopo aver provato la CI con la nuova immagine)."
-            exit 1
-          fi
-          echo "OK: $TAG e' ancora $FISSATO"

@@ -1,8 +1,24 @@
 name: CI
 
+# Minuti di GitHub Actions contenuti (DECISIONS §6 «Minuti di GitHub Actions»):
+# solo `push` (niente `pull_request`: i merge in `main` si fanno in locale e una
+# PR duplicherebbe l'esecuzione del push), esecuzione manuale, nessuna
+# esecuzione per i commit che toccano solo documenti, `stato/`, file Markdown e
+# istruzioni degli agenti. Con `paths-ignore` il workflow non parte se TUTTI i
+# file modificati dal push corrispondono a un pattern. `concurrency`: un nuovo
+# push sullo stesso branch annulla l'esecuzione ancora in corso.
 on:
   push:
-  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "stato/**"
+      - "**/*.md"
+      - ".claude/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
