@@ -9,8 +9,8 @@ delle variabili E5 (istantanea versionata in `config/e5-snapshot.json`).
 
 ### Prerequisiti
 
-- Python 3.11+
-- PostgreSQL 16 in esecuzione (locale o raggiungibile via TCP)
+- Python 3.15
+- PostgreSQL 18 in esecuzione (locale o raggiungibile via TCP)
 - **Un ruolo PostgreSQL superuser per il primissimo `alembic upgrade head`**
   (giro 5, correzione del README): la migrazione `0002` crea il ruolo
   `gravya_writer` e la migrazione `0005` crea `gravya_e1_so_owner` con

@@ -2,7 +2,7 @@
 name = "gravya-e1"
 version = "0.1.0"
 description = "Gravya v2 - E1 Tracing distribuito (ossatura, schema, helper Python)"
-requires-python = ">=3.11"
+requires-python = ">=3.15"
 dependencies = [
     "pydantic>=2.6",
     "psycopg[binary]>=3.1",
