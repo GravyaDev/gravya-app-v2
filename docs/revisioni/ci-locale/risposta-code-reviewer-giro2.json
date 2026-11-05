@@ -1,0 +1,122 @@
+{
+  "esito": "BLOCCA",
+  "criteri": [
+    {
+      "id": "Bloccante 1 - errori ingoiati / percorsi di errore",
+      "test": "tests/test_fornitura_locale.py (test_lockfile_errore_degli_strumenti_non_diventa_gia_aggiornato, test_compila_con_pip_tools_ogni_errore_solleva, test_esegui_timeout_e_errore_con_output_parziale_come_testo e altri)",
+      "verifica_reale": true,
+      "eseguito": "prove-code-reviewer/mutanti.py: base 103 passed, 15 mutanti su 15 uccisi (prima ne sopravvivevano 11)",
+      "note": "Risolto. compila_con_pip_tools ed esegui hanno test propri, non iniettati."
+    },
+    {
+      "id": "Bloccante 2 - isolamento dei controlli",
+      "test": "tests/test_fornitura_locale.py::test_eccezione_inattesa_in_un_controllo_non_fa_perdere_le_issue_degli_altri; ::test_osv_con_vulnerabilita_e_lockfile_non_conforme_aprono_entrambe_le_issue",
+      "verifica_reale": true,
+      "eseguito": "test_rotture.py R1: il difetto non si riproduce più. mutanti2: i mutanti su _isola, segnala in esegui_controlli e codice di segnala perso sono uccisi",
+      "note": "Risolto."
+    },
+    {
+      "id": "Rilievi 3-9 del giro 1 (HEAD del worktree, base origin/main, gh -R, bytes del timeout, --digest-attuale, tag, restart del timer)",
+      "test": "tests/test_agenti_unisci.py; tests/test_fornitura_locale.py; tests/test_ci_workflow_minuti.py; tests/test_timer_fornitura.py",
+      "verifica_reale": true,
+      "eseguito": "mutanti2 uccide: HEAD non controllato, main antenato non controllato, base = main locale, commit non pubblicati ignorati, nessuno dei 5 comandi gh senza -R, _testo, --digest-attuale senza --prova. test_rotture.py R4 ora rifiutato",
+      "note": "Corretti. Il comportamento reale di GitHub per i push di tag non è provato (filtro branches: [\"**\"] testato solo con il modello dei filtri)."
+    },
+    {
+      "id": "Traccia delle esecuzioni e --stato (fail-closed)",
+      "test": "tests/test_fornitura_locale.py::test_stato_* ; ::test_registra_una_riga_json_per_esecuzione_in_coda; ::test_main_registra_anche_l_esecuzione_fallita",
+      "verifica_reale": false,
+      "eseguito": "mutanti2: sopravvivono BIT_ERRORE senza ERRORE_AGGIORNAMENTO, BIT_ERRORE senza ERRORE_ISSUE, e_riuscita che ignora il codice globale, main che registra prova=False, ultima_riuscita con min. Uccisi i mutanti sulla soglia (>= e +1), su nessuna riuscita e su scaduto => OK",
+      "note": "Il codice è corretto, ma tra i bit di errore è provato solo ERRORE_CONTROLLO. Un lockfile non rigenerato, o una segnalazione non partita, sarebbe registrato come esecuzione riuscita. Anche un --prova potrebbe soddisfare il controllo «fornitura recente» di worktree-unisci senza che nessun test fallisca."
+    },
+    {
+      "id": "Commenti alle issue e rimozione delle credenziali",
+      "test": "tests/test_fornitura_locale.py::test_issue_aperta_con_contenuto_cambiato_riceve_un_commento; ::test_ripulisci_toglie_i_pattern_di_credenziali; ::test_nessuna_credenziale_in_issue_commenti_e_pr",
+      "verifica_reale": false,
+      "eseguito": "mutanti2: uccisi commento anche se invariato, mai commento, ultimo = corpo, commento fallito ignorato, i tre pattern di credenziali, il corpo delle issue e _coda. Sopravvivono ultimo = primo commento e il corpo della PR non ripulito",
+      "note": "Il test dice di coprire la PR, ma non copre il suo corpo. Con più di un commento il confronto con il primo invece dell'ultimo non è provato."
+    },
+    {
+      "id": "requirements-strumenti.lock.txt con hash e --require-hashes, OSV anche sul file",
+      "test": "tests/test_fornitura_strumenti.py (5 test); tests/test_fornitura_locale.py::test_compila_con_pip_tools_sequenza_e_hash_obbligatori",
+      "verifica_reale": true,
+      "eseguito": "mutanti2: uccisi --require-hashes tolto, file dei requisiti sbagliato, OSV su un solo lockfile (in entrambi i sensi), file dei requisiti o interprete mancante",
+      "note": "Coperto."
+    },
+    {
+      "id": "Nuovi controlli di worktree-unisci (HEAD=punta, main antenato, non-superuser, OSV strumenti, fornitura recente o --forza-fornitura)",
+      "test": "tests/test_agenti_unisci.py (24 test)",
+      "verifica_reale": true,
+      "eseguito": "mutanti2: uccisi 14 mutanti su questi controlli (HEAD, main antenato, fornitura ignorata, forzatura sempre attiva o non scritta nel messaggio, stato_fornitura sempre fresca o su un altro file, non-superuser e OSV strumenti tolti, esito dei controlli ignorato, merge non annullato, --ff). Sopravvive l'env del worktree non passato solo con ci-locale.env nella shell; con ambiente pulito è ucciso",
+      "note": "Coperto. Il test del passaggio dell'env non è ermetico quando la shell ha già le variabili."
+    },
+    {
+      "id": "Nessun cambiamento fuori perimetro",
+      "test": "git diff --name-only main...impl/ci-locale",
+      "verifica_reale": true,
+      "eseguito": "18 file, tutti nel perimetro del task",
+      "note": "OK. Nessun testo rivolto a un agente nei file letti."
+    },
+    {
+      "id": "Suite completa e CI",
+      "test": "pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp (worktree, ci-locale.env)",
+      "verifica_reale": true,
+      "eseguito": "301 passed, 1 failed (test_ci_osv_check.py::…[201], timeout del server HTTP locale). Rieseguito da solo 3 volte: 37 passed. gh run list: CI e «Catena di fornitura» success su 19683a9",
+      "note": "Il fallimento è instabilità sotto carico in un file del giro 1, non un difetto della PR."
+    }
+  ],
+  "rilievi": [
+    {
+      "gravita": "bloccante",
+      "file_riga": "tests/test_fornitura_locale.py (test di e_riuscita/stato/main); scripts/fornitura-locale.py:140, 571-578, 629-630",
+      "problema": "I test della traccia non provano il fail-closed per ERRORE_AGGIORNAMENTO e ERRORE_ISSUE come motivo di esecuzione non riuscita, né il collegamento di --prova al campo prova della riga registrata da main. I mutanti 'BIT_ERRORE senza ERRORE_AGGIORNAMENTO', 'BIT_ERRORE senza ERRORE_ISSUE', 'e_riuscita ignora il codice globale' e 'main registra prova=False' passano tutti i 132 test. Effetto: --stato e il controllo «fornitura recente» di worktree-unisci darebbero via libera anche con un lockfile non rigenerato, con una segnalazione non partita o dopo un semplice --prova. Il codice attuale è corretto; mancano i test.",
+      "fonte": "task giro 2 punti 3 e 5 (fail-closed, test che falliscono con mutanti); DECISIONS §6 «Catena di fornitura»",
+      "prova": "docs/revisioni/ci-locale/prove-code-reviewer-giro2/mutanti2.py (python3 mutanti2.py <worktree> <python> \"BIT_ERRORE\" \"registra con prova\" \"errore globale\")",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "da_riportare",
+      "file_riga": "tests/test_fornitura_locale.py; tests/test_agenti_unisci.py",
+      "problema": "Altri mutanti sopravvissuti: ultima_riuscita con min al posto di max; segnala che confronta con il primo commento invece dell'ultimo; il corpo della PR non ripulito (il test test_nessuna_credenziale_in_issue_commenti_e_pr dichiara di coprire la PR ma non ne copre il corpo); rimozione del worktree residuo non provata; il test del passaggio dell'env a worktree-unisci non è ermetico (passa se la shell ha già le variabili di ci-locale.env, che il task stesso chiede di caricare).",
+      "fonte": "task giro 2 punto 10 (test che fallirebbero con mutanti)",
+      "prova": "docs/revisioni/ci-locale/prove-code-reviewer-giro2/mutanti2.py (ambiente pulito: env -i PATH=$PATH HOME=$HOME python3 mutanti2.py …)",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "scripts/fornitura-locale.py:554-568, 598-601",
+      "problema": "leggi_esecuzioni accetta una riga con data senza fuso orario o riuscita senza la chiave esito. Alla lettura stato solleva TypeError o KeyError (traceback, codice 1, non 64). Una data nel futuro rende la traccia «fresca» fino a quella data. Vale solo per una modifica a mano o un orologio sbagliato, e il comando esce comunque con errore.",
+      "fonte": "task giro 2 punto 5",
+      "prova": "docs/revisioni/ci-locale/prove-code-reviewer-giro2/test_rotture2.py (P1, P2, P3; passare = difetto riprodotto)",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "scripts/fornitura-locale.py:122-126",
+      "problema": "ripulisci non copre ssh://utente:segreto@… né intestazioni Authorization: Bearer. Coerente con i pattern elencati nel task.",
+      "fonte": "task giro 2 punto 6",
+      "prova": "docs/revisioni/ci-locale/prove-code-reviewer-giro2/test_rotture2.py (P5)",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "tests/test_ci_osv_check.py:187",
+      "problema": "Il test dello stato HTTP 201 è andato in timeout in una delle 4 esecuzioni (suite completa sotto carico, server locale). Può rendere rossa la suite di worktree-unisci senza difetti reali. Il file è del giro 1.",
+      "fonte": "criterio di fine del task",
+      "prova": "nessuna",
+      "verifica": "dedotto"
+    }
+  ],
+  "tentativi_di_rottura": [
+    "Riesecuzione dei 15 mutanti del giro 1 (mutanti.py): 15 su 15 uccisi",
+    "Riesecuzione di test_rotture.py: R1 e R4 non si riproducono più, R3 passa; R2 resta verde perché guarda cwd, il rimedio è -R, confermato dai mutanti",
+    "82 mutanti nuovi (mutanti2.py) su _isola, esegui_controlli, e_riuscita/BIT_ERRORE, stato, registra, main, segnala (commenti, -R, ripulisci, limite, repository), base e commit locali, OSV sui due lockfile, pip --require-hashes, differenze, worktree-unisci (HEAD, antenato, fornitura, forzatura, non-superuser, OSV strumenti, env, merge). 81 valutati (un pattern non univoco saltato): 67 uccisi, 14 sopravvissuti",
+    "Riesecuzione dei sopravvissuti con ambiente pulito (env -i): il mutante sull'env di worktree-unisci è ucciso, gli altri restano",
+    "Traccia con data senza fuso, riga riuscita senza chiave esito, data futura, confine esatto della soglia (9 giorni fresca, +1 s scaduta, corretto)",
+    "ripulisci con token corti, ghp_, URL https con credenziali, ssh://, Bearer",
+    "Verifica del perimetro del diff, dei filtri dei workflow, dei file del timer e del requirements-strumenti.lock.txt",
+    "Lettura dei file per testi rivolti a un agente (nessuno trovato)",
+    "Non eseguiti: il job senza --prova, il timer, un worktree-unisci reale, un push di tag reale su GitHub"
+  ],
+  "report": "docs/revisioni/ci-locale/report-code-reviewer-giro2.md"
+}
