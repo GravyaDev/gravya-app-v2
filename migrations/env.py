@@ -7,7 +7,13 @@ from sqlalchemy import engine_from_config, pool
 
 config = context.config
 
-database_url = os.environ.get("DATABASE_URL", "postgresql+psycopg://root@/gravya_e1_test")
+database_url = os.environ.get("DATABASE_URL")
+if not database_url:
+    raise RuntimeError(
+        "DATABASE_URL non impostata: la migrazione non parte su un database di default "
+        "(DX-22, giro 2 CR minore). Esempio: "
+        "DATABASE_URL=postgresql+psycopg://<utente>@<host>/<db> alembic upgrade head"
+    )
 config.set_main_option("sqlalchemy.url", database_url)
 
 
