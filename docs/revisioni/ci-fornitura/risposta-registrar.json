@@ -1,0 +1,23 @@
+{
+  "registri_modificati": [
+    "docs/DECISIONS.md",
+    "docs/decisioni-archivio.md"
+  ],
+  "righe_aggiornate": [
+    "DECISIONS.md §6: nuova riga «Catena di fornitura» (documenti CI, E1; decisioni 1-4 del 2026-11-05; punti 1 e 2 da attuare con docs/revisioni/ci-fornitura/task-implementer.md)",
+    "DECISIONS.md §4: «Catena di fornitura e aggiornamenti» ridotto ai punti in attuazione (1 e 2) e al rilievo minore del code-reviewer sull'intestazione di requirements.lock.txt, non deciso; rilievi c e d tolti perché decisi in §6",
+    "DECISIONS.md «Ultimo aggiornamento»: 2026-11-05, decisione dell'utente sulla catena di fornitura",
+    "decisioni-archivio.md: in coda la sezione «2026-11-05 — testi dell'utente (catena di fornitura)» con «ok» e il riferimento alle quattro raccomandazioni; in coda la sezione «2026-11-05 — righe superate (catena di fornitura)» con la versione precedente del punto di §4"
+  ],
+  "documenti_da_aggiornare": [
+    {
+      "doc": "catalogo-variabili.md",
+      "motivo": "La decisione 1 fissa il controllo OSV del lockfile a ogni push e ogni settimana: la variabile security.vulnerability_scan_interval_days (riga 475) è ancora «da definire»; va riportato il valore settimanale e la fonte (decisione dell'utente del 2026-11-05, riga «Catena di fornitura» in DECISIONS §6)."
+    },
+    {
+      "doc": "E1-tracing-distribuito.md",
+      "motivo": "Riferimenti alla catena di fornitura e alla CI: la riga §6 «Catena di fornitura» (documenti CI, E1) decide l'attuazione dei punti 1 e 2 (runner ubuntu-24.04, psql dall'immagine postgres:18, action su Node 24 fissate per SHA, Dependabot), il rinvio della separazione del lockfile al primo deploy e l'assenza di limite superiore in requires-python. Verificare se il documento li cita e aggiornarli."
+    }
+  ],
+  "conflitti_da_riportare": []
+}
