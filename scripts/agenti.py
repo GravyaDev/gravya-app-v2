@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import importlib.util
 import json
 import os
 import re
@@ -71,8 +72,13 @@ IMMAGINE_PG = immagine_ci()
 PORTA_INIZIALE = 5433
 # Controllo prima del merge (`worktree-unisci`): percorsi relativi al worktree.
 LOCKFILE = "requirements.lock.txt"
+LOCKFILE_STRUMENTI = "requirements-strumenti.lock.txt"
 SCRIPT_OSV = "scripts/osv-check.py"
 CARTELLA_TEST = "tests"
+# Prove con ruolo non superuser (job `test-non-superuser` della CI), con le variabili del worktree.
+SCRIPT_NON_SUPERUSER = "scripts/test-non-superuser.sh"
+# Job settimanale della catena di fornitura: la traccia e la soglia di eta' sono le sue.
+SCRIPT_FORNITURA = "fornitura-locale.py"
 # Argomenti di pytest come nel criterio di fine dei task (nessuna cache, basetemp nel worktree).
 ARGOMENTI_PYTEST = ["-q", "-p", "no:cacheprovider", "--basetemp=.pytest_basetemp"]
 AGENTI = RADICE / ".claude" / "agents"
@@ -461,8 +467,25 @@ def comandi_controllo(dove: Path) -> list[tuple[str, list[str]]]:
     py = str(dove / ".venv" / "bin" / "python")
     return [
         ("controllo OSV del lockfile", [py, SCRIPT_OSV, LOCKFILE]),
+        ("controllo OSV dei lockfile degli strumenti", [py, SCRIPT_OSV, LOCKFILE_STRUMENTI]),
         ("suite dei test", [py, "-m", "pytest", *ARGOMENTI_PYTEST, CARTELLA_TEST]),
+        ("prove con ruolo non superuser", ["bash", SCRIPT_NON_SUPERUSER]),
     ]
+
+
+def modulo_fornitura():
+    """Il job settimanale come modulo (nome con trattino): fonte unica di traccia e soglia."""
+    spec = importlib.util.spec_from_file_location("fornitura_locale", Path(__file__).resolve().parent / SCRIPT_FORNITURA)
+    modulo = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modulo)
+    return modulo
+
+
+def stato_fornitura() -> tuple[bool, str]:
+    """(fresca, descrizione): l'ultima esecuzione riuscita del job settimanale e' entro la soglia?"""
+    f = modulo_fornitura()
+    codice, righe = f.stato(f.FILE_ESITI)
+    return codice == f.OK, " | ".join(righe)
 
 
 def cmd_worktree_unisci(a: argparse.Namespace) -> None:
@@ -485,15 +508,30 @@ def cmd_worktree_unisci(a: argparse.Namespace) -> None:
         sys.exit(f"Il repository principale è su {corrente!r}, non su {BRANCH_BASE}: non unisco.")
     if git("status", "--porcelain", "--untracked-files=no").stdout.strip():
         sys.exit("Il repository principale ha modifiche non committate: non unisco.")
+    testa = git("rev-parse", "HEAD", cwd=dove, check=False)
+    punta = git("rev-parse", "--verify", branch, check=False)
+    if testa.returncode != 0 or punta.returncode != 0 or testa.stdout.strip() != punta.stdout.strip():
+        sys.exit(f"RIFIUTATO: l'HEAD del worktree {nome} non coincide con la punta di {branch}: i controlli proverebbero "
+                 f"altro da ciò che si unisce. Riportare il worktree su {branch}. {BRANCH_BASE} non è stato toccato.")
     if git("merge-base", "--is-ancestor", BRANCH_BASE, branch, check=False).returncode != 0:
-        print(f"ATTENZIONE: {BRANCH_BASE} ha commit che {branch} non contiene: i controlli provano il branch, "
-              f"non il risultato del merge.", file=sys.stderr)
+        sys.exit(f"RIFIUTATO: {BRANCH_BASE} ha commit che {branch} non contiene: i controlli proverebbero il branch, non il "
+                 f"risultato del merge. Prima si aggiorna il branch (merge di {BRANCH_BASE} in {branch}, nel worktree) e si "
+                 f"rilanciano i controlli. {BRANCH_BASE} non è stato toccato.")
+    messaggio = a.messaggio
+    fresca, descrizione = stato_fornitura()
+    if not fresca:
+        if not getattr(a, "forza_fornitura", False):
+            sys.exit(f"RIFIUTATO: il controllo settimanale della catena di fornitura non risulta eseguito di recente ({descrizione}). "
+                     f"Eseguire `python3 scripts/fornitura-locale.py`, oppure forzare con --forza-fornitura "
+                     f"(il messaggio di merge lo riporterà). {BRANCH_BASE} non è stato toccato.")
+        messaggio = f"{a.messaggio.rstrip()}\n\nForzato: controllo di fornitura non recente ({descrizione})."
+        print(f"ATTENZIONE: unione forzata, controllo di fornitura non recente ({descrizione}).", file=sys.stderr)
     env = dict(os.environ, **leggi_env_worktree(nome))
     for descrizione, cmd in comandi_controllo(dove):
         print(f"== {descrizione}: {' '.join(cmd)}", flush=True)
         if subprocess.run(cmd, cwd=dove, env=env).returncode != 0:
             sys.exit(f"RIFIUTATO: {descrizione} non riuscito. {BRANCH_BASE} non è stato toccato.")
-    r = git("merge", "--no-ff", branch, "-m", a.messaggio, check=False)
+    r = git("merge", "--no-ff", branch, "-m", messaggio, check=False)
     if r.returncode != 0:
         git("merge", "--abort", check=False)
         sys.exit(f"RIFIUTATO: il merge di {branch} in {BRANCH_BASE} non è riuscito ({r.stderr.strip() or r.stdout.strip()}); "
@@ -530,9 +568,11 @@ def main() -> None:
     wx.add_argument("nome")
     wx.set_defaults(f=cmd_worktree_chiudi)
 
-    wu = sub.add_parser("worktree-unisci", help="OSV e suite nel worktree; solo se riescono, merge --no-ff in main (senza push)")
+    wu = sub.add_parser("worktree-unisci", help="OSV, suite e prove non superuser nel worktree; solo se riescono, merge --no-ff in main (senza push)")
     wu.add_argument("nome")
     wu.add_argument("-m", "--messaggio", required=True, help="messaggio del commit di merge")
+    wu.add_argument("--forza-fornitura", action="store_true",
+                    help="unisce anche se l'ultima esecuzione riuscita del job settimanale e' piu' vecchia della soglia (scritto nel messaggio di merge)")
     wu.set_defaults(f=cmd_worktree_unisci)
 
     a = p.parse_args()
