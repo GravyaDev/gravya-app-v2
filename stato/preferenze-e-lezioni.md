@@ -17,6 +17,7 @@ Solo il modo di lavorare, nella forma in vigore. Le decisioni di progetto stanno
 - Azioni ovvie senza che le chieda: commit delle prove nel repository, aggiornamento di `stato/handoff-sessione.md`.
 - Se l'utente ha già dichiarato una scelta, applicarla e allineare i file senza ripresentarla come decisione.
 - Niente budget di sessione: non proporre di fermare una sessione a metà.
+- **Procedere senza chiedere** (utente, 2026-11-05): se non ci sono decisioni dell'utente, non chiedere il via; portare avanti l'intera fase. Ci si ferma solo per una decisione sua (per esempio un esito `BLOCCA`) o a fine fase.
 - Configurazioni lean, senza copie superflue; file già pronti da incollare sulla piattaforma.
 - Ricopiatura dei prompt degli agenti sulla piattaforma: se ne occupa l'utente se servirà (2026-11-05); non tenerla tra le azioni aperte e non ricordarla.
 - Repository di riferimento locali (`gravya-app`, `gravya-app-kloudify`): lavoro in corso dell'utente, mai toccarli, nemmeno con comandi che scrivono di nascosto (`git status`); blocco in `stato/ambiente.md`. Prima di rimuovere strumenti di sistema, controllare che non li usino.
