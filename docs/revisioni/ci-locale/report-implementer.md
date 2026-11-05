@@ -44,4 +44,4 @@ Senza consumare minuti: (a) la documentazione di GitHub («Workflow syntax for G
 - Il test `systemd-analyze verify` si salta su GitHub (`GITHUB_ACTIONS`): lì non c'è una sessione utente systemd; in locale gira.
 
 ## Esito CI
-Push di `impl/ci-locale` (commit 2a314d5): «CI» **success** (job `test` e `test-non-superuser`) e «Catena di fornitura» **success** (partita perché il push cambia `fornitura.yml`). Un solo push con codice. Subito dopo, il commit con questo solo aggiornamento del report (solo `docs/`) è stato pushato: vedi sotto l'esito.
+Push di `impl/ci-locale` (commit 2a314d5): «CI» **success** (job `test` e `test-non-superuser`) e «Catena di fornitura» **success** (partita perché il push cambia `fornitura.yml`). Un solo push con codice. Subito dopo, il commit con questo solo aggiornamento del report (solo `docs/`) è stato pushato: esito: **nessuna esecuzione avviata** (dopo 25 s le esecuzioni del branch restavano 2, entrambe sul commit 2a314d5): prova reale, non solo dei pattern.
