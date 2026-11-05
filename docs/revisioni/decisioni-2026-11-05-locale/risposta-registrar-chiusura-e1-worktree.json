@@ -1,0 +1,23 @@
+{
+  "registri_modificati": [
+    "docs/DECISIONS.md",
+    "docs/decisioni-archivio.md"
+  ],
+  "righe_aggiornate": [
+    "DECISIONS.md, Ultimo aggiornamento: riscritta come riga unica (2026-11-05, chiusura di E1 con la micro-correzione di API_ENV e worktree per gli implementer)",
+    "DECISIONS.md §4: «E1, chiusura definitiva (giro 6)» rimossa e chiusa; nuovo punto «E1, residui del giro 6» con i tre residui e Documenti: E1",
+    "DECISIONS.md §6, «E1: chiusura definitiva»: aggiunto il BLOCCA del giro 6 risolto dalla micro-correzione (db41169, aa20e20) e il rimando ai residui in §4",
+    "DECISIONS.md §6, «Branch di lavoro»: sostituita, `main` come branch di integrazione e worktree `.worktrees/<nome>` su `impl/<nome>` per gli implementer, con cancellazione dopo il merge e riporto dei worktree aperti nell'handoff",
+    "decisioni-archivio.md, in coda: testi dell'utente del 2026-11-05 (worktree e chiusura di E1); versioni superate del punto §4 e delle due righe §6"
+  ],
+  "documenti_da_aggiornare": [
+    {
+      "doc": "E1",
+      "motivo": "Il punto di §4 «E1, residui del giro 6» riguarda E1: scrittura in volo dopo close() con coda profonda e default di DATABASE_URL nel README diversi da quelli dei test, da trattare nel documento. Nessun cambio di versione o di DA: Storico modifiche da aggiornare solo se il documento cambia."
+    }
+  ],
+  "conflitti_da_riportare": [
+    "Il task dice che la decisione «(a, micro-correzione)» è già in decisioni-archivio.md, ma nel registro non c'era. L'ho aggiunta ora nella sezione «2026-11-05 — testi dell'utente (worktree e chiusura di E1)» solo nella forma citata nel task; il testo completo della decisione dell'utente va verificato dal coordinator.",
+    "I comandi worktree-crea, worktree-elenco e worktree-chiudi citati nella riga «Branch di lavoro» esistono in scripts/agenti.py, ma le modifiche di scripts/agenti.py e di .gitignore sono ancora non committate (git status): il registro le descrive come esistenti prima del commit."
+  ]
+}

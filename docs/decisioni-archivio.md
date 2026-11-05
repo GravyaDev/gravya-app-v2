@@ -372,3 +372,19 @@ Versione superata di una riga di `DECISIONS.md` sostituita il 2026-11-05 dal bra
 Versione superata di una riga di `DECISIONS.md` sostituita il 2026-11-05 da Python 3.15 e dalla compatibilità dei pacchetti verificata. Il contenuto corrente è in [DECISIONS.md](DECISIONS.md) §6.
 
 - §6, «Versioni di runtime» (2026-11-05): «Decisa (2026-11-05, utente): Python 3.14 e PostgreSQL 18 (in Docker), al posto delle versioni ereditate dal container della piattaforma (Python 3.11, PostgreSQL 16). Ordine: prima la micro-correzione di `API_ENV` sulle versioni attuali; poi l'aggiornamento come lavoro a parte dell'implementer (lockfile con hash, CI, README, test sulla nuova versione), seguito da `code-reviewer` e `compliance-auditor`. Motivo: Python 3.14 supportato fino al 2030-10-31 e PostgreSQL 18 fino al 2030-11-14 (contro 2027-10-31 per Python 3.11 e 2028-11-09 per PostgreSQL 16); verifica del 2026-11-05: dipendenze Python del lockfile all'ultima versione su PyPI salvo `pydantic` 2.14.3 e `pydantic-core` 2.50.4, nessuna vulnerabilità nota su OSV.»
+
+## 2026-11-05 — testi dell'utente (worktree e chiusura di E1)
+
+Testi alla lettera delle decisioni dell'utente su chiusura di E1 e branch di lavoro degli implementer. La regola corrente è in [DECISIONS.md](DECISIONS.md) §4, punto «E1, residui del giro 6», e §6, righe «E1: chiusura definitiva» e «Branch di lavoro».
+
+- E1, esito BLOCCA del giro 6, 2026-11-05, decisione dell'utente: «(a, micro-correzione)», senza altri giri di revisione e con verifica del coordinator che riesegue le suite. Chiude il punto «E1, chiusura definitiva (giro 6)».
+- Branch, 2026-11-05, prima della proposta del coordinator sui worktree: «Implementer: per il branch separato a me va benissimo, anzi meglio così ne puoi lanciare più di uno. Però deve essere cancellato al termine del merge e del lavoro, non proliferare all'infinito. Oppure usa worktree, stesso criterio di cancellazione. Valuta e riportami.»
+- Branch, 2026-11-05, risposta alla proposta del coordinator (worktree in `.worktrees/<nome>` sul branch `impl/<nome>`, cancellazione con comando dedicato): «2. confermo».
+
+## 2026-11-05 — righe superate (chiusura di E1 e branch)
+
+Versioni superate di un punto di §4 e di due righe di §6 di `DECISIONS.md`, sostituite il 2026-11-05. Il contenuto corrente è in [DECISIONS.md](DECISIONS.md) §4 e §6.
+
+- §4, «E1, chiusura definitiva (giro 6)» (2026-11-05), chiuso: il BLOCCA del giro 6 è risolto dalla micro-correzione (commit db41169 e aa20e20), decisione dell'utente «(a, micro-correzione)» (sopra). Verifica del coordinator del 2026-11-05 (Python 3.15, PostgreSQL 18): `tests/` 88 passati in 10 esecuzioni su 10; prove dei revisori con gli esiti del giro 6, salvo un fallimento in più in 1 esecuzione su 20 della prova del giro 4, ripreso come residuo in §4 («E1, residui del giro 6»); CI verde nei due job. Testo superato: «- **E1, chiusura definitiva (giro 6).** Esiti RIPORTA della verifica finale del giro unico 5: compliance-auditor e plan-auditor su E1 v1.9 e catalogo v1.7 (`docs/revisioni/e1-v1.9/`); code-reviewer sul giro 5 (`docs/revisioni/impl-e1/report-code-reviewer-giro5.md`, branch `claude/impl-e1`, commit 13c59ad). Si chiude con il giro 6 del codice, E1 v1.10 e catalogo v1.8, con verifica del code-reviewer solo sui punti del giro 6 (§6). Ciò che resta dopo va qui come punto aperto, senza altri giri. Documenti: E1, catalogo.»
+- §6, «E1: chiusura definitiva» (2026-11-05), versione precedente della sola parte finale: «Ciò che resta va in §4 senza altri giri (opzione (a) dell'utente, «ok»)». Aggiunto il rimando alla micro-correzione (db41169, aa20e20) e ai residui in §4.
+- §6, «Branch di lavoro» (2026-11-05), versione superata: «Branch unico di lavoro `main`, dopo la PR #1 che ha unito `claude/docs-ondata-1`. Motivo: su GitHub esiste solo `main`.» Sostituita dai worktree per gli implementer (decisione dell'utente «2. confermo», sopra).
