@@ -1,0 +1,171 @@
+{
+  "esito": "RIPORTA",
+  "rilievi": [
+    {
+      "gravita": "da_riportare",
+      "norma": "NIS2 art. 21(2)(d)",
+      "dove": "systemd/gravya-fornitura.timer (Persistent=true, OnCalendar=Mon 08:00); report-implementer.md («Il timer non è installato e non è stato eseguito da systemd»)",
+      "testo_citato": "Persistent=true — Se il computer (WSL2) era spento all'ora prevista, parte all'accensione successiva.",
+      "problema": "Il controllo periodico ora dipende da una macchina che può essere spenta. Persistent=true recupera una esecuzione solo quando WSL2 e il systemd utente ripartono. Se la distro non viene avviata, nessun controllo gira e nessuno lo sa, perché non c'è un segnale di mancata esecuzione. Prima il schedule di GitHub girava anche a macchina spenta. I push che non toccano lockfile, script OSV o workflow non eseguono più OSV, quindi le nuove CVE su un lockfile invariato le vede solo il job locale. Il monitoraggio può essere solo apparente (era il rilievo 2 di ci-fornitura, ora spostato).",
+      "proposta": "Registrare data ed esito dell'ultima esecuzione riuscita. Farla controllare da worktree-unisci e dal coordinator all'avvio di sessione, con una soglia di ritardo massimo come variabile. La stessa registrazione servirà come segnale ad A5.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "da_riportare",
+      "norma": "NIS2 art. 21(2)(d); DX-22(b)",
+      "dove": "scripts/fornitura-locale.py (gh pr create, gh issue create, git push); systemd/gravya-fornitura.service",
+      "testo_citato": "Token: ghp_************************************ — Token scopes: 'read:org', 'repo', 'workflow'",
+      "problema": "Il servizio non presidiato usa il token classic PAT dell'account kloud-ai, a lunga durata e con scrittura su tutti i repository accessibili e sui workflow. Al job servono solo push di un branch, PR e issue su un repository. Non c'è inventario né rotazione del token (DX-22(b) li chiede per i segreti di CI).",
+      "proposta": "Un token fine-grained limitato a gravya-app-v2 (contents, pull requests e issues in scrittura, senza workflow), con scadenza, dedicato al job. Documentare inventario e scadenza. La scelta spetta all'utente.",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "da_riportare",
+      "norma": "NIS2 art. 21(2)(d)",
+      "dove": "scripts/fornitura-locale.py, compila_con_pip_tools; risposta-implementer.json (decisioni_mancanti e divergenze su pip-tools)",
+      "testo_citato": "r = run([str(py), \"-m\", \"pip\", \"install\", \"-q\", \"--disable-pip-version-check\", OPZIONE_UPGRADE, PACCHETTO_COMPILE]",
+      "problema": "pip-tools e le sue dipendenze si installano senza versioni né hash, e pip-compile --all-build-deps costruisce le dipendenze di build, che possono eseguire codice. Tutto gira nella sessione utente dove gh e git hanno il token del rilievo precedente. Gli hash del lockfile proteggono la CI, non questo passo. Le ultime versioni sono proposte appena pubblicate, senza attesa, e OSV vede una release compromessa solo dopo la segnalazione. Mitigazione parziale: il risultato passa da OSV, CI e revisione prima del merge.",
+      "proposta": "Fissare pip-tools con hash in un file di requisiti separato. Eseguire la rigenerazione in un contenitore senza accesso a ~/.config/gh né al credential helper. Valutare un'anzianità minima delle versioni, come variabile.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "da_riportare",
+      "norma": "NIS2 art. 21(2)(d)",
+      "dove": "scripts/fornitura-locale.py, segnala() e TITOLI",
+      "testo_citato": "if titolo in aperti: messaggi.append(f\"issue: già aperta, non duplicata ({titolo})\"); continue",
+      "problema": "Il titolo è fisso per tipo. Finché una issue è aperta, un secondo pacchetto vulnerabile o un secondo cambio di digest non producono né una issue né un commento. Le nuove vulnerabilità non vengono segnalate, e le issue non si chiudono da sole.",
+      "proposta": "Aggiungere un commento alla issue aperta quando il contenuto cambia, oppure mettere un identificativo nel titolo. Dichiararlo nel README.",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "da_riportare",
+      "norma": "PV-01; DECISIONS §6 «Catena di fornitura» (1)",
+      "dove": "scripts/agenti.py, cmd_worktree_unisci; risposta-implementer.json (divergenze su DECISIONS §4 (b))",
+      "testo_citato": "ATTENZIONE: {BRANCH_BASE} ha commit che {branch} non contiene: i controlli provano il branch, non il risultato del merge.",
+      "problema": "L'obbligo del controllo OSV prima del merge è solo una convenzione. Un merge a mano o un push diretto in main lo aggira. La CI di GitHub non è condizione del merge. worktree-unisci esegue solo pytest tests/ e non il job test-non-superuser della CI (prove RLS con ruolo non privilegiato). Se main è andato avanti, al fail-closed subentra un avviso e il merge procede.",
+      "proposta": "Rifiutare quando main non è antenato del branch, oppure rieseguire i controlli sul risultato del merge. Far girare scripts/test-non-superuser.sh in worktree-unisci, oppure richiedere la CI verde sul commit (gh run list). Valutare un hook pre-merge-commit o pre-push. Scrivere in DECISIONS che l'obbligo è per convenzione.",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "minore",
+      "norma": "NIS2 art. 21(2)(d)",
+      "dove": "systemd/gravya-fornitura.service (StandardOutput=journal); README, sezione «Catena di fornitura»",
+      "testo_citato": "StandardOutput=journal / journalctl --user -u gravya-fornitura.service -n 50",
+      "problema": "L'unica traccia degli esiti è il journal locale, con rotazione, più le issue. Non c'è un registro delle esecuzioni riuscite. Prima Actions conservava i log delle esecuzioni.",
+      "proposta": "Scrivere a ogni esecuzione una riga con data, esiti e versioni, e conservarla secondo DX-09. Collegato al primo rilievo.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "norma": "NIS2 art. 21(2)(d)",
+      "dove": "scripts/fornitura-locale.py, segnala() (codice ERRORE_ISSUE = 32)",
+      "testo_citato": "issue: elenco non ottenuto, nessuna issue aperta",
+      "problema": "Se mancano rete o token, sia il controllo sia la issue falliscono. L'unico segnale è «servizio fallito» nel journal, che nessuno legge di default. Le notifiche GitHub all'utente sono un'impostazione dell'account, non verificata.",
+      "proposta": "Il controllo dell'ultimo esito all'avvio sessione (primo rilievo) copre anche questo caso. Dichiarare il ripiego nel README.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "norma": "DX-22; DX-13",
+      "dove": "scripts/fornitura-locale.py (testa del file); systemd/gravya-fornitura.timer",
+      "testo_citato": "ASSEGNATARIO = \"GravyaDev\" … OnCalendar=Mon *-*-* 08:00:00",
+      "problema": "Assegnatario, titoli, timeout, orario del timer e identità dei commit sono costanti negli script, non voci del catalogo. L'implementer le tratta come costanti di strumento locale.",
+      "proposta": "L'utente decide se DX-22 vale per il tooling di sviluppo. Se non vale, dichiarare l'eccezione in DECISIONS (A6 non esiste ancora; DA-A1-10 prevede un ripiego prima di A6).",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "minore",
+      "norma": "DX-22(b); GDPR art. 32 (segreti nei log)",
+      "dove": "scripts/fornitura-locale.py, _coda() e corpo delle issue",
+      "testo_citato": "LIMITE_CORPO = 6000 — _coda(r.stderr) nel corpo di gh issue create",
+      "problema": "Il corpo delle issue include fino a 6000 caratteri dell'output di git, gh e pip-compile. Se il remoto incorporasse credenziali, finirebbero in chiaro in una issue. Oggi git remote -v mostra https://github.com/GravyaDev/gravya-app-v2.git senza credenziali, quindi nessun segreto presente.",
+      "proposta": "Ripulire i pattern di token (ghp_, URL con @) prima di scrivere nelle issue, oppure dichiarare il limite.",
+      "verifica": "dedotto"
+    }
+  ],
+  "letture": [
+    {
+      "file": "docs/PRINCIPI.md",
+      "righe": "1-15 di 15"
+    },
+    {
+      "file": "docs/DECISIONS.md",
+      "righe": "1-250 di 250"
+    },
+    {
+      "file": "docs/revisioni/ci-fornitura/report-compliance-auditor.md",
+      "righe": "1-34 di 34"
+    },
+    {
+      "file": "docs/revisioni/ci-locale/task-implementer.md",
+      "righe": "1-29 di 29"
+    },
+    {
+      "file": "docs/revisioni/ci-locale/risposta-implementer.json",
+      "righe": "1-128 di 128"
+    },
+    {
+      "file": "impl/ci-locale:docs/revisioni/ci-locale/report-implementer.md",
+      "righe": "intero (via git show)"
+    },
+    {
+      "file": "impl/ci-locale:scripts/fornitura-locale.py",
+      "righe": "intero (380 righe, dal worktree)"
+    },
+    {
+      "file": "impl/ci-locale:systemd/gravya-fornitura.service e .timer",
+      "righe": "intero"
+    },
+    {
+      "file": "impl/ci-locale:scripts/installa-timer-fornitura.sh",
+      "righe": "intero (49 righe)"
+    },
+    {
+      "file": "impl/ci-locale:.github/workflows/fornitura.yml",
+      "righe": "intero"
+    },
+    {
+      "file": "diff main...impl/ci-locale: ci.yml, .gitignore, scripts/agenti.py",
+      "righe": "interi"
+    },
+    {
+      "file": "diff main...impl/ci-locale: README.md",
+      "righe": "prime 150 righe del diff"
+    },
+    {
+      "file": "impl/ci-locale:.github/workflows/ci.yml",
+      "righe": "solo grep della struttura dei job"
+    },
+    {
+      "file": "impl/ci-locale:requirements.lock.txt",
+      "righe": "1-8 (intestazione)"
+    },
+    {
+      "file": "impl/ci-locale:scripts/osv-check.py",
+      "righe": "solo grep"
+    },
+    {
+      "file": "stato/ambiente.md",
+      "righe": "solo grep"
+    },
+    {
+      "file": "docs/norme-di-riferimento.md",
+      "righe": "solo grep (NIS2 art. 21, Reg. 2024/2690)"
+    },
+    {
+      "file": "tests/ del branch",
+      "righe": "non letti; nomi ed esiti presi dalla risposta dell'implementer"
+    }
+  ],
+  "controllato": [
+    "Permessi dei workflow: contents: read, nessun segreto e pull_request rimosso.",
+    "Fail-closed di OSV, del digest, dell'elenco delle issue e di worktree-unisci (rifiuto con controllo fallito, worktree o principale sporchi, conflitto con merge annullato, nessun push). I codici di uscita diversi da 0 e 16 segnano il servizio come fallito.",
+    "Il digest di PostgreSQL e la rigenerazione del lockfile con PR sono ora coperti in locale. Il ramo «digest cambiato» è provato con --digest-attuale.",
+    "Un push di soli documenti non avvia workflow: provato dal vivo, secondo il report dell'implementer.",
+    "Nessun dato personale né di tenant coinvolto. A OSV vanno solo nomi e versioni dei pacchetti.",
+    "Il remoto git non contiene credenziali; il token gh è un classic PAT con scope repo, workflow e read:org.",
+    "Nessun segnale ad A5: coerente con DECISIONS §6 «Catena di fornitura» (1).",
+    "Non ho eseguito test, job o CI."
+  ],
+  "report": "docs/revisioni/ci-locale/report-compliance-auditor.md"
+}

@@ -1,0 +1,157 @@
+{
+  "esito": "BLOCCA",
+  "criteri": [
+    {
+      "id": "Filtri dei workflow (solo push e manuale, paths-ignore, concurrency, OSV solo su lockfile/script/workflow)",
+      "test": "tests/test_ci_workflow_minuti.py",
+      "verifica_reale": true,
+      "eseguito": "pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp nel worktree: 209 passed",
+      "note": "I test leggono i pattern dai file reali. Il matcher è una riproduzione delle regole di GitHub, non il motore di GitHub. Nessun test legge docs/, stato/, .md o .claude/, quindi saltare la CI per questi file non nasconde test. Non ho riverificato su GitHub la prova reale dichiarata dall'implementer (nessuna esecuzione dopo un push di soli documenti). I workflow non limitano i branch: un push di tag li avvia (rilievo 8)."
+    },
+    {
+      "id": "fornitura-locale.py fail-closed (errori di rete, docker, gh, pip-compile non diventano «tutto a posto»)",
+      "test": "tests/test_fornitura_locale.py (parziale)",
+      "verifica_reale": false,
+      "eseguito": "python3 scripts/fornitura-locale.py --solo osv,digest --prova → uscita 0 (OSV e digest OK); con --digest-attuale sha256:ffff… → uscita 2. Mutanti: docs/revisioni/ci-locale/prove-code-reviewer/mutanti.py. Il controllo lockfile e il job senza --prova non sono stati eseguiti.",
+      "note": "Il codice è corretto sui punti letti, ma 11 mutanti su 15 sopravvivono con 32 test verdi. Non sono provati: esegui (timeout e comando non eseguibile), compila_con_pip_tools (tutto), push e fetch falliti, gh pr list fallito, branch già esistente. Inoltre un'eccezione non gestita fa perdere le issue già dovute (rilievi 1 e 2)."
+    },
+    {
+      "id": "Nessun duplicato di issue; PR solo se il lockfile cambia; non tocca main",
+      "test": "tests/test_fornitura_locale.py::test_issue_non_duplicata_se_gia_aperta_con_lo_stesso_titolo, ::test_lockfile_invariato_nessun_branch_nessuna_pr, ::test_lockfile_solo_intestazione_cambiata_non_e_un_aggiornamento, ::test_lockfile_pr_di_lockfile_gia_aperta_non_ne_apre_un_altra, ::test_lockfile_cambiato_branch_push_e_pr",
+      "verifica_reale": true,
+      "eseguito": "209 passed; i mutanti su gh issue list, gh issue create e OSV rc 2 sono uccisi",
+      "note": "Git reale su repository temporanei. La base è origin/main, mentre i merge si fanno su main locale (rilievo 4)."
+    },
+    {
+      "id": "worktree-unisci: non unisce se OSV o suite falliscono, nessun push",
+      "test": "tests/test_agenti_unisci.py",
+      "verifica_reale": true,
+      "eseguito": "209 passed. Il comando reale con OSV e suite vere non è stato eseguito.",
+      "note": "I controlli sono finti nei test, ma la logica di rifiuto, l'assenza di push e l'annullamento del merge in caso di conflitto sono provati. Lacuna: non controlla che il worktree sia sul branch che unisce. Con HEAD staccato su main i controlli passano e il merge porta in main un commit difettoso (rilievo 3, test_rotture.py::test_R4)."
+    },
+    {
+      "id": "Unità systemd e installazione idempotente",
+      "test": "tests/test_timer_fornitura.py",
+      "verifica_reale": true,
+      "eseguito": "209 passed, incluso test_systemd_analyze_verify sui file installati in una cartella di prova. Il timer non è stato installato.",
+      "note": "systemd-analyze verify sul modello con @RADICE@ fallisce per costruzione, ed è atteso. PATH dell'unità e gh autenticato (kloud-ai) controllati. Un timer già attivo con OnCalendar modificato richiede restart (rilievo 9)."
+    },
+    {
+      "id": "Test delle costanti di osv-check non tautologici (punto 5)",
+      "test": "tests/test_ci_osv_check.py::test_costanti_hanno_i_valori_documentati, ::test_la_richiesta_usa_url_ed_ecosistema_documentati",
+      "verifica_reale": true,
+      "eseguito": "209 passed",
+      "note": "Confronto con valori letterali: URL, PyPI, blocco da 1000, HTTP 200, timeout."
+    },
+    {
+      "id": "Nessun cambiamento fuori perimetro",
+      "test": "assente",
+      "verifica_reale": true,
+      "eseguito": "git diff main...impl/ci-locale --stat: 15 file",
+      "note": "Tutti nel perimetro. Nessun contenuto rivolto a un agente trovato nei file letti. Costanti dello strumento e pip-tools non fissato fuori dal registro DX-22: già dichiarato dall'implementer."
+    }
+  ],
+  "rilievi": [
+    {
+      "gravita": "bloccante",
+      "file_riga": "scripts/fornitura-locale.py:104-111 (esegui), 225-242 (compila_con_pip_tools), 245-249 (_git), 273 (fetch), 291-297, 302 (push); tests/test_fornitura_locale.py",
+      "problema": "I test non provano i percorsi di errore del controllo lockfile né esegui. compila_con_pip_tools non ha nessun test, perché il test inietta compila. Sopravvivono con 32 test verdi 11 mutanti su 15: timeout di esegui → codice 0; OSError di esegui → codice 0; pip-compile fallito ingoiato (lockfile invariato, quindi «già alle ultime versioni»); pip-tools non installato ingoiato; venv ingoiata; tutti gli errori di git ingoiati; solo il push ingoiato; solo il fetch ingoiato (rigenerazione su un origin/main vecchio); gh pr list fallito ingoiato; branch locale già esistente ignorato. Un errore può diventare «tutto a posto» senza che nessun test fallisca.",
+      "fonte": "Task del code-reviewer (mutanti che ingoiano gli errori); task dell'implementer punto 2 (ogni controllo fallito apre una issue); DECISIONS §6 «Catena di fornitura»",
+      "prova": "docs/revisioni/ci-locale/prove-code-reviewer/mutanti.py",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "bloccante",
+      "file_riga": "scripts/fornitura-locale.py:210-214 (differenze), 308 (except), 346-358 (esegui_controlli)",
+      "problema": "Un'eccezione non gestita nel controllo lockfile fa perdere le issue già dovute. differenze() usa osv.leggi_lockfile, che solleva ErroreLockfile su una riga non nome==versione. aggiorna_lockfile cattura solo ErroreAggiornamento e OSError, quindi l'eccezione esce da esegui_controlli prima di segnala(). Con OSV in errore (vulnerabilità, rc 1) e un lockfile rigenerato con una riga non conforme non si apre nessuna issue, né per la vulnerabilità né per l'errore. Il processo esce con la traceback, codice 1, che nello schema vuol dire «vulnerabilità», e l'unico segnale è il journal. Vale per ogni eccezione imprevista, per esempio UnicodeDecodeError.",
+      "fonte": "Task dell'implementer punto 2 (issue per ogni controllo fallito, codici di uscita distinti); fail-closed",
+      "prova": "docs/revisioni/ci-locale/prove-code-reviewer/test_rotture.py::test_R1_eccezione_non_gestita_nel_lockfile_perde_la_issue_della_vulnerabilita",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "da_riportare",
+      "file_riga": "scripts/agenti.py cmd_worktree_unisci (~riga 466-500)",
+      "problema": "Il controllo prima del merge non verifica che il worktree sia sul branch impl/<nome>. Con il worktree in detached HEAD su main e il branch impl/prova libero e difettoso, OSV e suite girano su main e passano, e il merge porta il commit difettoso in main. Il caso «main è andato avanti» è invece avvisato e dichiarato nel report. Serve un controllo che HEAD del worktree coincida con il tip del branch.",
+      "fonte": "Task dell'implementer punto 4 (controllo obbligatorio prima del merge); DECISIONS §6 «Catena di fornitura»",
+      "prova": "docs/revisioni/ci-locale/prove-code-reviewer/test_rotture.py::test_R4_worktree_unisci_prova_il_worktree_non_il_branch_che_unisce",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "da_riportare",
+      "file_riga": "scripts/fornitura-locale.py:259-282 (base origin/main); 141-149 (OSV sul checkout locale)",
+      "problema": "La rigenerazione parte da origin/main, mentre l'OSV e i merge in locale riguardano il main locale. Se main locale ha commit non pushati su pyproject.toml o sul lockfile, la PR del lockfile è calcolata su una base vecchia e può andare in conflitto o ignorare il lavoro locale. Il documento non dice quale base valga.",
+      "fonte": "CLAUDE.md (merge in locale); task dell'implementer punto 2",
+      "prova": "nessuna",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "scripts/fornitura-locale.py:325, 337, 291",
+      "problema": "gh issue list, gh issue create e gh pr list partono senza cwd e senza -R. Se lo script è lanciato a mano da un'altra cartella, gh sceglie il repository da quella cartella. Il timer ha WorkingDirectory, quindi lì il problema non c'è.",
+      "fonte": "Task dell'implementer punto 2",
+      "prova": "docs/revisioni/ci-locale/prove-code-reviewer/test_rotture.py::test_R2_gh_non_riceve_cwd_quindi_dipende_dalla_cartella_di_lancio",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "scripts/fornitura-locale.py:104-109",
+      "problema": "Su timeout, esegui passa e.stdout come bytes (pur con text=True). Con output parziale, controlla_osv (str + bytes) e digest_attuale (regex su bytes) solleverebbero TypeError, cioè la stessa classe di eccezione non gestita del rilievo 2. Poco probabile in pratica: osv-check e docker stampano solo alla fine.",
+      "fonte": "fail-closed",
+      "prova": "docs/revisioni/ci-locale/prove-code-reviewer/test_rotture.py::test_R3_timeout_con_output_parziale_fa_TypeError_in_controlla_osv (fallisce = difetto riprodotto, stdout bytes)",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "scripts/fornitura-locale.py:365, 372",
+      "problema": "--digest-attuale senza --prova apre una issue vera su un digest inventato. Il README lo mostra solo con --prova, ma nulla lo impone.",
+      "fonte": "Task dell'implementer punto 2 (minore d)",
+      "prova": "nessuna",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": ".github/workflows/ci.yml:14-19; .github/workflows/fornitura.yml:14-19",
+      "problema": "Il filtro push non restringe branches. Secondo la documentazione di GitHub i filtri dei percorsi non si applicano ai push di tag, quindi un tag avvia CI e OSV e consuma minuti.",
+      "fonte": "DECISIONS §6 «Minuti di GitHub Actions»",
+      "prova": "nessuna",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "scripts/installa-timer-fornitura.sh:46-48",
+      "problema": "enable --now su un timer già attivo non rilegge OnCalendar se l'unità cambia: serve restart. L'installazione è idempotente sui file ma non sull'effetto di una modifica dell'orario.",
+      "fonte": "Task dell'implementer punto 3",
+      "prova": "nessuna",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "scripts/fornitura-locale.py:51-99; systemd/gravya-fornitura.service; systemd/gravya-fornitura.timer",
+      "problema": "Assegnatario, titoli, timeout, TimeoutStartSec=2h e OnCalendar sono fuori dal registro delle variabili (DX-22), e pip-tools non è fissato. Coerente con il task («costanti dichiarate in testa») e già dichiarato dall'implementer. L'utente deve confermare l'eccezione per gli strumenti locali.",
+      "fonte": "DX-22",
+      "prova": "nessuna",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "docs/revisioni/ci-locale/report-implementer.md (sezione Minuti di Actions)",
+      "problema": "Per il «Graph Update» la documentazione di GitHub non dice se consuma minuti in un repository privato. L'implementer lo ha dedotto da 4 esecuzioni con billable vuoto e lo ha riportato in decisioni_mancanti. Resta non dimostrato.",
+      "fonte": "Task dell'implementer punto 1",
+      "prova": "nessuna",
+      "verifica": "dedotto"
+    }
+  ],
+  "tentativi_di_rottura": [
+    "15 mutanti di fornitura-locale.py (timeout, OSError, pip-compile, pip-tools, venv, git, push, fetch, gh pr list, branch esistente, gh issue list/create, OSV rc 2, digest non valido, intestazione senza pip-compile): 11 sopravvissuti, 4 uccisi",
+    "OSV in errore più lockfile rigenerato con riga non conforme: nessuna issue aperta",
+    "cwd di gh quando lo script è lanciato da un'altra cartella",
+    "timeout con output parziale: stdout in bytes",
+    "worktree-unisci con il worktree in detached HEAD su main e il branch con un commit difettoso",
+    "--digest-attuale senza --prova",
+    "filtri dei percorsi con insiemi misti di file; ricerca nei test di dipendenze da docs/, stato/, .md, .claude (nessuna)",
+    "PATH e autenticazione gh dell'unità systemd; systemd-analyze verify",
+    "esecuzione di fornitura-locale.py --prova per osv e digest e per il ramo «digest cambiato»; suite completa 209 passed",
+    "contenuti rivolti a un agente nei file letti: nessuno"
+  ],
+  "report": "docs/revisioni/ci-locale/report-code-reviewer.md"
+}
