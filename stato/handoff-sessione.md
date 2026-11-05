@@ -12,7 +12,7 @@ Riscritto il 2026-11-05 (sessione 9, prima in Claude Code locale). Si riscrive, 
 - Codice di E1 (passi 0, 2, 3) nel branch unico (merge 9311762 di `claude/impl-e1`): 87 test verdi. Ultima verifica del code-reviewer (giro 6) **BLOCCA** su un solo punto: `API_ENV` non impostata non blocca se c'è `production_override` (`src/gravya_e1/tracing.py` riga 496).
 - **Decisione dell'utente (2026-11-05, testo alla lettera): «(a, micro-correzione)».** Correzione dimostrata dal code-reviewer: togliere la condizione, impostare `API_ENV=development` nei test, aggiornare un test proprio. Nessun altro giro di revisione: verifica del coordinator rieseguendo le suite.
 - DECISIONS.md ristrutturato (solo decisioni correnti, storia in `docs/decisioni-archivio.md`); catalogo v1.8.
-- Sessione 9: passaggio a Claude Code locale. Script `scripts/agenti.py` (task dal template e lancio degli agenti, uso in `CLAUDE.md`); README degli agenti v1.23; `implementer` senza branch dedicato. Dipendenze Python: tutte all'ultima versione su PyPI salvo `pydantic` 2.14.2→2.14.3 e `pydantic-core` 2.50.2→2.50.4 (usciti il 2026-11-05), nessuna vulnerabilità nota su OSV (verifica del 2026-11-05).
+- Sessione 9 (ultimo commit di lavoro pushato: fa0c286): passaggio a Claude Code locale. Script `scripts/agenti.py` (task dal template e lancio degli agenti, uso in `CLAUDE.md`); README degli agenti v1.23; `implementer` senza branch dedicato. Dipendenze Python: tutte all'ultima versione su PyPI salvo `pydantic` 2.14.2→2.14.3 e `pydantic-core` 2.50.2→2.50.4 (usciti il 2026-11-05), nessuna vulnerabilità nota su OSV (verifica del 2026-11-05).
 
 ## Prossimi passi, in ordine
 0. Ambiente locale: server PostgreSQL per i test (versione da decidere, sotto) e `.venv/`.
