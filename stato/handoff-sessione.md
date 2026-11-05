@@ -14,6 +14,7 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 - Decisioni del 2026-11-05 su E1 v1.7 registrate (deroga C2 per l'ondata 1, DA-E1-13, tenant di contesto, avvio bloccato in produzione).
 
 ## In corso (agenti lanciati, non conclusi)
+- **Ristrutturazione di DECISIONS.md** (utente: «Ok per le decisioni»: archivio separato, la fa il coordinator su copia con verifica del plan-auditor, subito). Candidato e archivio in `docs/revisioni/decisions-ristrutturazione/`; plan-auditor in verifica (task `task-plan-auditor.md` nella stessa cartella). Dopo: registrar sostituisce `docs/DECISIONS.md` e crea `docs/decisioni-archivio.md`, registra la decisione e la frase dell'utente sulla memoria; aggiornare il prompt del registrar con la regola «solo correnti, superate in archivio».
 - Decisioni M1-M5 dell'utente («ok», 2026-11-05): ultimo giro unico. Catalogo v1.7 fatto dal coordinator.
 - **Implementer, giro 5** — task `docs/revisioni/impl-e1/task-implementer-giro5.md` (branch `claude/impl-e1`, commit 09b7162). Se interrotto: controllare i commit dopo 09b7162 e la sezione «Giro 5» del report; altrimenti rilanciare da quel task.
 - E1 v1.9 fatta (doc-writer, Storico verificato intatto) e committata.
@@ -29,5 +30,4 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 - Testo dell'utente alla lettera (2026-11-05): «Dopo aver ricopiato ti do ok ed elimino la memoria. Istruzioni solo in Claude.md, nessun'altra sessione avrà istruzioni sull'uso della memoria» (regola di processo, DECISIONS §6; applicata nel commit ef40b12).
 
 ## In attesa di risposta dall'utente
-- Ristrutturazione di DECISIONS.md con sole decisioni correnti (richiesta dell'utente): decisioni proposte 1 storico in `docs/decisioni-archivio.md` (rac. a), 2 la fa il coordinator su copia con verifica del plan-auditor (rac. a, eccezione una tantum), 3 subito (rac. a). L'utente ha esteso lo stesso principio a `stato/` (fatto) con un'eccezione: si conserva il motivo utile di una scelta, sulla regola corrente.
 - Ok dopo la ricopiatura dei prompt sulla piattaforma.
