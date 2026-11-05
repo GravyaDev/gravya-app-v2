@@ -1,6 +1,6 @@
 # Agenti di governance del progetto
 
-Versione 1.20, 2026-11-05.
+Versione 1.21, 2026-11-05.
 
 Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno ha un compito solo, un perimetro di scrittura definito e un formato di risposta fisso, così il loro esito si può leggere in modo automatico. Il prompt di ciascun agente è in un unico file, in `.claude/agents/` alla radice del repository: è la sola fonte. Questa cartella contiene solo questo README.
 
@@ -8,7 +8,7 @@ Questi agenti mantengono allineati piano, registri e codice di Gravya v2. Ognuno
 
 | Agente | File | Compito | Scrive | Modalità |
 |---|---|---|---|---|
-| `coordinator` | [coordinator.md](../../.claude/agents/coordinator.md) | Pianifica, redige e mantiene i documenti di progetto; orchestra gli altri agenti secondo le sequenze sotto e riporta all'utente | Documenti di progetto e memoria di sessione (`stato/`); i registri solo tramite il `registrar` | Orchestratore |
+| `coordinator` | [coordinator.md](../../.claude/agents/coordinator.md) | Pianifica, redige e mantiene i documenti di progetto; orchestra gli altri agenti secondo le sequenze sotto e riporta all'utente | Documenti di progetto e cartella `stato/` (istruzioni in `CLAUDE.md`); i registri solo tramite il `registrar` | Orchestratore |
 | `registrar` | [registrar.md](../../.claude/agents/registrar.md) | Aggiorna `DECISIONS.md`, `index.md`, lo Storico modifiche dei documenti dopo ogni decisione o modifica | `docs/DECISIONS.md`, `docs/index.md`, righe dello Storico | Collaborativa |
 | `plan-auditor` | [plan-auditor.md](../../.claude/agents/plan-auditor.md) | Verifica la coerenza tra principi, decisioni, documenti di dettaglio e master plan | Solo il proprio report | Avversariale |
 | `code-reviewer` | [code-reviewer.md](../../.claude/agents/code-reviewer.md) | Verifica che il codice di una PR implementi il documento di dettaglio, rispetti i criteri di accettazione e i principi | Solo il proprio report | Avversariale |
@@ -64,7 +64,7 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 3. Nessun agente decide al posto dell'utente. Una scelta di merito va riportata, non risolta.
 4. Ogni agente scrive solo nel proprio perimetro. Gli agenti avversariali non modificano mai i file che esaminano.
 5. Si scrive in italiano. Non si salvano segreti o credenziali da nessuna parte.
-6. Nessun agente, salvo il `coordinator`, scrive nella memoria di sessione (`stato/`; sulla piattaforma anche `/mnt/memory/`). Nessun agente crea file fuori dal proprio perimetro e dalla cartella del task (niente copie, backup o file temporanei, nemmeno in `/tmp`). Dopo ogni invocazione il `coordinator` controlla che non siano comparsi file non previsti.
+6. Nessun agente, salvo il `coordinator`, scrive nella cartella `stato/` (istruzioni d'uso solo in `CLAUDE.md`). Nessun agente crea file fuori dal proprio perimetro e dalla cartella del task (niente copie, backup o file temporanei, nemmeno in `/tmp`). Dopo ogni invocazione il `coordinator` controlla che non siano comparsi file non previsti.
 
 ## Storico modifiche
 
@@ -91,3 +91,4 @@ Il modello è indicato nel campo `model:` dell'intestazione di ogni file, che Cl
 | 1.18 | 2026-11-04 | `doc-writer` senza `Bash` (decisione dell'utente, C14 della sessione 7): nel collaudo della v1.5 aveva scritto `/tmp/x.json` fuori perimetro, contro la regola comune 6; per redigere documenti bastano Read, Grep, Glob, Edit e Write. Da ricopiare sulla piattaforma solo il campo strumenti. |
 | 1.19 | 2026-11-05 | Continuità tra piattaforma e Claude Code locale (richiesta dell'utente: se finisce il credito API si prosegue con l'abbonamento). Memoria di sessione nel repository (`.claude/memoria/`), `CLAUDE.md` alla radice, sezione «Ambiente: piattaforma o Claude Code locale» nel prompt del `coordinator`; percorsi `/workspace/...` sostituiti da percorsi relativi in `code-reader`, `plan-auditor`, `registrar`; regola comune 6 e sezione «File che puoi creare» di tutti gli agenti con il nuovo percorso della memoria. Da ricopiare sulla piattaforma: il prompt di tutti gli agenti (descrizioni invariate). |
 | 1.20 | 2026-11-05 | Memoria di sessione spostata da `.claude/memoria/` alla cartella `stato/` alla radice del repository (richiesta dell'utente: una cartella di stato unica, usata allo stesso modo dalle sessioni sulla piattaforma e in locale). Aggiornati catalogo, regola comune 6, `CLAUDE.md` e i prompt di tutti gli agenti. Da ricopiare sulla piattaforma: il prompt di tutti gli agenti. |
+| 1.21 | 2026-11-05 | Istruzioni su avvio, cartella `stato/` e chiusura dei turni solo in `CLAUDE.md` (decisione dell'utente: nessun'altra sessione ha istruzioni sull'uso della memoria; la memoria della piattaforma `/mnt/memory/` sarà eliminata dall'utente). Il prompt del `coordinator` rimanda a `CLAUDE.md`; tolti dai prompt degli agenti e dalla regola comune 6 i riferimenti a `/mnt/memory/`. Da ricopiare sulla piattaforma: il prompt di tutti gli agenti. |

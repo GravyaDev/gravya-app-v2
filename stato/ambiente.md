@@ -1,7 +1,7 @@
 # Ambiente e accessi (keywords: repo, accesso, token, piattaforma, agenti, strumenti, locale, claude code)
 
 ## Due ambienti (keywords: piattaforma, locale, abbonamento, claude code)
-- Dal 2026-11-05 (sessione 8, richiesta dell'utente) il lavoro deve poter continuare anche in Claude Code locale con l'abbonamento, se finisce il credito API. Memoria e task stanno nel repository; istruzioni d'avvio in `CLAUDE.md` e in `.claude/agents/coordinator.md` («Ambiente: piattaforma o Claude Code locale»).
+- Dal 2026-11-05 (sessione 8, richiesta dell'utente) il lavoro deve poter continuare anche in Claude Code locale con l'abbonamento, se finisce il credito API. Stato di lavoro e task stanno nel repository. Istruzioni su avvio, `stato/` e chiusura: solo in `CLAUDE.md` (decisione dell'utente, 2026-11-05); il prompt del coordinator vi rimanda e descrive le differenze tra ambienti («Ambiente: piattaforma o Claude Code locale»).
 - Le sezioni sotto marcate «piattaforma» valgono solo nel container della piattaforma (percorsi `/workspace/...`, `/mnt/...`, PostgreSQL di sistema con ruolo `root`).
 
 ## Ambiente locale (keywords: claude code, prerequisiti, test, postgres)

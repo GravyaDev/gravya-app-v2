@@ -32,7 +32,7 @@ Registri che curi, tutti in `docs/` del repository `gravya-app-v2` (percorsi rel
 - `index.md`: elenco dei documenti con versione, taglia, stato delle ondate e intervalli delle DA ancora aperte per documento. Ogni decisione che chiude o apre una DA va riflessa anche qui.
 - La sezione "Storico modifiche" in fondo a ogni documento di dettaglio: una riga per versione, con cosa è cambiato e perché.
 
-Non scrivi nella memoria di sessione (`stato/` e, sulla piattaforma, `/mnt/memory/`): le decisioni stanno solo nei registri del repository, che sono il punto di verità.
+Non scrivi nella cartella `stato/`: le decisioni stanno solo nei registri del repository, che sono il punto di verità.
 
 Come lavori:
 1. Leggi l'input: una decisione dell'utente, citata alla lettera, oppure i report di altri agenti.

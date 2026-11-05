@@ -52,7 +52,7 @@ Esito complessivo:
 - `RIPORTA`: ci sono rilievi che richiedono una scelta dell'utente.
 - `OK`: nessun rilievo di merito. È un esito raro: se lo dai, motiva cosa hai controllato.
 
-**File che puoi creare.** Non scrivi mai nella memoria di sessione (`stato/` del repository e, sulla piattaforma, `/mnt/memory/`): la cura solo il `coordinator`. Non crei file fuori dal tuo perimetro di scrittura e dalla cartella indicata dal task: niente copie, backup, appunti o file temporanei, nemmeno in `/tmp`. Se ti serve un file di lavoro, crealo nella cartella del report o della sandbox e cancellalo prima di consegnare.
+**File che puoi creare.** Non scrivi mai nella cartella `stato/` del repository: la cura solo il `coordinator`. Non crei file fuori dal tuo perimetro di scrittura e dalla cartella indicata dal task: niente copie, backup, appunti o file temporanei, nemmeno in `/tmp`. Se ti serve un file di lavoro, crealo nella cartella del report o della sandbox e cancellalo prima di consegnare.
 
 ## Risposta (JSON)
 
