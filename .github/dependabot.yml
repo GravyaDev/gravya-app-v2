@@ -1,0 +1,16 @@
+# Aggiornamenti settimanali (DECISIONS §4 «Catena di fornitura e aggiornamenti»).
+# Le action sono fissate per SHA con il tag nel commento: Dependabot aggiorna
+# entrambi.
+#
+# Pacchetti Python (`pip`): NON configurato. La documentazione di GitHub dice
+# che Dependabot aggiorna "any .txt file" e `pyproject.toml` PEP 621, ma non
+# che rigeneri un lockfile `pip-compile` con hash da `pyproject.toml`
+# (--generate-hashes --all-build-deps --extra=dev): senza questa garanzia
+# rischierebbe PR che rompono `pip install --require-hashes`. Punto aperto,
+# vedi docs/revisioni/ci-fornitura/report-implementer.md.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

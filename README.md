@@ -123,6 +123,17 @@ funzionano quando lo schema è di proprietà di un ruolo non superuser
 PGUSER=<un_ruolo_superuser> PGHOST=127.0.0.1 PGPORT=5432 bash scripts/test-non-superuser.sh
 ```
 
+Variabile opzionale `GRAVYA_PSQL`: comando con cui lo script lancia `psql`
+(default `psql` dell'host, diviso in parole). In CI vale `docker run --rm -i
+--network host <immagine-dei-servizi> psql`, così `psql` viene dalla stessa
+immagine (stesso digest) del servizio PostgreSQL e non da apt. In locale, per
+provare come in CI:
+
+```bash
+GRAVYA_PSQL="docker run --rm -i --network host postgres:18@sha256:<digest-di-ci.yml> psql" \
+  PGUSER=root PGHOST=127.0.0.1 PGPORT=5433 bash scripts/test-non-superuser.sh
+```
+
 Usa un database "usa e getta" (`SCRATCH_DB`, default
 `gravya_e1_ci_nonsuper`), eliminato alla fine anche in caso di errore. **Il
 `PGUSER` di questo script deve essere un superuser**: il bootstrap una
@@ -213,3 +224,20 @@ pytest -q -p no:cacheprovider --basetemp=docs/revisioni/impl-e1/code-reviewer-gi
   chiamato `root`: `PGUSER` può essere qualunque ruolo superuser (vedi
   sopra), passato per variabile d'ambiente. **Verificato in questo giro**
   con lo stesso ruolo creato per `tests/` sopra.
+
+### Catena di fornitura (CI)
+
+- `.github/workflows/ci.yml`: runner `ubuntu-24.04`, action fissate per SHA
+  (checkout v7.0.1, setup-python v7.1.0, entrambe su Node 24); i servizi
+  PostgreSQL sono definiti una volta sola (ancora YAML), con il digest
+  dell'immagine in un solo punto.
+- `.github/workflows/fornitura.yml`: a ogni push e pull request e ogni
+  settimana (`schedule`, anche `workflow_dispatch`) esegue
+  `python3 scripts/osv-check.py` (versioni di `requirements.lock.txt` contro
+  OSV: esce con errore se ce ne sono con vulnerabilità note, o se OSV non
+  risponde). Solo nell'esecuzione settimanale o manuale un secondo job
+  confronta il digest di `postgres:18` fissato in `ci.yml` con quello attuale
+  e fallisce se è cambiato (segnale per aggiornarlo).
+- `.github/dependabot.yml`: aggiornamenti settimanali delle action. I
+  pacchetti Python non sono ancora coperti (vedi il report di
+  `docs/revisioni/ci-fornitura/`).

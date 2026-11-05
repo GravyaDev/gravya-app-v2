@@ -39,6 +39,11 @@
 #   PGHOST (default: localhost), PGPORT (default: 5432), PGUSER (default:
 #   utente corrente della shell). SCRATCH_DB: nome del database usa e getta
 #   (default: gravya_e1_ci_nonsuper).
+#   GRAVYA_PSQL: comando con cui lanciare `psql` (default: `psql` dell'host).
+#   In CI e' `docker run --rm -i --network host ... <immagine> psql`, cosi'
+#   `psql` viene dalla stessa immagine (stesso digest) del servizio PostgreSQL.
+#   Viene diviso in parole (niente virgolette annidate): niente spazi nei
+#   singoli argomenti.
 #   API_ENV: OBBLIGATORIA, nessun valore implicito (DECISIONS §6 «E1: ambiente
 #   e avvio»): se manca lo script si ferma subito, prima di toccare il database.
 set -euo pipefail
@@ -48,6 +53,8 @@ if [[ -z "${API_ENV:-}" ]]; then
     exit 1
 fi
 export API_ENV
+
+read -r -a PSQL <<< "${GRAVYA_PSQL:-psql}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -60,18 +67,18 @@ SUPERUSER_ADMIN_DSN="postgresql://${PGUSER_}@${PGHOST_}:${PGPORT_}/postgres"
 SCRATCH_DSN="postgresql://${PGUSER_}@${PGHOST_}:${PGPORT_}/${SCRATCH_DB}"
 
 cleanup() {
-    psql "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 -c "DROP OWNED BY gravya_e1_ci_nonsuper_writer;" >/dev/null 2>&1 || true
-    psql "${SUPERUSER_ADMIN_DSN}" -v ON_ERROR_STOP=1 -c "DROP ROLE IF EXISTS gravya_e1_ci_nonsuper_writer;" >/dev/null 2>&1 || true
-    psql "${SUPERUSER_ADMIN_DSN}" -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS ${SCRATCH_DB};" >/dev/null 2>&1 || true
+    "${PSQL[@]}" "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 -c "DROP OWNED BY gravya_e1_ci_nonsuper_writer;" >/dev/null 2>&1 || true
+    "${PSQL[@]}" "${SUPERUSER_ADMIN_DSN}" -v ON_ERROR_STOP=1 -c "DROP ROLE IF EXISTS gravya_e1_ci_nonsuper_writer;" >/dev/null 2>&1 || true
+    "${PSQL[@]}" "${SUPERUSER_ADMIN_DSN}" -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS ${SCRATCH_DB};" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
 echo "== [1/6] database usa e getta: ${SCRATCH_DB} =="
-psql "${SUPERUSER_ADMIN_DSN}" -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS ${SCRATCH_DB};"
-psql "${SUPERUSER_ADMIN_DSN}" -v ON_ERROR_STOP=1 -c "CREATE DATABASE ${SCRATCH_DB};"
+"${PSQL[@]}" "${SUPERUSER_ADMIN_DSN}" -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS ${SCRATCH_DB};"
+"${PSQL[@]}" "${SUPERUSER_ADMIN_DSN}" -v ON_ERROR_STOP=1 -c "CREATE DATABASE ${SCRATCH_DB};"
 
 echo "== [2/6] bootstrap una tantum (da superuser) di gravya_migrator/gravya_e1_so_owner =="
-psql "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 <<'SQL'
+"${PSQL[@]}" "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 <<'SQL'
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gravya_migrator') THEN
@@ -135,9 +142,9 @@ GRAVYA_E1_CI_NONSUPER_DB="${SCRATCH_DB}" \
     python3 "${ROOT_DIR}/scripts/_verify_nonsuperuser.py"
 
 echo "== [5/6] revoca l'appartenenza e i privilegi temporanei (G3-02) =="
-psql "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 -c "REVOKE gravya_e1_so_owner FROM gravya_migrator;"
-psql "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 -c "REVOKE CREATE ON SCHEMA public FROM gravya_migrator;"
-psql "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 -c "REVOKE CREATE ON SCHEMA public FROM gravya_e1_so_owner;"
+"${PSQL[@]}" "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 -c "REVOKE gravya_e1_so_owner FROM gravya_migrator;"
+"${PSQL[@]}" "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 -c "REVOKE CREATE ON SCHEMA public FROM gravya_migrator;"
+"${PSQL[@]}" "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 -c "REVOKE CREATE ON SCHEMA public FROM gravya_e1_so_owner;"
 
 # Verifica vera: una sessione SUPERUSER puo' sempre fare SET ROLE verso
 # qualunque ruolo, a prescindere dall'appartenenza (il controllo di
@@ -151,7 +158,7 @@ TESTER_ROLE="gravya_e1_ci_nonsuper_migrator_tester"
 # Solo caratteri alfanumerici (esadecimale): una password con `/`, `+`, `@` o
 # `:` romperebbe l'URL di connessione sotto (DSN `postgresql://utente:password@...`).
 TESTER_PASSWORD="$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
-psql "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 <<SQL
+"${PSQL[@]}" "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 <<SQL
 DO \$\$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '${TESTER_ROLE}') THEN
@@ -165,10 +172,10 @@ GRANT CONNECT ON DATABASE ${SCRATCH_DB} TO ${TESTER_ROLE};
 SQL
 
 TESTER_DSN="postgresql://${TESTER_ROLE}:${TESTER_PASSWORD}@${PGHOST_}:${PGPORT_}/${SCRATCH_DB}"
-NOT_MEMBER="$(psql "${TESTER_DSN}" -At -c "SET ROLE gravya_migrator; SET ROLE gravya_e1_so_owner;" 2>&1 || true)"
+NOT_MEMBER="$("${PSQL[@]}" "${TESTER_DSN}" -At -c "SET ROLE gravya_migrator; SET ROLE gravya_e1_so_owner;" 2>&1 || true)"
 
-psql "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 -c "DROP OWNED BY ${TESTER_ROLE};" >/dev/null
-psql "${SUPERUSER_ADMIN_DSN}" -v ON_ERROR_STOP=1 -c "DROP ROLE IF EXISTS ${TESTER_ROLE};" >/dev/null
+"${PSQL[@]}" "${SCRATCH_DSN}" -v ON_ERROR_STOP=1 -c "DROP OWNED BY ${TESTER_ROLE};" >/dev/null
+"${PSQL[@]}" "${SUPERUSER_ADMIN_DSN}" -v ON_ERROR_STOP=1 -c "DROP ROLE IF EXISTS ${TESTER_ROLE};" >/dev/null
 
 if [[ "${NOT_MEMBER}" != *"permission denied"* ]] && [[ "${NOT_MEMBER}" != *"not a member"* ]]; then
     echo "ERRORE: un ruolo non superuser con sola appartenenza a gravya_migrator puo' ancora fare SET ROLE gravya_e1_so_owner dopo la revoca:" >&2
