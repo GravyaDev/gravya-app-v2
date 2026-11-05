@@ -16,12 +16,13 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 ## In corso (agenti lanciati, non conclusi)
 - Giro 4 dell'implementer **concluso**: `claude/impl-e1` a 8dfb1de (verificato: 69 test, prove giro 3 con N4/N10 attesi, script non superuser OK; README «Esecuzione locale» alla radice del branch).
 - **Code-reviewer, verifica mirata del giro 4** — task `docs/revisioni/impl-e1/task-code-reviewer-giro4.md` (branch `claude/impl-e1`, commit 14a743e). Se interrotto: rilanciare da quel task (report atteso `report-code-reviewer-giro4.md`).
-- **Doc-writer, E1 v1.8** — task `docs/revisioni/e1-v1.8/task-doc-writer.md` (branch `claude/docs-ondata-1`). Se interrotto: rilanciare da quel task; poi controllare che le righe 1.0-1.7 dello Storico di E1 siano intatte.
+- E1 v1.8 **fatta** (doc-writer, Storico verificato intatto), commit su `claude/docs-ondata-1`.
+- **Plan-auditor e compliance-auditor su E1 v1.8 e catalogo v1.6** — task `docs/revisioni/e1-v1.8/task-auditor.md`. Se interrotti: rilanciare da quel task (report attesi in `docs/revisioni/e1-v1.8/`).
 - Catalogo v1.6 fatto dal coordinator.
 
 ## Prossimi passi, in ordine
 1. Esito del code-reviewer sul giro 4.
-2. Verificare E1 v1.8 (doc-writer) con il catalogo v1.6 già fatto, poi plan-auditor e compliance-auditor, poi registrar. Contenuto richiesto: chiudere i rilievi della voce «Da riportare. Revisione di E1 v1.7 e catalogo v1.5» di DECISIONS §4 (report in `docs/revisioni/e1-v1.7/`), con DA-E1-13 in App. C, deroga C2, tenant di contesto, avvio bloccato, formati e chiave minima 32 byte nel catalogo §18, regola 11 per le variabili `e1.write_*`, valore di sviluppo di `e1.write_tcp_user_timeout_ms`. Poi plan-auditor e compliance-auditor, poi registrar.
+2. Esiti degli auditor su E1 v1.8, poi registrar. Contenuto chiesto alla v1.8: chiudere i rilievi della voce «Da riportare. Revisione di E1 v1.7 e catalogo v1.5» di DECISIONS §4 (report in `docs/revisioni/e1-v1.7/`), con DA-E1-13 in App. C, deroga C2, tenant di contesto, avvio bloccato, formati e chiave minima 32 byte nel catalogo §18, regola 11 per le variabili `e1.write_*`, valore di sviluppo di `e1.write_tcp_user_timeout_ms`. Poi plan-auditor e compliance-auditor, poi registrar.
 3. Chiedere all'utente quando e dove unire `claude/impl-e1`.
 4. Poi: A1 (passi 3-4) sull'ossatura; v1.7 di allineamento degli altri documenti (F2, `run_id` UUID, `gravya.tool.outcome` in B2, C3 con F4); approvazione dei sette documenti; ondata 2 (A5, A6, F6).
 
