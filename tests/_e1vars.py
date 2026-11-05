@@ -13,6 +13,7 @@ DEV_E1_VARIABLES = {
     "e1.write_tcp_keepalives_idle_s": {"value": 10, "unit": "s", "status": "deciso"},
     "e1.write_tcp_keepalives_interval_s": {"value": 5, "unit": "s", "status": "deciso"},
     "e1.write_tcp_keepalives_count": {"value": 3, "unit": "count", "status": "deciso"},
+    "e1.write_tcp_user_timeout_ms": {"value": 5000, "unit": "ms", "status": "deciso"},
 }
 
 

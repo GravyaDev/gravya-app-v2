@@ -65,6 +65,7 @@ def _registry(sink, extra=None):
         "e1.write_tcp_keepalives_idle_s": {"value": 10, "unit": "s", "status": "deciso"},
         "e1.write_tcp_keepalives_interval_s": {"value": 5, "unit": "s", "status": "deciso"},
         "e1.write_tcp_keepalives_count": {"value": 3, "unit": "count", "status": "deciso"},
+        "e1.write_tcp_user_timeout_ms": {"value": 5000, "unit": "ms", "status": "deciso"},
         "e1.partition_interval_months": {"value": 1, "unit": "months", "status": "deciso"},
     }
     v.update(extra or {})
