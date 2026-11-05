@@ -78,11 +78,11 @@ _LOOSE_TOKEN_RE = re.compile(r"[A-Za-z0-9_\-]{1,64}")
 # A6): "reviewer_" + UUID canonico.
 _REVIEWER_REF_PREFIX = "reviewer_"
 
-# Nome di chiave riportabile in un segnale (B7/G18): identificatore puntato,
-# minuscolo, al piu' 4 segmenti (invariante strutturale, non una variabile),
-# ciascuno di lunghezza breve.
-_SIGNAL_KEY_SEGMENT = r"[a-z][a-z0-9_]{0,19}"
-_SIGNAL_KEY_NAME_RE = re.compile(rf"{_SIGNAL_KEY_SEGMENT}(\.{_SIGNAL_KEY_SEGMENT}){{0,3}}")
+# Giro 4 (CA G3-05): il nome di una chiave scartata, riportabile per intero
+# in un segnale (B7/G18), e' SOLO una chiave nota della whitelist reale di
+# E1 (`_KNOWN_SIGNAL_KEYS` sotto). Non esiste piu' un formato strutturale
+# "qualunque identificatore puntato" che faccia passare testo arbitrario del
+# chiamante: per ogni altra chiave si riporta solo la lunghezza.
 _SIGNAL_KEY_NAME_MAX_LEN = 64
 
 
@@ -312,8 +312,10 @@ class DiscardReason:
 
 
 # Nomi di chiave "conosciuti" (whitelist reale di E1): un segnale puo'
-# sempre riportarli per intero (G18). Qualunque altra chiave passa solo dal
-# formato strutturale limitato sotto.
+# sempre riportarli per intero (G18). Giro 4 (CA G3-05): NESSUN'ALTRA chiave
+# passa, nemmeno in forma strutturale (prima: un identificatore puntato
+# minuscolo con al piu' 4 segmenti passava comunque, un canale di testo
+# residuo dal chiamante).
 _KNOWN_SIGNAL_KEYS = (
     frozenset(key for spec in ATTRIBUTE_WHITELIST.values() for key in spec)
     | frozenset(TRACE_FIELD_WHITELIST)
@@ -323,18 +325,15 @@ _KNOWN_SIGNAL_KEYS = (
 
 
 def safe_signal_key_name(key: str) -> tuple[str | None, int]:
-    """Nome di chiave da riportare in un segnale (vincolo B7, G18).
+    """Nome di chiave da riportare in un segnale (vincolo B7, G18, G3-05).
 
     Ritorna (nome, lunghezza): il nome compare per intero solo se e' una
-    chiave della whitelist reale di E1, oppure un identificativo puntato
-    minuscolo con al piu' 4 segmenti brevi (invariante strutturale);
-    altrimenti None e solo la lunghezza originale (mai il contenuto).
+    chiave della whitelist reale di E1 (`_KNOWN_SIGNAL_KEYS`); per qualunque
+    altra chiave, solo la lunghezza originale (mai il contenuto).
     """
     length = len(key) if isinstance(key, str) else -1
     if not isinstance(key, str) or len(key) > _SIGNAL_KEY_NAME_MAX_LEN:
         return None, length
     if key in _KNOWN_SIGNAL_KEYS:
-        return key, length
-    if _SIGNAL_KEY_NAME_RE.fullmatch(key):
         return key, length
     return None, length

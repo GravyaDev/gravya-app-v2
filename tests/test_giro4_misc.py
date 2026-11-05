@@ -12,14 +12,23 @@ fissi dei revisori costruiscono l'helper con `production_override=True` senza
 from __future__ import annotations
 
 import json
+import time
 import uuid
+from datetime import datetime, timezone
 
+import psycopg
 import pytest
 
 from gravya_e1.config.variables import SnapshotVariableRegistry
+from gravya_e1.models import SegmentEnd
+from gravya_e1.signals import PostgresSignalSink
 from gravya_e1.tracing import TenantContextRequiredError, TracingHelper
 
 from _e1vars import snapshot_with
+from _freezable_proxy import FreezableProxy, tcp_ok
+
+TEST_DB = "gravya_e1_test"
+NOW = lambda: datetime.now(timezone.utc)  # noqa: E731
 
 
 def _prod_registry(tmp_path, signal_sink):
@@ -82,3 +91,61 @@ def test_con_tenant_context_nessun_segnale_di_assenza_fuori_produzione(variables
     helper = make_helper(variables, signal_sink, key_provider, tenant_context=str(uuid.uuid4()))
     assert helper is not None
     assert not [e for e in signal_sink.signals if e.kind == "trace.tenant_context_absent"]
+
+
+# --- G3-04 (decisione del coordinator): API_ENV fuori insieme chiuso -------
+# Non blocca l'avvio (contraddirebbe test_R15b, bloccato dal giro 1: solo
+# "production" esatto conta), ma emette un segnale distinto.
+
+
+def test_api_env_fuori_insieme_chiuso_non_blocca_ma_segnala(monkeypatch, variables, signal_sink, key_provider, make_helper):
+    monkeypatch.setenv("API_ENV", "Production")  # fuori insieme chiuso (non e' "production" esatto)
+    helper = make_helper(variables, signal_sink, key_provider, tenant_context=str(uuid.uuid4()))
+    assert helper is not None
+    assert "e5.environment_invalid" in signal_sink.kinds()
+
+
+def test_api_env_valore_noto_non_segnala_invalido(monkeypatch, variables, signal_sink, key_provider, make_helper):
+    monkeypatch.setenv("API_ENV", "development")
+    helper = make_helper(variables, signal_sink, key_provider, tenant_context=str(uuid.uuid4()))
+    assert helper is not None
+    assert "e5.environment_invalid" not in signal_sink.kinds()
+
+
+def test_api_env_assente_non_segnala_invalido_solo_non_dichiarato(signal_sink, key_provider, make_helper, variables):
+    helper = make_helper(variables, signal_sink, key_provider, tenant_context=str(uuid.uuid4()))
+    assert helper is not None
+    assert "e5.environment_invalid" not in signal_sink.kinds()
+    assert "e5.environment_undeclared" in signal_sink.kinds()
+
+
+# --- G3-01: i segnali passano da una coda/thread propri, il chiamante non aspetta ---
+
+
+def test_segnale_con_sink_bloccato_il_chiamante_non_aspetta(variables, key_provider, make_helper, admin_conn, ensure_partitions_now):
+    """Giro 4 (CA G3-01): un `PostgresSignalSink` la cui connessione si blocca
+    dopo essere stata stabilita (stessa tecnica di
+    code-reviewer-giro3/test_giro3.py::test_N1/N2, qui sul sink dei segnali,
+    non sulla scrittura) non deve far aspettare il chiamante: i segnali
+    passano da una coda e un thread di sfondo propri (separati dalle
+    scritture)."""
+    if not tcp_ok():
+        pytest.skip("TCP non disponibile")
+    proxy = FreezableProxy()
+    sink_conn = psycopg.connect(f"host=127.0.0.1 port={proxy.port} user=root dbname={TEST_DB}")
+    sink = PostgresSignalSink(sink_conn)
+    helper = make_helper(variables, sink, key_provider, production_override=True)
+    try:
+        proxy.frozen = True
+        t0 = time.perf_counter()
+        for _ in range(30):
+            helper.end_segment(
+                None,
+                SegmentEnd(segment_id=uuid.uuid4(), tenant_id=uuid.uuid4(), ended_at=NOW(), status="ok"),
+                "kind_sconosciuto_bogus",
+            )  # kind sconosciuto in produzione: scarto con segnale (trace.segment_attribute_discarded)
+        elapsed = time.perf_counter() - t0
+        assert elapsed < 1.0, f"il chiamante ha aspettato {elapsed:.2f}s con il sink dei segnali bloccato"
+    finally:
+        proxy.frozen = False
+        sink_conn.close()
