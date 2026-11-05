@@ -17,10 +17,10 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 - Decisioni M1-M5 dell'utente («ok», 2026-11-05): ultimo giro unico. Catalogo v1.7 fatto dal coordinator.
 - **Implementer, giro 5** — task `docs/revisioni/impl-e1/task-implementer-giro5.md` (branch `claude/impl-e1`, commit 09b7162). Se interrotto: controllare i commit dopo 09b7162 e la sezione «Giro 5» del report; altrimenti rilanciare da quel task.
 - **Doc-writer, E1 v1.9** — task `docs/revisioni/e1-v1.9/task-doc-writer.md` (branch `claude/docs-ondata-1`). Se interrotto: rilanciare; poi controllare le righe 1.0-1.8 dello Storico di E1.
-- **Registrar** — esiti della revisione di E1 v1.8 e del giro 4 e decisioni M1-M5 (testo nel messaggio; se interrotto, ricostruirlo da questo file: «ok» ai punti 1 ultimo giro unico, 2 e1.write_connect_timeout_s minimo 2, 3 API_ENV fuori insieme blocca l'avvio, 4 chiave 32 byte invariante provvisoria, 5 nessun dato reale prima di DA-E1-13, segnali durevoli di A5 e procedura di installazione approvata).
+- Registrar concluso: decisioni M1-M5 ed esiti registrati, commit 1ecfe11.
 
 ## Prossimi passi, in ordine
-1. Verificare giro 5, E1 v1.9 e il diff del registrar; commit.
+1. Verificare giro 5 ed E1 v1.9; commit.
 2. Verifica mirata finale: code-reviewer sulle modifiche del giro 5; plan-auditor e compliance-auditor su E1 v1.9 e catalogo v1.7. Poi registrar.
 3. Chiedere all'utente quando e dove unire `claude/impl-e1`.
 4. Poi: A1 (passi 3-4) sull'ossatura; v1.7 di allineamento degli altri documenti (F2, `run_id` UUID, `gravya.tool.outcome` in B2, C3 con F4); approvazione dei sette documenti; ondata 2 (A5, A6, F6).
