@@ -14,12 +14,14 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 - Decisioni del 2026-11-05 su E1 v1.7 registrate (deroga C2 per l'ondata 1, DA-E1-13, tenant di contesto, avvio bloccato in produzione).
 
 ## In corso (agenti lanciati, non conclusi)
-- **Implementer, giro 4 su E1** — task `docs/revisioni/impl-e1/task-implementer-giro4.md` (branch `claude/impl-e1`, commit 3649b15). Se la sessione si interrompe: controllare i commit su `claude/impl-e1` dopo 3649b15 e la sezione «Giro 4» del report; se assente o incompleta, rilanciare l'implementer con quel task. Stato al 2026-11-05: correzioni fatte, in attesa di commit; indicazioni del coordinator date: test_G15b fallito atteso; API_ENV fuori insieme = segnale e5.environment_invalid senza blocco (coerente con test_R15b); README «Esecuzione locale» alla radice del branch claude/impl-e1.
+- Giro 4 dell'implementer **concluso**: `claude/impl-e1` a 8dfb1de (verificato: 69 test, prove giro 3 con N4/N10 attesi, script non superuser OK; README «Esecuzione locale» alla radice del branch).
+- **Code-reviewer, verifica mirata del giro 4** — task `docs/revisioni/impl-e1/task-code-reviewer-giro4.md` (branch `claude/impl-e1`, commit 14a743e). Se interrotto: rilanciare da quel task (report atteso `report-code-reviewer-giro4.md`).
+- **Doc-writer, E1 v1.8** — task `docs/revisioni/e1-v1.8/task-doc-writer.md` (branch `claude/docs-ondata-1`). Se interrotto: rilanciare da quel task; poi controllare che le righe 1.0-1.7 dello Storico di E1 siano intatte.
+- Catalogo v1.6 fatto dal coordinator.
 
 ## Prossimi passi, in ordine
-1. Verificare il giro 4 (test 10 volte, prove dei revisori con `PGDATABASE`, nessun file in /tmp), poi code-reviewer **solo sulle modifiche** del giro 4 (task da scrivere in `docs/revisioni/impl-e1/`).
-2. E1 v1.8 (doc-writer) e catalogo v1.6 (coordinator): chiudere i rilievi della voce «Da riportare. Revisione di E1 v1.7 e catalogo v1.5» di DECISIONS §4 (report in `docs/revisioni/e1-v1.7/`), con DA-E1-13 in App. C, deroga C2, tenant di contesto, avvio bloccato, formati e chiave minima 32 byte nel catalogo §18, regola 11 per le variabili `e1.write_*`, valore di sviluppo di `e1.write_tcp_user_timeout_ms`. Poi plan-auditor e compliance-auditor, poi registrar.
-3. Verificare il README di esecuzione locale (chiesto all'implementer nel giro 4).
+1. Esito del code-reviewer sul giro 4.
+2. Verificare E1 v1.8 (doc-writer) con il catalogo v1.6 già fatto, poi plan-auditor e compliance-auditor, poi registrar. Contenuto richiesto: chiudere i rilievi della voce «Da riportare. Revisione di E1 v1.7 e catalogo v1.5» di DECISIONS §4 (report in `docs/revisioni/e1-v1.7/`), con DA-E1-13 in App. C, deroga C2, tenant di contesto, avvio bloccato, formati e chiave minima 32 byte nel catalogo §18, regola 11 per le variabili `e1.write_*`, valore di sviluppo di `e1.write_tcp_user_timeout_ms`. Poi plan-auditor e compliance-auditor, poi registrar.
 4. Chiedere all'utente quando e dove unire `claude/impl-e1`.
 5. Poi: A1 (passi 3-4) sull'ossatura; v1.7 di allineamento degli altri documenti (F2, `run_id` UUID, `gravya.tool.outcome` in B2, C3 con F4); approvazione dei sette documenti; ondata 2 (A5, A6, F6).
 
