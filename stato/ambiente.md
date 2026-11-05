@@ -13,7 +13,7 @@
 ## Repository, piattaforma (keywords: clone, token, branch)
 - gravya-app-v2 (privato): `git clone https://github.com/GravyaDev/gravya-app-v2.git`, branch di lavoro `claude/docs-ondata-1`; master è vuoto.
 - Il token di sessione vale solo per gravya-app-v2 e può essere ritirato dall'utente: in quel caso niente push, si consegna l'elenco dei file modificati.
-- gravya-app (sviluppo, riferimento) e gravya-app-kloudify (stato) sono pubblici: si clonano con `git -c credential.helper= clone https://github.com/GravyaDev/<repo>.git /workspace/<repo>` (con l'helper attivo rispondono "not found"). Sono solo riferimenti (PV-03).
+- gravya-app e gravya-app-kloudify: verificato il 2026-11-05 (sessione 8) che **non** sono più leggibili senza credenziali (`git ls-remote` senza helper chiede l'utente); la nota precedente «pubblici» è superata. Sono solo riferimenti (PV-03). Nella sessione 8 erano già clonati in `/workspace/` (effimero). L'utente può ritirare il token per questi repository: per un nuovo dossier del code-reader (per esempio l'Appendice A dei documenti dell'ondata 2) va chiesto un accesso o un clone locale.
 
 - Clone locale all'avvio (sessione 6): HEAD staccato, con il branch locale `claude/docs-ondata-1` indietro di 31 commit rispetto a origin. Prima di leggere: `git fetch origin claude/docs-ondata-1 && git checkout claude/docs-ondata-1 && git merge --ff-only origin/claude/docs-ondata-1`.
 
