@@ -1,0 +1,128 @@
+{
+  "branch": "impl/ci-locale",
+  "commit": [
+    "505ff88 CI: solo push e avvio manuale, nessuna esecuzione per soli documenti, concurrency; OSV su GitHub solo se cambiano lockfile/script/workflow",
+    "ea97eb9 Test delle costanti di osv-check con valori letterali documentati (minore f del giro 1)",
+    "5d8d0fb Job settimanale locale della catena di fornitura: OSV, digest di PostgreSQL, lockfile alle ultime versioni con PR, issue assegnate",
+    "9b2ce63 Timer systemd utente settimanale e installazione idempotente",
+    "b57829d agenti.py worktree-unisci: OSV e suite nel worktree prima del merge --no-ff in main, senza push",
+    "25c81cd README: CI ridotta, job settimanale locale, timer e worktree-unisci",
+    "2a314d5 Report dell'implementer: CI ridotta e job locali (ci-locale)",
+    "431a9f3 Report ci-locale: esito della CI",
+    "65c4b12 Report ci-locale: prova reale del push di soli documenti"
+  ],
+  "criteri": [
+    {
+      "id": "Punto 1 - workflow: solo push e avvio manuale, paths-ignore, concurrency, OSV solo se cambiano lockfile/script/workflow, nessun schedule né job del digest",
+      "stato": "implementato",
+      "test": "tests/test_ci_workflow_minuti.py::test_solo_push_e_manuale, ::test_concurrency_annulla_lo_stesso_branch, ::test_commit_di_soli_documenti_non_avvia_nulla, ::test_ci_parte_se_cambia_altro, ::test_osv_su_github_solo_se_cambiano_lockfile_script_o_workflow, ::test_fornitura_ha_solo_il_job_osv",
+      "eseguito": "pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp (suite intera, ambiente ci-locale.env): 209 passed. Prova reale: dopo il push di soli documenti (431a9f3) nessuna esecuzione avviata."
+    },
+    {
+      "id": "Punto 1 - verifica documentale sui minuti di Dependabot e Graph Update",
+      "stato": "parziale",
+      "test": "assente (verifica documentale ed empirica, nel report)",
+      "eseguito": "Dependabot: la pagina di fatturazione di GitHub dice che i runner sono gratuiti per Dependabot. Graph Update: nessuna frase esplicita trovata nella documentazione. Le 4 esecuzioni 'dynamic' del repository hanno billable vuoto (gh api .../timing)."
+    },
+    {
+      "id": "Punto 2 - fornitura-locale.py: OSV, digest con prova su digest diverso, lockfile con branch/push/PR, issue assegnate senza duplicati, costanti in testa, codici distinti",
+      "stato": "implementato",
+      "test": "tests/test_fornitura_locale.py (32 test: ::test_digest_provato_su_un_digest_diverso_senza_docker, ::test_digest_cambiato_da_docker, ::test_issue_non_duplicata_se_gia_aperta_con_lo_stesso_titolo, ::test_lockfile_cambiato_branch_push_e_pr, ::test_lockfile_prova_non_pubblica_nulla, ::test_lockfile_pr_di_lockfile_gia_aperta_non_ne_apre_un_altra, ::test_lockfile_guasti_danno_errore_e_issue, altri)",
+      "eseguito": "pytest dedicato: 32 passed. Con tre mutazioni a mano i test falliscono. Esecuzione reale 'python3 scripts/fornitura-locale.py --prova': osv OK (18 pacchetti), digest OK, lockfile già aggiornato, uscita 0, nessuna issue né PR. Con '--solo digest --prova --digest-attuale sha256:ffff…': uscita 2."
+    },
+    {
+      "id": "Punto 3 - unità systemd utente versionate, installazione idempotente, README",
+      "stato": "implementato",
+      "test": "tests/test_timer_fornitura.py (::test_timer_settimanale_persistente, ::test_installazione_sostituisce_il_percorso_ed_e_idempotente, ::test_systemd_analyze_verify, altri)",
+      "eseguito": "pytest dedicato: 6 passed. 'systemd-analyze --user verify' sui file generati: codice 0 senza messaggi. Timer NON installato, come richiesto."
+    },
+    {
+      "id": "Punto 4 - agenti.py worktree-unisci: OSV e suite con .env del worktree, merge --no-ff solo se riescono, nessun push",
+      "stato": "implementato",
+      "test": "tests/test_agenti_unisci.py (::test_controlli_riusciti_merge_no_ff_con_messaggio_senza_push, ::test_un_controllo_fallito_rifiuta_e_main_non_cambia, ::test_variabili_del_file_env_arrivano_ai_controlli, ::test_conflitto_annulla_il_merge_e_main_resta_com_era, altri)",
+      "eseguito": "pytest dedicato: 13 passed (git reale su repository temporanei; i controlli OSV e suite sono sostituiti da comandi finti). Il comando reale con OSV e suite vere non è stato eseguito su un worktree vero."
+    },
+    {
+      "id": "Punto 5 - test delle costanti di osv-check non tautologici",
+      "stato": "implementato",
+      "test": "tests/test_ci_osv_check.py::test_costanti_hanno_i_valori_documentati, ::test_la_richiesta_usa_url_ed_ecosistema_documentati",
+      "eseguito": "pytest tests/test_ci_osv_check.py: 37 passed"
+    },
+    {
+      "id": "Punto 6 - criterio di fine (suite verde, prova locale, verify, CI verde dopo un solo push)",
+      "stato": "implementato",
+      "test": "intera suite tests/",
+      "eseguito": "pytest: 209 passed. CI su GitHub dopo il push (2a314d5): 'CI' success (test e test-non-superuser) e 'Catena di fornitura' success. Il push contiene codice, è l'unico che ha avviato workflow."
+    }
+  ],
+  "file_modificati": [
+    ".github/workflows/ci.yml",
+    ".github/workflows/fornitura.yml",
+    ".gitignore",
+    "README.md",
+    "scripts/fornitura-locale.py",
+    "scripts/installa-timer-fornitura.sh",
+    "scripts/agenti.py",
+    "systemd/gravya-fornitura.service",
+    "systemd/gravya-fornitura.timer",
+    "tests/test_ci_workflow_minuti.py",
+    "tests/test_ci_osv_check.py",
+    "tests/test_fornitura_locale.py",
+    "tests/test_timer_fornitura.py",
+    "tests/test_agenti_unisci.py",
+    "docs/revisioni/ci-locale/report-implementer.md"
+  ],
+  "decisioni_mancanti": [
+    {
+      "punto": "Il Graph Update del dependency graph consuma minuti in un repository privato? La documentazione non lo dice in modo esplicito.",
+      "riferimento": "task, vincolo 1; documentazione di GitHub sul dependency graph",
+      "cosa_serve": "Una conferma dall'utente, per esempio dal pannello di fatturazione di GitHub. I dati delle 4 esecuzioni 'dynamic' indicano che non sono fatturate. Non ho toccato le impostazioni del repository."
+    },
+    {
+      "punto": "Fissare la versione di pip-tools, usato per rigenerare il lockfile? Oggi si scarica l'ultima versione in una venv di lavoro.",
+      "riferimento": "DECISIONS §6 «Catena di fornitura» (lockfile con hash); decisione (a) del 2026-11-05",
+      "cosa_serve": "Se pip-tools va fissato (e dove), cosa che richiederebbe un file di requisiti separato con hash. Il lockfile non si poteva toccare in questo task."
+    },
+    {
+      "punto": "Il controllo del merge deve rifiutare quando main è andato avanti rispetto al branch? Oggi worktree-unisci avvisa soltanto, perché il task non prevede il blocco.",
+      "riferimento": "task, vincolo 4",
+      "cosa_serve": "Se i controlli devono provare il risultato del merge e non solo il branch."
+    },
+    {
+      "punto": "Una issue aperta dal job va chiusa da sola quando il problema rientra, e il fallimento è un segnale ad A5?",
+      "riferimento": "DECISIONS §4 (b), segnale ad A5 non deciso",
+      "cosa_serve": "Una decisione. Oggi le issue non si chiudono da sole e non c'è nessun segnale ad A5."
+    }
+  ],
+  "divergenze": [
+    {
+      "dove": "DECISIONS §6 riga «Catena di fornitura», punto (1)",
+      "problema": "La riga dice che il controllo OSV parte a ogni push e ogni settimana, e che Dependabot copre i pacchetti Python. Con le istruzioni dell'utente del 2026-11-05 su GitHub parte solo se cambiano lockfile, script OSV o workflow, e la scadenza settimanale e il digest passano in locale. Ho seguito il task. La riga va aggiornata dal registrar."
+    },
+    {
+      "dove": "DECISIONS §6 «Minuti di GitHub Actions»",
+      "problema": "La riga indicata come «in registrazione» non c'è ancora in docs/DECISIONS.md al commit di partenza. Ho seguito il task e la decisione dell'utente citata alla lettera."
+    },
+    {
+      "dove": "DECISIONS §4 (b), controllo obbligatorio prima del merge",
+      "problema": "L'obbligo è attuato solo in locale con worktree-unisci. Nessuna protezione del branch su GitHub, perché i merge si fanno in locale. Il coordinator deve usare quel comando, altrimenti l'obbligo non è applicato."
+    },
+    {
+      "dove": "DX-22 / DX-13",
+      "problema": "Le costanti dei nuovi script (assegnatario GravyaDev, titoli delle issue, prefisso del branch, timeout, identità dei commit del branch del lockfile) sono in testa agli script con il motivo, come chiede il task, non nel registro delle variabili. Le ho trattate come costanti di uno strumento locale, non come variabili applicative."
+    },
+    {
+      "dove": "Task, vincolo 2 («solo libreria standard più gh, docker, git»)",
+      "problema": "Per rigenerare il lockfile serve anche pip-tools, che lo script installa in una venv di lavoro dentro .fornitura-lavoro/ (ignorata da git)."
+    }
+  ],
+  "non_verificato": [
+    "Il job completo non è stato provato senza --prova: apertura reale di issue, push del branch impl/lockfile-* e gh pr create sono provati solo con esecutori finti e git reale su repository temporanei. Nella prova reale il lockfile era già aggiornato, quindi il ramo «PR aperta» non è stato percorso dal vivo.",
+    "Le credenziali di git per il push da servizio systemd utente (credential helper di gh) non sono verificate. Il timer non è installato e non è stato eseguito da systemd.",
+    "Il matcher dei percorsi nei test riproduce le regole documentate di GitHub, non il suo motore. La prova reale è un solo push di soli documenti, che non ha avviato nulla.",
+    "Il test systemd-analyze si salta su GitHub (GITHUB_ACTIONS). Lì non è verificato, in locale sì.",
+    "worktree-unisci non è stato eseguito con OSV e suite vere su un worktree vero. I test sostituiscono i due controlli con comandi finti, e la composizione dei comandi reali è verificata a parte.",
+    "Le impostazioni di Dependabot e del dependency graph sul repository non sono state toccate né lette."
+  ],
+  "report": "docs/revisioni/ci-locale/report-implementer.md"
+}
