@@ -1,0 +1,47 @@
+{
+  "branch": "impl/ci-fornitura",
+  "commit": [
+    "e3759ef E1 CI osv-check: errori di rete di invia_http coperti e fail-closed (giro 2, punti 1-2)",
+    "c11fa33 E1 CI osv-check: lettura del lockfile fail-closed (giro 2, punto 3)",
+    "3f64f3d E1 CI osv-check: report giro 2"
+  ],
+  "criteri": [
+    {
+      "id": "Giro2-1 invia_http: rete giù, timeout, stato != 200, corpo non JSON, risposta troncata → codice 2",
+      "stato": "implementato",
+      "test": "tests/test_ci_osv_check.py::test_invia_http_errori_danno_codice_2, ::test_invia_http_rete_non_raggiungibile_codice_2, ::test_invia_http_timeout_codice_2, ::test_invia_http_risposta_valida_passa_per_la_rete_reale",
+      "eseguito": "prova-mutante.sh: suite del branch sul mutante 8 failed (prima 11 passed); prove del reviewer 3 failed sul mutante e 3 passed sul branch. pytest completo: 117 passed"
+    },
+    {
+      "id": "Giro2-2 http.client.IncompleteRead e HTTPException come errore OSV (codice 2, senza traceback)",
+      "stato": "implementato",
+      "test": "tests/test_ci_osv_check.py::test_invia_http_errori_danno_codice_2[risposta_troncata]",
+      "eseguito": "pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp: 117 passed"
+    },
+    {
+      "id": "Giro2-3 lockfile fail-closed e pacchetti letti = blocchi",
+      "stato": "implementato",
+      "test": "tests/test_ci_osv_check.py::test_lockfile_riga_di_formato_inatteso_fa_errore, ::test_lockfile_numero_pacchetti_uguale_ai_blocchi, ::test_lockfile_attuale_e_conforme",
+      "eseguito": "pytest completo 117 passed; python3 scripts/osv-check.py requirements.lock.txt → exit 0 (18 pacchetti)"
+    },
+    {
+      "id": "Giro2-5 CI verde dopo il push",
+      "stato": "implementato",
+      "test": "assente",
+      "eseguito": "gh run list: CI e Catena di fornitura success su 3f64f3d"
+    }
+  ],
+  "file_modificati": [
+    "scripts/osv-check.py",
+    "tests/test_ci_osv_check.py",
+    "docs/revisioni/ci-fornitura/report-implementer.md"
+  ],
+  "decisioni_mancanti": [],
+  "divergenze": [],
+  "non_verificato": [
+    "Il controllo 'pacchetti letti == blocchi' non è raggiungibile da input reali: la lettura rigorosa riga per riga fallisce prima. Resta come difesa; il test ne verifica solo l'uguaglianza e nessun mutante lo distingue da solo.",
+    "Il caso 'stato 204' non è rilevato dal mutante del reviewer, che non tocca la riga del controllo dello stato. Il caso è coperto da un test sul codice corretto.",
+    "La commit identity non era configurata nel worktree: ho usato le variabili GIT_AUTHOR/COMMITTER (Claude <noreply@anthropic.com>, come i commit precedenti) senza modificare la configurazione."
+  ],
+  "report": "docs/revisioni/ci-fornitura/report-implementer.md"
+}
