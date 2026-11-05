@@ -1,0 +1,10 @@
+run 1 | tests/: 69 passed in 2.18s | giro1: 39 passed, 1 error in 6.00s | giro2: 13 failed, 34 passed in 1.49s | giro3: 2 failed, 11 passed in 9.23s
+run 2 | tests/: 69 passed in 2.17s | giro1: 39 passed, 1 error in 5.88s | giro2: 13 failed, 34 passed in 1.58s | giro3: 2 failed, 11 passed in 9.13s
+run 3 | tests/: 69 passed in 2.27s | giro1: 39 passed, 1 error in 5.90s | giro2: 13 failed, 34 passed in 1.56s | giro3: 2 failed, 11 passed in 9.23s
+run 4 | tests/: 69 passed in 2.23s | giro1: 39 passed, 1 error in 6.03s | giro2: 13 failed, 34 passed in 1.50s | giro3: 2 failed, 11 passed in 9.25s
+run 5 | tests/: 69 passed in 2.13s | giro1: 39 passed, 1 error in 5.94s | giro2: 13 failed, 34 passed in 1.68s | giro3: 2 failed, 11 passed in 9.41s
+run 6 | tests/: 69 passed in 2.36s | giro1: 39 passed, 1 error in 6.05s | giro2: 13 failed, 34 passed in 1.60s | giro3: 2 failed, 11 passed in 9.27s
+run 7 | tests/: 69 passed in 2.15s | giro1: 39 passed, 1 error in 6.10s | giro2: 13 failed, 34 passed in 1.58s | giro3: 2 failed, 11 passed in 9.35s
+run 8 | tests/: 69 passed in 2.19s | giro1: 39 passed, 1 error in 5.99s | giro2: 13 failed, 34 passed in 1.59s | giro3: 2 failed, 11 passed in 9.16s
+run 9 | tests/: 69 passed in 2.24s | giro1: 39 passed, 1 error in 6.02s | giro2: 13 failed, 34 passed in 1.61s | giro3: 2 failed, 11 passed in 9.30s
+run 10 | tests/: 69 passed in 2.31s | giro1: 39 passed, 1 error in 5.96s | giro2: 13 failed, 34 passed in 1.60s | giro3: 2 failed, 11 passed in 9.39s

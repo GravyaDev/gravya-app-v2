@@ -7,27 +7,30 @@ Stato del codice di riferimento: `gravya-app` al commit `349118b11` (2026-11-02)
 
 | File | Contenuto |
 |---|---|
-| [DECISIONS.md](DECISIONS.md) | Registro delle decisioni aperte: 21 trasversali (DX) e 67 per documento (DA) |
-| [agenti/README.md](agenti/README.md) | Agenti di governance (registrar, plan-auditor, code-reviewer, compliance-auditor, doc-writer): prompt e regole di attivazione |
+| [DECISIONS.md](DECISIONS.md) | Registro delle decisioni correnti: decisioni trasversali (§1), per documento (§2), escalation (§3), da riportare (§4), durate (§5), regole di progetto (§6), catalogo (§7). 22 DX e 120 DA (per documento e del catalogo), incluse le 23 DA-CV. Solo decisioni in vigore e aperte; la storia è in `decisioni-archivio.md` |
+| [decisioni-archivio.md](decisioni-archivio.md) | Storia delle decisioni: righe superate, chiuse o assorbite, precisazioni e testi dell'utente alla lettera. Non letta all'avvio |
+| [catalogo-variabili.md](catalogo-variabili.md) | Catalogo delle variabili di piattaforma, v1.5 (2026-11-05, commit 27cdae4, registro delle norme v1.6). Decisioni DA-CV-01…23 decise il 2026-11-04 (DA-CV-18…23 con «Ok» dell'utente); valori aperti per DA-CV-01 (valori min/max della retention) e DA-CV-08 (termine verso le agenzie), e le righe «Da riportare» di DECISIONS §4. Le variabili `e1.*` di E1 v1.7 sono nel catalogo come «da definire» |
+| [agenti/README.md](agenti/README.md) | Agenti (coordinator, registrar, regulatory-researcher, plan-auditor, code-reviewer, compliance-auditor, doc-writer, code-reader, implementer): prompt e regole di attivazione |
 | [revisione-ondata-1.md](revisione-ondata-1.md) | Revisione di coerenza dell'ondata 1: matrice delle dipendenze, correzioni fatte, problemi aperti |
 | [stato/sviluppo.md](stato/sviluppo.md) | Ricognizione di `gravya-app`: stack, struttura, cosa esiste per ciascun tema |
 | [stato/kloudify.md](stato/kloudify.md) | Ricognizione di `gravya-app-kloudify`: stato del progetto, regole Beta, priorità |
+| [norme-di-riferimento.md](norme-di-riferimento.md) | Registro delle norme di riferimento (GDPR, Codice privacy, NIS2, AI Act con Omnibus, CRA, Data Act, DSA) e lacune rispetto ai documenti: §9 |
 
 ## Ondata 1: walking skeleton
 
-Stato: **v1.3 (con le decisioni dell'utente del 2026-11-03), in attesa di verifica dell'utente**. Principi vincolanti: [PRINCIPI.md](PRINCIPI.md).
+Stato: **tutti i documenti alla v1.6 (2026-11-04, decisioni fino a F1-F4)**. **E1 e A1 approvati dall'utente come base dell'implementazione** (opzione (a): F2 e F3 applicati nel codice; v1.7 di allineamento dei testi da fare). **A3, B1, B2, C1, C3, E2, E3 in attesa di approvazione dell'utente.** Principi vincolanti: [PRINCIPI.md](PRINCIPI.md).
 
 | ID | Documento | Componente | Taglia | Decisioni aperte |
 |---|---|---|---|---|
-| E1 | [Tracing distribuito](E1-tracing-distribuito.md) | E: Osservabilità e Valutazione | M (L) | DA-E1-01…04 |
-| E2 | [Prompt registry](E2-prompt-registry.md) | E: Osservabilità e Valutazione | M | DA-E2-01…05 |
-| E3 | [Eval harness offline](E3-eval-harness-offline.md) | E: Osservabilità e Valutazione | L | DA-E3-01…07 |
-| A1 | [Modello del grafo dei mandati](A1-grafo-mandati.md) | A: Control Plane | L (M) | DA-A1-01…06 |
-| A3 | [Runtime di enforcement](A3-runtime-enforcement.md) | A: Control Plane | M (L) | DA-A3-01…05 |
-| B1 | [Agent runtime isolato](B1-agent-runtime-isolato.md) | B: Runtime Agenti | L | DA-B1-01…05 |
-| B2 | [Tool gateway](B2-tool-gateway.md) | B: Runtime Agenti | M (L) | DA-B2-01…05 |
-| C1 | [Grafo di workflow](C1-grafo-workflow.md) | C: Orchestrazione | L | DA-C1-01…04 |
-| C3 | [Punto HITL](C3-punto-hitl.md) | C: Orchestrazione | L | DA-C3-01…04 |
+| E1 | [Tracing distribuito](E1-tracing-distribuito.md) | E: Osservabilità e Valutazione | M (L) | nessuna (DA-E1-03, 04, 07: ipotesi di lavoro decise il 2026-11-04) |
+| E2 | [Prompt registry](E2-prompt-registry.md) | E: Osservabilità e Valutazione | M | DA-E2-01…03; DA-E2-04 (parte residua: approvazione C3 per le versioni umane) |
+| E3 | [Eval harness offline](E3-eval-harness-offline.md) | E: Osservabilità e Valutazione | L | DA-E3-01, DA-E3-03…05 |
+| A1 | [Modello del grafo dei mandati](A1-grafo-mandati.md) | A: Control Plane | L (M) | DA-A1-03…04 |
+| A3 | [Runtime di enforcement](A3-runtime-enforcement.md) | A: Control Plane | M (L) | DA-A3-01…04 |
+| B1 | [Agent runtime isolato](B1-agent-runtime-isolato.md) | B: Runtime Agenti | L | DA-B1-01…03 |
+| B2 | [Tool gateway](B2-tool-gateway.md) | B: Runtime Agenti | M (L) | DA-B2-03, DA-B2-05 |
+| C1 | [Grafo di workflow](C1-grafo-workflow.md) | C: Orchestrazione | L | DA-C1-03 |
+| C3 | [Punto HITL](C3-punto-hitl.md) | C: Orchestrazione | L | nessuna |
 
 Tra parentesi la taglia alternativa, che dipende da una decisione aperta (vedi §12 di ciascun documento).
 
