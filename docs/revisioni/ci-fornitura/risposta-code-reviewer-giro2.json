@@ -1,0 +1,72 @@
+{
+  "esito": "BLOCCA",
+  "criteri": [
+    {
+      "id": "G2-1 mutanti di invia_http (rete, timeout, stato != 200, corpo non JSON, troncata)",
+      "test": "tests/test_ci_osv_check.py::test_invia_http_errori_danno_codice_2, test_invia_http_rete_non_raggiungibile_codice_2, test_invia_http_timeout_codice_2",
+      "verifica_reale": false,
+      "eseguito": "prova-mutante.sh: suite del branch sul mutante del giro 1 = 8 falliti (prima 11 passati); prove del giro 1: 3 falliti sul mutante, 3 passati sul branch. pytest tests/test_ci_osv_check.py sul branch: 29 passati. prova-sopravvissuti.sh: i mutanti 'controllo stato rimosso' e 'timeout=None' lasciano la suite a 29 passati.",
+      "note": "Il mutante che ingoia l'errore è ucciso (7 test). Il controllo `status != HTTP_OK` non è protetto da nessun test: urlopen solleva HTTPError per 4xx e 5xx, e il caso 204 ha corpo vuoto, quindi json.loads fallisce comunque con codice 2. Solo un 2xx diverso da 200 con corpo valido distingue il controllo. Il test del timeout fa rispondere il server con `{}`, che dà codice 2 anche senza timeout."
+    },
+    {
+      "id": "G2-2 IncompleteRead e altri errori http.client → codice 2 senza traceback",
+      "test": "tests/test_ci_osv_check.py::test_invia_http_errori_danno_codice_2[risposta_troncata]",
+      "verifica_reale": true,
+      "eseguito": "Il mutante senza http.client.HTTPException fa fallire risposta_troncata. Prova a mano con socket grezzo: BadStatusLine, RemoteDisconnected e IncompleteRead diventano tutti ErroreOsv (codice 2).",
+      "note": "Il test asserisce codice 2, 'ERRORE:' su stderr e assenza di 'Traceback'."
+    },
+    {
+      "id": "G2-3 lockfile fail-closed",
+      "test": "tests/test_ci_osv_check.py::test_lockfile_riga_di_formato_inatteso_fa_errore, test_lockfile_numero_pacchetti_uguale_ai_blocchi, test_lockfile_attuale_e_conforme",
+      "verifica_reale": true,
+      "eseguito": "Sui mutanti, `main` che non cattura ErroreLockfile: 7 falliti. Rimozione di entrambe le difese (riga ignorata + controllo dei conteggi): 7 falliti. `python3 scripts/osv-check.py requirements.lock.txt`: esito 0 su 18 pacchetti.",
+      "note": "Il controllo dei conteggi è ridondante rispetto al regex rigoroso, come l'implementer dichiara nel report. Ciascuna delle due difese tolta da sola non cambia l'esito. Non è un difetto."
+    },
+    {
+      "id": "G2-4 nessun cambiamento fuori perimetro",
+      "test": "assente",
+      "verifica_reale": true,
+      "eseguito": "git diff --name-only a0f238c..impl/ci-fornitura: scripts/osv-check.py, tests/test_ci_osv_check.py, docs/revisioni/ci-fornitura/report-implementer.md",
+      "note": "Nessun workflow, Dependabot, README né funzionalità non documentata."
+    }
+  ],
+  "rilievi": [
+    {
+      "gravita": "bloccante",
+      "file_riga": "scripts/osv-check.py, invia_http: `if risposta.status != HTTP_OK` (test in tests/test_ci_osv_check.py, CASI_RETE stato_500/404/204)",
+      "problema": "Il rifiuto di uno stato HTTP diverso da 200 non è protetto da nessun test. Rimuovere il controllo (`if False:`) o ridurlo a `>= 400` lascia la suite verde (29 passati). I casi 500 e 404 passano per HTTPError di urlopen, il caso 204 per il fallimento del parse JSON. Un 201, 203 o 206 con corpo `{\"results\":[{}]}` verrebbe accettato come 'nessuna vulnerabilità' (codice 0) senza che alcun test fallisca. Il task chiedeva test che falliscano sui mutanti che ingoiano lo 'stato HTTP diverso da 200'.",
+      "fonte": "task giro 2 (verifica del BLOCCA); DECISIONS §6 «Catena di fornitura» punto 1 (fail-closed)",
+      "prova": "docs/revisioni/ci-fornitura/prove-code-reviewer-giro2/prova-sopravvissuti.sh e test_stato_e_timeout.py (test_stato_2xx_diverso_da_200_con_corpo_valido_e_errore): sul mutante senza controllo la suite del branch dà 29 passati e la prova 3 falliti su 4; sul branch la prova dà 4 passati",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "da_riportare",
+      "file_riga": "tests/test_ci_osv_check.py::test_invia_http_timeout_codice_2",
+      "problema": "Il test del timeout non verifica il timeout. Il server risponde dopo 2 secondi con `{}`, che 'interroga' rifiuta (manca `results`), quindi il codice è 2 anche con `timeout=None`. Il mutante senza timeout lascia la suite a 29 passati. Il rischio concreto è una CI appesa, non un fail-open. Serve una risposta tardiva ma valida (`{\"results\":[{}]}`), attesa codice 2.",
+      "fonte": "task giro 2 (timeout); docs/E1-tracing-distribuito.md, parte di CI",
+      "prova": "docs/revisioni/ci-fornitura/prove-code-reviewer-giro2/test_stato_e_timeout.py::test_timeout_scatta_anche_con_risposta_tardiva_valida: sul mutante timeout=None 1 fallito, sul branch passa",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "docs/revisioni/ci-fornitura/report-implementer.md, sezione «Giro 2»",
+      "problema": "Il report dice che il caso 204 'è coperto dal test sul codice corretto'. Il test passa con e senza il controllo dello stato, quindi non lo protegge. L'affermazione è inesatta.",
+      "fonte": "task giro 2",
+      "prova": "docs/revisioni/ci-fornitura/prove-code-reviewer-giro2/prova-sopravvissuti.sh",
+      "verifica": "verificato"
+    }
+  ],
+  "tentativi_di_rottura": [
+    "Mutante di invia_http che ingoia l'errore (restituisce risultati vuoti): ucciso, 7 falliti.",
+    "Mutanti sulle eccezioni catturate: senza HTTPException ucciso da risposta_troncata; senza ValueError ucciso da corpo non JSON e non UTF-8.",
+    "Mutanti sullo stato HTTP: controllo rimosso e controllo ridotto a `>= 400` sopravvivono.",
+    "Mutante timeout=None: sopravvive.",
+    "Mutanti sul lockfile: main che non cattura ErroreLockfile ucciso; riga ignorata con controllo dei conteggi rimosso ucciso; ciascuna difesa da sola ridondante.",
+    "Errori http.client con socket grezzo (riga di stato non valida, connessione chiusa senza risposta, chunk non valido): tutti codice 2 senza traceback.",
+    "2xx diversi da 200 (201, 203, 206) con corpo valido: sul mutante danno codice 0, sul branch 2.",
+    "Risposta tardiva ma valida con timeout ridotto: sul mutante senza timeout dà codice 0, sul branch 2.",
+    "Verifica dello scope del giro 2 con git diff --name-only: solo script, test e report.",
+    "Il primo risultato dei mutanti era falsato da un artefatto del mio ambiente: test_lockfile_attuale_e_conforme leggeva requirements.lock.txt dalla cartella padre del mutante, dove non c'era. Ho copiato il lockfile e rieseguito, e riporto solo i risultati corretti."
+  ],
+  "report": "docs/revisioni/ci-fornitura/report-code-reviewer-giro2.md"
+}
