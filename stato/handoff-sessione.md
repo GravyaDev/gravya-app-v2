@@ -14,11 +14,8 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 - Decisioni del 2026-11-05 su E1 v1.7 registrate (deroga C2 per l'ondata 1, DA-E1-13, tenant di contesto, avvio bloccato in produzione).
 
 ## In corso (agenti lanciati, non conclusi)
-- Decisioni N1-N4 dell'utente («ok», 2026-11-05): API_ENV non impostata blocca; regola tcp ≥ statement confermata; giro 6 definitivo; dopo il giro 6 merge di `claude/impl-e1` in `claude/docs-ondata-1`. Catalogo v1.8 fatto dal coordinator.
-- **Implementer, giro 6** — task `docs/revisioni/impl-e1/task-implementer-giro6.md` (branch `claude/impl-e1`, commit 0865f6e).
-- E1 v1.10 fatta e committata (Storico verificato).
-- Registrar concluso (decisioni N1-N4 registrate).
-Se interrotti: rilanciare dai task.
+- Giro 6 concluso (`claude/impl-e1` a 3797543; 87 test). Verifica del code-reviewer sul giro 6: **BLOCCA** (report `docs/revisioni/impl-e1/report-code-reviewer-giro6.md`, commit successivo): `API_ENV` non impostata non blocca se c'è `production_override` (`tracing.py`, condizione `self._production_override is None and not is_declared()`), contro DECISIONS §6 e catalogo v1.8 §18; correzione piccola dimostrata dal code-reviewer (togliere la condizione, esportare `API_ENV=development` nei test o fixture autouse, aggiornare un test proprio). Decisione chiesta all'utente (P1).
+- E1 v1.10, catalogo v1.8, DECISIONS: fatti e committati.
 
 ## Prossimi passi, in ordine
 1. Verificare giro 6, E1 v1.10 e registrar; code-reviewer solo sui punti del giro 6 (task da scrivere); residui in DECISIONS §4.
