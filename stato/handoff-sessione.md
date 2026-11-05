@@ -17,7 +17,7 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 - Giro 4 dell'implementer **concluso**: `claude/impl-e1` a 8dfb1de (verificato: 69 test, prove giro 3 con N4/N10 attesi, script non superuser OK; README «Esecuzione locale» alla radice del branch).
 - **Code-reviewer, verifica mirata del giro 4** — task `docs/revisioni/impl-e1/task-code-reviewer-giro4.md` (branch `claude/impl-e1`, commit 14a743e). Se interrotto: rilanciare da quel task (report atteso `report-code-reviewer-giro4.md`).
 - E1 v1.8 **fatta** (doc-writer, Storico verificato intatto), commit su `claude/docs-ondata-1`.
-- **Plan-auditor e compliance-auditor su E1 v1.8 e catalogo v1.6** — task `docs/revisioni/e1-v1.8/task-auditor.md`. Se interrotti: rilanciare da quel task (report attesi in `docs/revisioni/e1-v1.8/`).
+- **Plan-auditor e compliance-auditor su E1 v1.8 e catalogo v1.6** — task `docs/revisioni/e1-v1.8/task-auditor.md`. Se interrotti: rilanciare da quel task (report attesi in `docs/revisioni/e1-v1.8/`). Plan-auditor concluso: RIPORTA (2 da riportare: E1 e catalogo §18 in contrasto sui formati/chiave minima come invarianti; API_ENV fuori insieme = scelta del coordinator senza riga decisa, da portare all'utente). In attesa: compliance-auditor e code-reviewer giro 4.
 - Catalogo v1.6 fatto dal coordinator.
 
 ## Prossimi passi, in ordine
