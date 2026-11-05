@@ -78,6 +78,15 @@ _EXPECTED_INT_VARIABLES = frozenset(
     }
 )
 
+# Giro 6 (CR V3): minimi tecnici PIU' ALTI del generico 1, imposti dal
+# codice (invariante), non solo dal campo "min" facoltativo dell'istantanea.
+# `e1.write_connect_timeout_s`: libpq legge il secondi interi e considera 2
+# il minimo utile (un valore di 1 viene comunque alzato a 2 in silenzio dal
+# driver): un'istantanea senza "min" non deve poter accettare 1.
+_HIGHER_TECHNICAL_MINIMUMS = {
+    "e1.write_connect_timeout_s": 2,
+}
+
 
 class VariableUnavailableError(RuntimeError):
     """Variabile non leggibile, non valida, o 'da definire' in produzione (DX-17)."""
@@ -224,11 +233,15 @@ class SnapshotVariableRegistry:
             # sbagliato in una voce specifica). Se l'istantanea dichiara un
             # proprio "min" esplicito, il controllo qui sotto E il controllo
             # su `entry.get("min")` in `get()` si applicano entrambi in
-            # sequenza: vale il piu' restrittivo dei due (1, o il "min"
-            # dichiarato se superiore a 1).
-            if raw_value < 1:
+            # sequenza: vale il piu' restrittivo dei due. Giro 6 (CR V3):
+            # alcune variabili hanno un minimo tecnico PIU' ALTO di 1, sempre
+            # come invariante di codice (`_HIGHER_TECHNICAL_MINIMUMS`), non
+            # solo nel campo "min" facoltativo dell'istantanea (che potrebbe
+            # mancare in una voce specifica, come nel test V3).
+            technical_minimum = _HIGHER_TECHNICAL_MINIMUMS.get(name, 1)
+            if raw_value < technical_minimum:
                 self._signal_sink.emit(
-                    "e5.variable_invalid", name=name, reason="valore sotto il minimo tecnico (1)"
+                    "e5.variable_invalid", name=name, reason=f"valore sotto il minimo tecnico ({technical_minimum})"
                 )
                 raise VariableUnavailableError(f"variabile '{name}' sotto il minimo tecnico: {raw_value!r}")
             return raw_value
