@@ -47,9 +47,18 @@ WORKTREE = RADICE / ".worktrees"
 PREFISSO_BRANCH = "impl/"
 PREFISSO_CONTAINER = "gravya-v2-wt-"
 BRANCH_BASE = "main"
-# Immagine PostgreSQL dei worktree: DECISIONS §6 «Versioni di runtime». Si cambia con
-# --immagine o con la variabile d'ambiente GRAVYA_PG_IMMAGINE.
-IMMAGINE_PG = os.environ.get("GRAVYA_PG_IMMAGINE", "postgres:18")
+# Immagine PostgreSQL dei worktree: la stessa dei servizi della CI (unico punto, fissata
+# per digest; DECISIONS §6 «Versioni di runtime»). Si cambia solo con --immagine.
+def immagine_ci() -> str | None:
+    try:
+        testo = (RADICE / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    except OSError:
+        return None
+    immagini = set(re.findall(r"^\s*image:\s*(postgres:\S+@sha256:[0-9a-f]{64})\s*$", testo, re.M))
+    return immagini.pop() if len(immagini) == 1 else None
+
+
+IMMAGINE_PG = immagine_ci()
 PORTA_INIZIALE = 5433
 AGENTI = RADICE / ".claude" / "agents"
 REVISIONI = RADICE / "docs" / "revisioni"
@@ -333,6 +342,8 @@ def cmd_worktree_crea(a: argparse.Namespace) -> None:
     subprocess.run(pip + ["--no-build-isolation", "--no-deps", "-e", "."], cwd=dove, check=True)
     print(f".venv con {python.name} dal lockfile")
 
+    if not a.immagine:
+        sys.exit("Immagine PostgreSQL non determinabile dalla CI (nessuna o più di una): usa --immagine.")
     porta = porta_libera()
     subprocess.run(["docker", "run", "-d", "--name", container, "-p", f"127.0.0.1:{porta}:5432",
                     "-e", "POSTGRES_USER=root", "-e", "POSTGRES_HOST_AUTH_METHOD=trust", a.immagine],
