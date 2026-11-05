@@ -11,3 +11,13 @@ import os
 
 def is_production() -> bool:
     return os.environ.get("API_ENV") == "production"
+
+
+def is_declared() -> bool:
+    """Vero se `API_ENV` e' impostata (a qualunque valore).
+
+    Non impostata: l'ambiente resta sviluppo (invariante decisa), ma
+    l'helper deve avvisare con un segnale "ambiente non dichiarato"
+    all'avvio (giro 2, rilievo minore del compliance-auditor).
+    """
+    return "API_ENV" in os.environ
