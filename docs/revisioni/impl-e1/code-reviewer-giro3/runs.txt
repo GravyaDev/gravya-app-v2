@@ -1,0 +1,10 @@
+run 1 | tests/: 65 passed in 1.70s | code-reviewer/: 39 passed, 1 error in 5.76s | giro2: 12 failed, 35 passed in 1.28s
+run 2 | tests/: 65 passed in 1.73s | code-reviewer/: 39 passed, 1 error in 5.85s | giro2: 12 failed, 35 passed in 1.38s
+run 3 | tests/: 65 passed in 1.84s | code-reviewer/: 39 passed, 1 error in 5.88s | giro2: 12 failed, 35 passed in 1.35s
+run 4 | tests/: 65 passed in 1.78s | code-reviewer/: 39 passed, 1 error in 5.86s | giro2: 12 failed, 35 passed in 1.33s
+run 5 | tests/: 65 passed in 1.67s | code-reviewer/: 39 passed, 1 error in 5.79s | giro2: 12 failed, 35 passed in 1.38s
+run 6 | tests/: 65 passed in 1.76s | code-reviewer/: 39 passed, 1 error in 5.87s | giro2: 12 failed, 35 passed in 1.39s
+run 7 | tests/: 65 passed in 1.79s | code-reviewer/: 39 passed, 1 error in 5.79s | giro2: 12 failed, 35 passed in 1.33s
+run 8 | tests/: 65 passed in 1.78s | code-reviewer/: 39 passed, 1 error in 5.81s | giro2: 12 failed, 35 passed in 1.37s
+run 9 | tests/: 65 passed in 1.88s | code-reviewer/: 39 passed, 1 error in 5.85s | giro2: 12 failed, 35 passed in 1.47s
+run 10 | tests/: 65 passed in 1.64s | code-reviewer/: 39 passed, 1 error in 5.85s | giro2: 12 failed, 35 passed in 1.37s
