@@ -9,6 +9,9 @@ name: CI
 # push sullo stesso branch annulla l'esecuzione ancora in corso.
 on:
   push:
+    # Solo branch: un push di tag non avvia nulla (e non consuma minuti).
+    branches:
+      - "**"
     paths-ignore:
       - "docs/**"
       - "stato/**"

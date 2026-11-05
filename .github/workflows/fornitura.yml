@@ -10,6 +10,9 @@ name: Catena di fornitura
 
 on:
   push:
+    # Solo branch: un push di tag non avvia nulla (e non consuma minuti).
+    branches:
+      - "**"
     paths:
       - "requirements.lock.txt"
       - "scripts/osv-check.py"

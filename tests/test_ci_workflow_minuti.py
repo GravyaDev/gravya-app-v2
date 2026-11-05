@@ -68,6 +68,17 @@ def corrisponde(pattern: str, percorso: str) -> bool:
     return re.fullmatch(regex, percorso) is not None
 
 
+def avvia_ref(filtri: dict[str, list[str]], ref: str) -> bool:
+    """Filtro dei ref di `push`: con `branches` e senza `tags`, un tag non avvia il workflow
+    (documentazione: «Workflow syntax for GitHub Actions», `on.<push>.<branches|tags>`: se si definisce
+    solo un tipo di filtro, il workflow non parte per l'altro tipo di ref)."""
+    if ref.startswith("refs/tags/"):
+        return "tags" in filtri and any(corrisponde(p, ref.removeprefix("refs/tags/")) for p in filtri["tags"])
+    if ref.startswith("refs/heads/"):
+        return "branches" not in filtri or any(corrisponde(p, ref.removeprefix("refs/heads/")) for p in filtri["branches"])
+    return False
+
+
 def avvia(filtri: dict[str, list[str]], modificati: list[str]) -> bool:
     if "paths-ignore" in filtri:
         return any(not any(corrisponde(p, f) for p in filtri["paths-ignore"]) for f in modificati)
@@ -147,3 +158,18 @@ def test_il_filtro_riprodotto_distingue_asterischi():
     assert corrisponde("**/*.md", "README.md") and corrisponde("**/*.md", "a/b/c.md")
     assert corrisponde("docs/**", "docs/a/b.txt")
     assert not corrisponde("*.md", "docs/a.md")  # `*` non attraversa `/`
+
+
+@pytest.mark.parametrize("workflow", [CI, FORNITURA], ids=["ci", "fornitura"])
+def test_un_push_di_tag_non_avvia_nulla_un_push_di_branch_si(workflow):
+    push = blocco_on(workflow)["push"]
+    assert push.get("branches") == ["**"] and "tags" not in push and "tags-ignore" not in push
+    assert avvia_ref(push, "refs/tags/v1.0.0") is False
+    assert avvia_ref(push, "refs/tags/rilascio/2026") is False
+    for ref in ("refs/heads/main", "refs/heads/impl/ci-locale", "refs/heads/impl/lockfile-2026-11-09"):
+        assert avvia_ref(push, ref) is True
+
+
+def test_il_modello_dei_ref_distingue_i_filtri():
+    assert avvia_ref({"tags": ["v*"]}, "refs/tags/v1") is True
+    assert avvia_ref({"branches": ["main"]}, "refs/heads/altro") is False
