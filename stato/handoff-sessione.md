@@ -17,10 +17,9 @@ Riscritto il 2026-11-05 (sessione 8). Si riscrive, non si accoda. Vale per la pi
 1. Lanciare l'implementer con `docs/revisioni/impl-e1-chiusura/task-implementer-micro-api-env.md`, sul branch unico `claude/docs-ondata-1`.
 2. Verificare: `tests/` 10 volte verde e prove dei revisori con gli stessi esiti del giro 6 (comandi nel `README.md` della radice; `PGDATABASE` per le prove dei giri 1-2; `API_ENV=development`).
 3. Registrar (testo alla lettera sopra): §4 di DECISIONS, il punto «E1, chiusura definitiva (giro 6)» si chiude con il BLOCCA del giro 6 risolto dalla micro-correzione (report `docs/revisioni/impl-e1/report-code-reviewer-giro6.md`); minori residui del giro 6 (scrittura in volo dopo `close()` con coda profonda; default di `DATABASE_URL` nel README diversi da quelli dei test) come punti aperti in §4.
-4. Merge già fatto (9311762). Cancellazione del branch remoto `claude/impl-e1`: chiedere conferma all'utente.
+4. Merge fatto (9311762); branch `claude/impl-e1` cancellato (locale e remoto) su richiesta dell'utente.
 5. Minori da applicare in E1 v1.11 e catalogo: rilievi minori dei report `docs/revisioni/e1-v1.9/` non ancora recepiti (precisazioni su `production_override`, guardiano che interrompe un job sano, protezione dei segnali per tenant contro l'inserimento diretto); rimandi nei documenti (A1 App. C e B1 §7 verso DECISIONS §6 e §5).
 6. Poi: A1 (passi 3-4) sull'ossatura; allineamento degli altri documenti dell'ondata 1 (F2, `run_id` UUID, `gravya.tool.outcome` in B2, C3 con F4); approvazione dei sette documenti; ondata 2 (A5, A6, F6).
 
 ## In attesa di risposta dall'utente
-- Bash negato al registrar sulla piattaforma: voluto o da ripristinare? (In locale vale il file `.claude/agents/registrar.md`, che prevede Bash.)
 - Ok dopo la ricopiatura dei prompt sulla piattaforma (se si torna sulla piattaforma).

@@ -19,7 +19,7 @@ Solo informazioni in vigore. Istruzioni su avvio, `stato/` e chiusura: `CLAUDE.m
 - Interruzione di un solo agente: `user.interrupt` con `session_thread_id`; quella generica ferma tutti i thread.
 - La piattaforma non limita la scrittura degli agenti per percorso: il perimetro è garantito solo dal prompt e dal controllo del coordinator.
 - Limite di 25 thread per sessione, contano anche quelli finiti; la console mostra i thread per nome e non permette di archiviarli singolarmente (politica di riuso in `preferenze-e-lezioni.md`).
-- Registrar sulla piattaforma (2026-11-05): Bash negato («Permission to use bash has been denied») anche per `git status`; operazioni git (mv, status) le fa il coordinator, il registrar usa Read, Edit, Write. Da chiarire con l'utente se è voluto.
+- Registrar (2026-11-05): una volta ha ricevuto «Permission to use bash has been denied» anche per `git status`; l'utente conferma che sulla piattaforma ha la shell. Causa non verificata (ipotesi: negazione temporanea del permesso nella sessione). Se si ripete, riprovare prima di concludere che manca lo strumento.
 - Nel container: PostgreSQL 16 di sistema (`service postgresql start`), ruolo `root`; PyPI raggiungibile. File in `/tmp` e `/workspace` sono effimeri.
 
 ## Fonti normative (keywords: eur-lex, cellar, testo integrale)
