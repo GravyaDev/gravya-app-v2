@@ -46,6 +46,7 @@ export PGPORT=5432
 export PGUSER=<il_tuo_ruolo>
 export PGPASSWORD=<se_serve>
 export GRAVYA_E1_TEST_DSN="host=${PGHOST} port=${PGPORT} user=${PGUSER}"
+export API_ENV=development
 ```
 
 Se non si imposta nulla, `tests/` usa `root` come ripiego locale di questo
@@ -54,14 +55,26 @@ segreto). Con le variabili sopra impostate a un ruolo qualsiasi (con i
 privilegi del caso), la stessa suite gira identica: provato in questo giro
 creando un ruolo apposta (vedi "Nota sul ruolo di sviluppo").
 
+**`API_ENV` va impostata esplicitamente (giro 6, decisione dell'utente)**: a
+un valore dell'insieme chiuso (`production`, `development`, `test`). Non
+impostarla affatto **blocca l'avvio** dell'helper con un segnale (prima:
+trattata come sviluppo, con un segnale solo informativo); lo stesso vale per
+un valore fuori da quell'insieme (per esempio `Production`, maiuscolo). Fa
+eccezione solo chi sceglie esplicitamente un comportamento con
+`production_override` nel proprio codice (i test di questo repository lo
+fanno quando serve: non è qualcosa che riguarda l'uso normale descritto qui).
+
 ### Database di test e migrazioni
 
 Il ruolo che fa il **primo** `alembic upgrade head` su un cluster nuovo deve
-essere un superuser (vedi "Prerequisiti" sopra):
+essere un superuser (vedi "Prerequisiti" sopra). `DATABASE_URL` qui sotto usa
+solo valori espliciti o default documentati (`root`/`localhost`/`5432`, gli
+stessi ripieghi di `tests/`): non presuppone che le variabili sopra siano
+già state esportate in questa shell.
 
 ```bash
-createdb -O "$PGUSER" gravya_e1_test   # o: psql -c "CREATE DATABASE gravya_e1_test OWNER <ruolo>;"
-DATABASE_URL="postgresql+psycopg://${PGUSER}@${PGHOST}:${PGPORT}/gravya_e1_test" alembic upgrade head
+createdb -O "${PGUSER:-root}" gravya_e1_test   # o: psql -c "CREATE DATABASE gravya_e1_test OWNER <ruolo>;"
+DATABASE_URL="postgresql+psycopg://${PGUSER:-root}@${PGHOST:-localhost}:${PGPORT:-5432}/gravya_e1_test" alembic upgrade head
 ```
 
 `DATABASE_URL` è obbligatoria per `alembic upgrade head` (nessun database di
@@ -85,9 +98,13 @@ pytest -q
 ```
 
 (`GRAVYA_E1_TEST_DSN`/`PGUSER` impostati come sopra; stessa `dbname` del
-passo precedente, aggiunta internamente dai test.) I test creano e
-distruggono le proprie partizioni/righe dentro `gravya_e1_test` (fixture
-`ensure_partitions_now`, `make_helper`, ecc.): non serve nessuna
+passo precedente, aggiunta internamente dai test.) `tests/` non richiede
+`API_ENV` per girare (ogni test sceglie da solo `production_override` o
+imposta `API_ENV` quando è proprio quello che vuole verificare): impostarla
+comunque, come sopra, è buona abitudine per chi scrive codice nuovo che usa
+`TracingHelper` direttamente, dove per davvero conta (vedi sopra). I test
+creano e distruggono le proprie partizioni/righe dentro `gravya_e1_test`
+(fixture `ensure_partitions_now`, `make_helper`, ecc.): non serve nessuna
 preparazione oltre alle migrazioni. Nessun file temporaneo resta fuori da
 `tmp_path` (gestito da pytest).
 
@@ -136,26 +153,35 @@ password generata a runtime (mai salvata, mai nel codice), eliminati
 ### Prove dei revisori (`docs/revisioni/impl-e1/code-reviewer*/`)
 
 Le suite di riproduzione dei revisori (`code-reviewer/`, `code-reviewer-giro2/`,
-`code-reviewer-giro3/`, `code-reviewer-giro4/`) sono file di prova non
-modificabili. Ognuna crea e cancella il proprio database (`gravya_e1_review`,
-`_review2`, `_review3`, `_review4`) con una fixture di sessione autouse.
-Esecuzione tipica:
+`code-reviewer-giro3/`, `code-reviewer-giro4/`, `code-reviewer-giro5/`) sono
+file di prova non modificabili. Ognuna crea e cancella il proprio database
+(`gravya_e1_review`, `_review2`, `_review3`, `_review4`, `_review5`) con una
+fixture di sessione autouse. `pytest` trova da solo il `conftest.py` della
+cartella del file indicato: **nessuna di queste suite ha bisogno di
+`PYTHONPATH`** (verificato in questo giro eseguendo ciascuna sia con sia senza
+`PYTHONPATH` impostata: stesso esito identico; la riga che lo richiedeva in
+una versione precedente di questo README era inesatta).
+
+`code-reviewer/` (giro 1) e `code-reviewer-giro2/` (giro 2) **hanno bisogno**
+di `PGDATABASE`/`GRAVYA_E1_TEST_DSN`: alcune delle loro prove costruiscono
+`TracingHelper` senza passare `conninfo` esplicito, affidandosi al ripiego
+nudo di psycopg sulle variabili d'ambiente standard, che deve puntare al
+database giusto:
 
 ```bash
-export PGDATABASE=gravya_e1_review        # _review2 / _review3 / _review4 per le altre
+export PGDATABASE=gravya_e1_review        # gravya_e1_review2 per il giro 2
 export GRAVYA_E1_TEST_DSN="dbname=gravya_e1_review user=<ruolo>"
-export PYTHONPATH=docs/revisioni/impl-e1/code-reviewer
 pytest -q docs/revisioni/impl-e1/code-reviewer/test_repro_rilievi.py
 ```
 
-(`PYTHONPATH` punta alla cartella della suite che si vuole eseguire;
-`PGDATABASE`/`GRAVYA_E1_TEST_DSN` al suo database, coerenti con il nome che
-la fixture della suite usa internamente.) `code-reviewer-giro4/` non usa
-`PGDATABASE` ne' `GRAVYA_E1_TEST_DSN` (il suo `conftest.py` si connette con
-`dbname=gravya_e1_review4` e autenticazione peer, come gli altri tre):
+`code-reviewer-giro3/`, `code-reviewer-giro4/` e `code-reviewer-giro5/` **non
+hanno bisogno** di `PGDATABASE` ne' di `GRAVYA_E1_TEST_DSN` (verificato in
+questo giro eseguendole con e senza queste variabili: stesso esito identico):
+i loro `conftest.py` passano sempre `conninfo`/`DATABASE_URL` espliciti con
+`dbname=gravya_e1_review3` / `_review4` / `_review5` e autenticazione peer:
 
 ```bash
-pytest -q -p no:cacheprovider --basetemp=docs/revisioni/impl-e1/code-reviewer-giro4/basetemp docs/revisioni/impl-e1/code-reviewer-giro4/test_giro4.py
+pytest -q -p no:cacheprovider --basetemp=docs/revisioni/impl-e1/code-reviewer-giro5/basetemp docs/revisioni/impl-e1/code-reviewer-giro5/test_giro5.py
 ```
 
 ## Nota sul ruolo di sviluppo (dipendenza dichiarata, non eliminabile ovunque)
@@ -171,19 +197,19 @@ pytest -q -p no:cacheprovider --basetemp=docs/revisioni/impl-e1/code-reviewer-gi
   quel ruolo via TCP (niente peer, niente `root`): stesso esito, nessuna
   differenza.
 - `docs/revisioni/impl-e1/code-reviewer/conftest.py`,
-  `code-reviewer-giro2/conftest.py`, `code-reviewer-giro3/conftest.py` e
-  `code-reviewer-giro4/conftest.py` (le quattro suite di riproduzione dei
-  revisori, **non modificabili**) **scrivono `postgresql+psycopg://root@/...`
-  e l'autenticazione peer implicita dell'utente del sistema operativo,
-  letteralmente nel codice**: per eseguirle serve un ruolo PostgreSQL
-  chiamato esattamente `root`, superuser, raggiungibile con autenticazione
-  peer dall'utente del sistema operativo che lancia `pytest` (o da un utente
-  di sistema chiamato `root`). Non c'è una variabile d'ambiente per
-  cambiarlo in questi quattro file: è un limite dei file stessi, dichiarato
-  qui e nel report dell'implementer
-  (`docs/revisioni/impl-e1/report-implementer.md`, sezioni "Giro 4" e "Giro
-  5"), non qualcosa che questo README possa aggirare senza modificare file
-  di prova dei revisori.
+  `code-reviewer-giro2/conftest.py`, `code-reviewer-giro3/conftest.py`,
+  `code-reviewer-giro4/conftest.py` e `code-reviewer-giro5/conftest.py` (le
+  cinque suite di riproduzione dei revisori, **non modificabili**) **scrivono
+  `postgresql+psycopg://root@/...` e l'autenticazione peer implicita
+  dell'utente del sistema operativo, letteralmente nel codice**: per
+  eseguirle serve un ruolo PostgreSQL chiamato esattamente `root`, superuser,
+  raggiungibile con autenticazione peer dall'utente del sistema operativo che
+  lancia `pytest` (o da un utente di sistema chiamato `root`). Non c'è una
+  variabile d'ambiente per cambiarlo in questi cinque file: è un limite dei
+  file stessi, dichiarato qui e nel report dell'implementer
+  (`docs/revisioni/impl-e1/report-implementer.md`, sezioni "Giro 4", "Giro 5"
+  e "Giro 6"), non qualcosa che questo README possa aggirare senza modificare
+  file di prova dei revisori.
 - `scripts/test-non-superuser.sh` e `scripts/_verify_nonsuperuser.py` /
   `scripts/_verify_signals_nonsuperuser.py` **non dipendono** da un ruolo
   chiamato `root`: `PGUSER` può essere qualunque ruolo superuser (vedi
