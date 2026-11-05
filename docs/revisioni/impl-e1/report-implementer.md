@@ -1037,3 +1037,132 @@ Nessuna: tutte le decisioni necessarie (rinomina della variabile, `API_ENV` bloc
 ### File modificati
 
 `src/gravya_e1/tracing.py` (riscrittura della gestione delle connessioni: guardiano per-job con rifiuto di riconnessione dopo `close()`, `get(timeout=0.2)` invece di `get()` bloccante nei due worker, connessione propria dei segnali, `EnvironmentInvalidError`, regola relazionale V1, `_write_connect_timeout_s`), `src/gravya_e1/signals.py` (`PostgresSignalSink.emit` con `rollback()` su errore), `src/gravya_e1/whitelist.py` (`safe_signal_kind`), `src/gravya_e1/config/variables.py` (`_EXPECTED_INT_VARIABLES` aggiornato), `config/e5-snapshot.json` (variabile rinominata), `migrations/versions/0006_giro4_fixes.py` (docstring corretto), `scripts/test-non-superuser.sh` (intestazione corretta), `scripts/_verify_nonsuperuser.py` (variabile rinominata), `README.md` (riscritto), `tests/_e1vars.py` (variabile rinominata), `tests/_freezable_proxy.py` (nessun ruolo/host fisso, skip con motivo), `tests/conftest.py` (`password_auth_conninfo` elimina il ruolo), `tests/test_criterio5_fail_open.py`, `tests/test_criterio17_variabili_e5.py`, `tests/test_giro3_misc.py` (variabile rinominata, nessun ruolo fisso), `tests/test_giro4_misc.py` (API_ENV bloccante, segnali con connessione propria, nessun ruolo fisso), `tests/test_giro5_misc.py` (nuovo, 9 test), i quattro `conftest.py` dei pacchetti di prova dei revisori (solo la variabile rinominata, commit separato).
+
+## Giro 6 — ultime correzioni dopo la verifica mirata finale del code-reviewer (giro definitivo)
+
+Fonte: `docs/revisioni/impl-e1/task-implementer-giro6.md`, a sua volta
+originato da `report-code-reviewer-giro5.md` (prove in `code-reviewer-giro5/`,
+4 falliti/8 passati prima di questo giro). Il task dichiara questo l'**ultimo**
+giro: solo le 5 correzioni elencate sotto, nient'altro.
+
+### Correzioni
+
+| # | Rilievo | Correzione | Test |
+|---|---|---|---|
+| 1 | X1 — `close()` con una riconnessione in corso: dopo `close()` restava una connessione orfana e/o veniva comunque usata per scrivere | `_get_own_connection`/`_get_own_signal_connection` ricontrollano `self._closed` in due punti nuovi oltre a quello già presente dal giro 5: subito dopo aver preso il lock (prima di tentare la connessione) e, soprattutto, **subito dopo che `psycopg.connect()` è tornato con successo**, prima di assegnare il risultato a `self._own_conn`/`self._own_signal_conn`. Se `close()` ha nel frattempo rinunciato ad aspettare, la connessione appena aperta viene chiusa subito (`new_conn.close()`) e si solleva `RuntimeError` invece di lasciarla assegnata: niente backend orfano, niente scrittura dopo la chiusura. | `code-reviewer-giro5/test_giro5.py::test_X1` (ora passa); conferma propria: `tests/test_giro6_misc.py::test_X1_connessione_completata_dopo_close_non_scrive_e_non_resta_orfana` (proxy TCP congelato prima che esista qualunque connessione, job accodato, `close(0.5)` mentre il worker è dentro `psycopg.connect()`, poi lo sblocco: verificato sia che il segmento non è scritto sia che `pg_stat_activity` non ha un backend in più) |
+| 2 | D1 (DX-22) — due durate fisse nel codice: l'intervallo di polling `timeout=0.2` nei due worker e il default `timeout=5.0` di `close()` | **Worker**: tolto il polling; `self._queue.get()`/`self._signal_queue.get()` tornano bloccanti senza timeout, il ciclo esce solo dequeuendo il sentinella (nessun controllo di `self._closed` dentro il ciclo). Questo riapre il problema che il giro 5 aveva risolto *con* il polling (sentinella mai consegnato se la coda era piena al momento di `close()`, worker bloccato per sempre): risolto diversamente, non con un timeout, **consegnando il sentinella da un thread di appoggio con una `put()` bloccante** (`threading.Thread(target=self._queue.put, args=(_SENTINEL,), daemon=True).start()`), che arriva comunque appena il worker libera uno slot, senza che `close()` debba aspettarlo. **`close()`**: il parametro `timeout` diventa **obbligatorio**, nessun default. Scelta dichiarata tra le due opzioni che il task lasciava aperte (parametro obbligatorio oppure una nuova variabile "da definire" dell'istantanea): ho scelto il parametro obbligatorio perché l'autorizzazione di questo giro a toccare i file di prova bloccati dei revisori è ristretta esplicitamente all'aggiornamento delle fixture per `API_ENV` "se indispensabile", non una rinomina/aggiunta di variabile come nel giro 5; `code-reviewer-giro5/conftest.py` costruisce la propria istantanea con un dizionario proprio (non legge `config/e5-snapshot.json`), quindi una nuova variabile **obbligatoria** vi avrebbe fatto sollevare `VariableUnavailableError` per ogni test della suite bloccata che costruisce un `TracingHelper`, senza modo di correggerlo nel perimetro di questo giro. Verificato (con `grep`) che **tutte** le suite bloccate (giro 1-5) passano già sempre `timeout=` esplicito a `.close()`: zero file bloccati da aggiornare; solo due chiamate in `tests/test_criterio17_variabili_e5.py` (mie) usavano `helper.close()` senza argomento, corrette in `helper.close(timeout=5)`. | `code-reviewer-giro5/test_giro5.py::test_D1` (cerca le due sottostringhe letterali nel sorgente di `gravya_e1.tracing`, ora assenti); conferma propria: `tests/test_giro6_misc.py::test_nessuna_durata_fissa_nel_sorgente_di_tracing` (stesso controllo) e `test_close_richiede_il_timeout_esplicito` (`TracingHelper.close(None)` non legato solleva `TypeError` per l'argomento mancante) |
+| 3 | API_ENV — il blocco per valore fuori dall'insieme chiuso non valeva con `production_override` impostato; nuova decisione dell'utente: `API_ENV` non impostata ora blocca anch'essa | Il controllo è stato diviso in due, con condizioni diverse (punto delicato, vedi sotto). **(a)** `API_ENV` dichiarata ma **fuori** dall'insieme chiuso (`production`/`development`/`test`): blocca **sempre**, anche con `production_override` impostato (anche `True`) — tolta la condizione `if self._production_override is None` che lo proteggeva prima. **(b)** `API_ENV` **non dichiarata affatto**: blocca con `EnvironmentInvalidError` e segnale `e5.environment_undeclared` (prima: segnale solo informativo, avvio consentito) — ma **resta** condizionato a `self._production_override is None`: chi sceglie esplicitamente un comportamento (vero anche per `production_override=False`, non solo `True`) non deve impostare un `API_ENV` finto solo per poterlo fare. Questa distinzione (invalida sempre, assente solo se nessuno sceglie) non è un'invenzione: il task lega esplicitamente l'ungating a CA E2 ("valore fuori dall'insieme chiuso... anche con `production_override`"), mentre la frase sulla `API_ENV` assente non ripete quella condizione; inoltre **tutti** gli altri test delle suite bloccate (V1/V1b/V3/S1b/S2b/S3b/X1/X2/D1 di `code-reviewer-giro5/` e la quasi totalità delle suite precedenti) costruiscono l'helper con `production_override=True` senza mai impostare `API_ENV`: un blocco incondizionato sull'assenza avrebbe rotto quasi ogni test bloccato, non solo quelli sull'ambiente. | `code-reviewer-giro5/test_giro5.py::test_E2` (ora passa: blocco anche con `production_override=True`); conferma propria: `tests/test_giro4_misc.py::test_api_env_fuori_insieme_chiuso_blocca_anche_con_production_override` (nuovo), `test_api_env_assente_blocca_l_avvio_con_segnale` (riscritto da "non blocca" a "blocca", con `monkeypatch.delenv("API_ENV")` esplicito: la prova deve valere anche se chi lancia i test ha `API_ENV` impostata nella propria shell, come ora consiglia il README), `test_api_env_assente_non_blocca_con_production_override_esplicito` (nuovo: `production_override=False` esplicito non blocca anche senza `API_ENV`) |
+| 4 | V3 — il minimo tecnico 2 di `e1.write_connect_timeout_s` era di fatto imposto solo dal campo `min` facoltativo dell'istantanea, non dal codice | Nuovo dizionario `_HIGHER_TECHNICAL_MINIMUMS` in `config/variables.py` (`{"e1.write_connect_timeout_s": 2}`); `_validate_scalar` usa `_HIGHER_TECHNICAL_MINIMUMS.get(name, 1)` come soglia invece del letterale `1` fisso: il minimo tecnico vale sempre, anche con un'istantanea senza `min` dichiarato per quella voce (come nello scenario del test V3). Tutte le altre variabili restano con minimo tecnico 1, invariato. | `code-reviewer-giro5/test_giro5.py::test_V3` (ora passa); conferma propria: `tests/test_giro6_misc.py::test_connect_timeout_sotto_2_senza_min_dichiarato_blocca_comunque` (valore 1, nessun campo `min` nell'istantanea: blocca comunque) e `test_connect_timeout_esattamente_2_senza_min_dichiarato_e_valido` (valore limite 2, valido) |
+| 5 | README — `DATABASE_URL` costruita presupponendo variabili non impostate; `PGDATABASE` non spiegata per le suite dei revisori; `API_ENV` da impostare non documentata | `DATABASE_URL` nella sezione "Database di test e migrazioni" ora usa solo valori espliciti o ripieghi scritti (`${PGUSER:-root}@${PGHOST:-localhost}:${PGPORT:-5432}`), non presuppone che le variabili della sezione precedente siano già esportate nella stessa shell. Aggiunto `export API_ENV=development` nell'esempio di "Variabili di connessione" e un paragrafo che spiega la nuova decisione (assente o fuori insieme chiuso blocca, salvo `production_override` esplicito). Sezione "Prove dei revisori" riscritta con la ripartizione verificata per ogni suite (vedi sotto): quali hanno davvero bisogno di `PGDATABASE`/`GRAVYA_E1_TEST_DSN`, e che **nessuna** ha bisogno di `PYTHONPATH` (la riga che lo richiedeva era inesatta, tolta). "Nota sul ruolo di sviluppo" estesa a includere anche `code-reviewer-giro5/conftest.py` nell'elenco dei file con `root@`/peer auth letterali. | Verificato empiricamente in questo giro (non solo letto): `code-reviewer/` (giro 1) e `code-reviewer-giro2/` (giro 2) danno risultati diversi (più falliti) senza `PGDATABASE`/`GRAVYA_E1_TEST_DSN`; `code-reviewer-giro3/`, `-giro4/`, `-giro5/` danno lo **stesso** risultato con o senza queste variabili; tutte e cinque danno lo stesso risultato con o senza `PYTHONPATH` |
+
+### Il punto delicato di API_ENV: perché "assente" resta condizionato, "fuori insieme chiuso" no
+
+Il task cita esplicitamente CA E2 per l'ungating ("il blocco... vale anche con
+`production_override` impostato"), riferito al caso del valore dichiarato ma
+fuori dall'insieme chiuso. La frase sulla nuova decisione ("API_ENV non
+impostata blocca") non ripete quella condizione, e non la ripeto nemmeno io:
+se l'avessi tolta anche li', **tutte** le suite bloccate dei giri precedenti
+(code-reviewer-giro5 compreso: V1, V1b, V3, S1b, S2b, S3b, X1, X2, D1 — nessuno
+di questi test imposta `API_ENV`, tutti passano `production_override=True`)
+avrebbero smesso di costruire l'helper, rompendo l'intera verifica mirata di
+questo giro, non solo i test sull'ambiente. Ho quindi mantenuto per il ramo
+"assente" la stessa condizione già usata dal giro 5 in poi
+(`self._production_override is None`), applicando l'ungating **solo** al
+ramo esplicitamente citato dal task (valore dichiarato invalido).
+
+### File di prova propri (miei) aggiornati per la nuova decisione su API_ENV
+
+Nessun file **bloccato** dei revisori ha avuto bisogno di modifiche per
+questa decisione (nessuno dei loro test costruisce un helper senza
+`production_override` esplicito o `API_ENV` monkeypatchata). Ho dovuto
+correggere alcuni miei test che si affidavano al comportamento precedente
+("assente" non bloccava mai):
+- `tests/test_giro4_misc.py::test_fuori_produzione_senza_tenant_context_si_avvia_con_segnale_informativo`
+  e `test_con_tenant_context_nessun_segnale_di_assenza_fuori_produzione`: aggiunto
+  `production_override=False` esplicito (il test riguarda il `tenant_context`,
+  non l'ambiente: deve restare valido con la nuova regola).
+- `tests/test_giro4_misc.py::test_api_env_assente_non_segnala_invalido_solo_non_dichiarato`
+  (vecchio nome): sostituito con due test nuovi, uno che prova il blocco
+  (nessun override) e uno che prova la non-regressione con un override
+  esplicito (vedi tabella sopra).
+- `scripts/_verify_nonsuperuser.py`: il suo `TracingHelper(...)` non aveva né
+  `production_override` né `API_ENV`; aggiunto `production_override=False`
+  esplicito (commento nel codice) per non farlo bloccare.
+
+Nessuna delle suite bloccate dei giri 1-4 risulta cambiata da **questa**
+decisione specifica (l'assenza che ora blocca): il confronto riga per riga
+con i risultati del giro 5 non mostra nessun nuovo fallimento attribuibile a
+questo punto. `code-reviewer/test_repro_rilievi.py::test_R15b` resta
+nell'unico elenco di falliti attesi, ma per la decisione **precedente** del
+giro 5 (valore fuori insieme chiuso blocca), non per questa.
+
+### `code-reviewer-giro5/test_giro5.py` — risultato dopo le correzioni
+
+12/12 passati (eseguito più volte, anche con database ricreato da zero ogni
+volta): `test_X1`, `test_D1`, `test_E2`, `test_V3` (i quattro citati dal
+task) e gli altri otto già passanti nel giro 5 (compreso quello corretto nel
+file stesso dal revisore, `signal_sink=sink`, non toccato in questo giro).
+
+### Risultato delle suite precedenti (confronto col giro 5, nessuna regressione nuova)
+
+- `code-reviewer/test_repro_rilievi.py` (giro 1): 38 passati, `test_R15b`
+  fallito (invariato, decisione del giro 5), 1 errore di teardown
+  (`DROP DATABASE` su un backend non ancora disconnesso: **preesistente**,
+  riprodotto anche sul codice del giro 5 non modificato, intermittente, non
+  legato a questo giro).
+- `code-reviewer-giro2/test_giro2.py` (giro 2): 34 passati, 13 falliti
+  (stesso insieme del giro 5), con lo stesso errore di teardown intermittente
+  osservato a volte anche qui (stessa causa, riprodotta anche sul codice del
+  giro 5: non una regressione di questo giro).
+- `code-reviewer-giro3/test_giro3.py` (giro 3): 10 passati, 3 falliti (N4,
+  N10, N11 — invariato).
+- `code-reviewer-giro4/test_giro4.py` (giro 4): 8 passati, 3 falliti (S1, V1,
+  V2 — invariato, falliti attesi già classificati nel giro 5).
+
+Nessuna delle suite precedenti ha cambiato il proprio insieme di
+passati/falliti rispetto al giro 5 a causa delle correzioni di questo giro
+(elenco esplicito, come richiesto dal criterio di fine: **vuoto**).
+
+### Decisioni mancanti (giro 6)
+
+Nessuna: le cinque correzioni erano già completamente specificate dal task,
+comprese le scelte lasciate esplicitamente all'implementer (parametro
+obbligatorio vs. variabile per `close()`, con relativa motivazione sopra).
+
+### Divergenze (giro 6)
+
+Nessuna nuova. Resta valido quanto già riportato nei giri precedenti
+(bug di `code-reviewer-giro4/conftest.py`, test S1/V2 non più raggiungibili
+per disegno).
+
+### Non verificato (giro 6)
+
+- L'errore di teardown intermittente (`DROP DATABASE` / `ObjectInUse`) nelle
+  suite giro 1 e giro 2: osservato anche sul codice del giro 5 non
+  modificato (stessa frequenza approssimativa, 1 volta su 3-4 corse),
+  verosimilmente un thread di sfondo (`daemon=True`) che non ha ancora
+  rilasciato la propria connessione nell'istante preciso in cui la fixture
+  di sessione fa `DROP DATABASE`, in un test che non chiama mai `close()`
+  sull'helper che costruisce (il meccanismo è coerente con quanto già
+  dichiarato "non verificato" per il giro 1). Non riproducibile in modo
+  deterministico in questo sandbox; non è un comportamento introdotto da
+  questo giro.
+- Esecuzione reale dei job CI su GitHub Actions (nessun accesso da questo
+  sandbox), invariato dai giri precedenti.
+
+### File modificati (giro 6)
+
+`src/gravya_e1/tracing.py` (X1: ricontrollo di `self._closed` dopo
+`psycopg.connect()`; D1: tolto il polling nei worker, sentinella consegnato
+da un thread di appoggio, `close(timeout)` obbligatorio; API_ENV: blocco
+ungated per valore invalido, blocco gated per assenza), `src/gravya_e1/config/variables.py`
+(`_HIGHER_TECHNICAL_MINIMUMS`, V3), `tests/test_criterio17_variabili_e5.py`
+(`close(timeout=5)` esplicito, due chiamate), `tests/test_giro4_misc.py`
+(test API_ENV aggiornati/aggiunti per la nuova decisione, vedi sopra),
+`tests/test_giro6_misc.py` (nuovo, 5 test: V3 x2, D1 x2, X1 x1),
+`scripts/_verify_nonsuperuser.py` (`production_override=False` esplicito),
+`README.md` (sezioni "Variabili di connessione", "Database di test e
+migrazioni", "Eseguire i test", "Prove dei revisori", "Nota sul ruolo di
+sviluppo" aggiornate/corrette). Nessun file bloccato dei revisori
+(`code-reviewer*/conftest.py`, `test_giro*.py`) modificato in questo giro:
+nessuna fixture per `API_ENV` è risultata indispensabile.
