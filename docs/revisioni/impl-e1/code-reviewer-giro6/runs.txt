@@ -1,0 +1,11 @@
+run 1 | tests/: 87 passed in 7.31s | giro1: 1 failed, 38 passed, 1 error in 6.52s | giro2: 13 failed, 34 passed, 1 error in 7.06s | giro3: 3 failed, 10 passed in 10.13s | giro4: 3 failed, 8 passed in 22.21s | giro5: 12 passed in 14.23s
+run 2 | tests/: 87 passed in 7.67s | giro1: 1 failed, 38 passed, 1 error in 6.55s | giro2: 13 failed, 34 passed in 1.96s | giro3: 3 failed, 10 passed in 10.30s | giro4: 3 failed, 8 passed in 21.97s | giro5: 12 passed in 14.27s
+run 3 | tests/: 87 passed in 7.82s | giro1: 1 failed, 38 passed, 1 error in 6.53s | giro2: 13 failed, 34 passed, 1 error in 7.19s | giro3: 3 failed, 10 passed in 10.75s | giro4: 3 failed, 8 passed in 22.17s | giro5: 12 passed in 14.36s
+run 4 | tests/: 87 passed in 8.30s | giro1: 1 failed, 38 passed, 1 error in 6.73s | giro2: 13 failed, 34 passed in 2.34s | giro3: 3 failed, 10 passed in 11.21s | giro4: 3 failed, 8 passed in 22.19s | giro5: 12 passed in 14.37s
+run 5 | tests/: 87 passed in 7.74s | giro1: 1 failed, 38 passed, 1 error in 6.48s | giro2: 13 failed, 34 passed in 2.12s | giro3: 3 failed, 10 passed in 10.43s | giro4: 3 failed, 8 passed in 22.31s | giro5: 12 passed in 14.41s
+run 6 | tests/: 87 passed in 7.99s | giro1: 1 failed, 38 passed, 1 error in 6.97s | giro2: 13 failed, 34 passed in 2.27s | giro3: 3 failed, 10 passed in 10.86s | giro4: 3 failed, 8 passed in 22.47s | giro5: 12 passed in 14.61s
+run 7 | tests/: 87 passed in 7.53s | giro1: 1 failed, 38 passed, 1 error in 6.49s | giro2: 13 failed, 34 passed in 1.99s | giro3: 3 failed, 10 passed in 10.71s | giro4: 3 failed, 8 passed in 22.15s | giro5: 12 passed in 14.50s
+run 8 | tests/: 87 passed in 8.17s | giro1: 1 failed, 38 passed, 1 error in 6.85s | giro2: 13 failed, 34 passed in 2.19s | giro3: 3 failed, 10 passed in 10.79s | giro4: 3 failed, 8 passed in 22.52s | giro5: 12 passed in 14.38s
+run 9 | tests/: 87 passed in 8.26s | giro1: 1 failed, 38 passed, 1 error in 6.48s | giro2: 13 failed, 34 passed in 2.37s | giro3: 3 failed, 10 passed in 10.59s | giro4: 3 failed, 8 passed in 22.49s | giro5: 12 passed in 14.37s
+run 10 | tests/: 87 passed in 8.43s | giro1: 1 failed, 38 passed, 1 error in 6.77s | giro2: 13 failed, 34 passed, 1 error in 7.23s | giro3: 3 failed, 10 passed in 10.70s | giro4: 3 failed, 8 passed in 22.17s | giro5: 12 passed in 14.40s
+FINE

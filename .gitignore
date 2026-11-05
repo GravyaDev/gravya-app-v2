@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+*.db
+src/gravya_e1.egg-info/
+.pytest_basetemp/

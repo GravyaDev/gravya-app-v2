@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16@sha256:5db6dac2ef5dcff512f4f00a009c3c332b9f2f28f24277175bf3e4a3d02ef83a
+        env:
+          POSTGRES_USER: ci_writer
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql+psycopg://ci_writer@localhost:5432/gravya_e1_test
+      GRAVYA_E1_TEST_DSN: host=localhost user=ci_writer dbname=gravya_e1_test
+      PGHOST: localhost
+      PGUSER: ci_writer
+    steps:
+      # Action fissate per SHA del commit (non per tag mobile), CA R-09.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+      - name: Installa le dipendenze (lockfile con hash)
+        run: |
+          pip install --require-hashes -r requirements.lock.txt
+          # Giro 4 (CA G3-09): nessun isolamento di build (altrimenti pip
+          # scaricherebbe setuptools/wheel non fissati in un venv usa e
+          # getta): sono nel lockfile sopra, con hash.
+          pip install --no-build-isolation --no-deps -e .
+      - name: Crea il database di test
+        # Giro 4 (CA G3-09): `psycopg` e' gia' nel lockfile (con hash);
+        # evita un `apt-get install postgresql-client` non fissato per
+        # un solo CREATE DATABASE (il job "test-non-superuser" sotto usa
+        # ancora `psql` per l'intera orchestrazione SQL dello script: non
+        # evitabile senza riscriverlo, dichiarato residuo nel report).
+        run: |
+          python -c "
+          import psycopg
+          conn = psycopg.connect('postgresql://ci_writer@localhost:5432/postgres', autocommit=True)
+          conn.execute('CREATE DATABASE gravya_e1_test')
+          "
+      - name: Applica le migrazioni
+        run: alembic upgrade head
+      - name: Esegue i test
+        run: pytest -q --basetemp="${{ runner.temp }}/pytest"
+
+  test-non-superuser:
+    # Criterio di fine 2 (E1 v1.6): le migrazioni e l'applicazione devono
+    # funzionare con un proprietario di schema non superuser. Job separato
+    # (non sostituisce "test" sopra, che resta con admin_conn/superuser per
+    # ispezionare i dati bypassando RLS): bootstrap una tantum, da superuser,
+    # dei ruoli che richiedono privilegi che un proprietario di migrazione
+    # non superuser non puo' concedersi da solo, poi migrazioni e verifica
+    # funzionale con `gravya_migrator`/un ruolo non superuser (vedi
+    # scripts/test-non-superuser.sh).
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16@sha256:5db6dac2ef5dcff512f4f00a009c3c332b9f2f28f24277175bf3e4a3d02ef83a
+        env:
+          POSTGRES_USER: ci_writer
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: ci_writer
+      SCRATCH_DB: gravya_e1_ci_nonsuper
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+      - name: Installa le dipendenze (lockfile con hash)
+        run: |
+          pip install --require-hashes -r requirements.lock.txt
+          pip install --no-build-isolation --no-deps -e .
+      - name: Installa psql
+        run: sudo apt-get install -y postgresql-client
+      - name: Bootstrap, migrazioni e verifica con ruolo non superuser
+        run: bash scripts/test-non-superuser.sh

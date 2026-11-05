@@ -1,0 +1,68 @@
+# Report code-reviewer — PR claude/impl-e1 (E1 v1.6, passi 0, 2, 3)
+
+Esito: **BLOCCA**. Diff esaminato: `git diff origin/claude/docs-ondata-1...HEAD` (head 5c07805). Riferimenti: E1 v1.6 §4-§8, PRINCIPI, DECISIONS (F2/DX-07 voluto, non segnalato).
+
+## Esecuzione
+
+- Test del branch: `cd /workspace/wt-impl-e1 && . .venv/bin/activate && pytest -q -p no:cacheprovider --basetemp=docs/revisioni/impl-e1/code-reviewer/basetemp` → **26 passed**.
+- Prove del reviewer: `pytest -q -p no:cacheprovider --basetemp=docs/revisioni/impl-e1/code-reviewer/basetemp docs/revisioni/impl-e1/code-reviewer/` → 33 failed, 6 passed. Ogni test asserisce il comportamento **corretto** richiesto dal documento: un FAIL dimostra il difetto, un PASS è un tentativo di rottura fallito. Usano un database scratch `gravya_e1_review` (alembic upgrade head, eliminato a fine sessione) e non toccano `gravya_e1_test`. La fixture `prod_variables` crea e lascia `basetemp_snap/` accanto ai test: è un artefatto, non va committato.
+- Non eseguito: CI GitHub Actions (non eseguibile qui).
+
+## Criteri (perimetro 17, 3, 8-partizioni, 4, 5, 6, 11, 15, 16)
+
+| Criterio | Test | Verifica reale | Note |
+|---|---|---|---|
+| 17 | test_criterio17_variabili_e5.py | sì | Dev con valori di sviluppo, produzione blocca (anche leggendo `API_ENV` dall'ambiente: prova R15). Non coperti: min/max, valore ≤0/bool, struttura malformata (R18). |
+| 3 | test_criterio3_rls.py | sì, solo `gravya_traces` | Non è un falso positivo: `gravya_writer` NOSUPERUSER NOBYPASSRLS (asserito), query come writer con `SET LOCAL ROLE`, controllo positivo sul tenant A, FORCE RLS presente. Tutte le tabelle sono di `root`, il writer non è owner: FORCE è ininfluente ma innocuo. **Nessun test sui segmenti**: li ho provati io (R10a: isolamento e WITH CHECK ok, `InsufficientPrivilege`), ok. Il `pytest.raises(psycopg.errors.Error)` è troppo largo (qualsiasi errore). Il writer non legge le partizioni direttamente (R10b, ok). |
+| 8 (partizioni) | test_criterio8_partizioni.py | sì, con riserve | Creazione e confini coperti con intervallo 1 e 2; fuso orario e cambio di intervallo non coperti (R14). La retention non è in perimetro. |
+| 4 | test_criterio4_whitelist.py | **no** | Solo chiave sconosciuta con sentinella nel valore. Nessun test di valore fuori formato in chiave ammessa (la mia R16 passa), né dei nomi di chiave, né delle colonne `name`/`status`/`run_id` che aggirano la whitelist (R17). |
+| 5 | test_criterio5_fail_open.py | **no** | Solo connessione chiusa con segnali su `InMemorySignalSink`. Con la destinazione reale dei segnali (`PostgresSignalSink`, DB giù) l'eccezione esce dall'helper (R3). Nessun test di DB lento o buffer pieno: il buffer non esiste (R8). Parte DA-B2-04/DA-A3-07 non coperta e dichiarata. |
+| 6 | test_criterio6_overhead.py | sì (sul perimetro) | Soglia letta dal registro, p95 nearest-rank corretto. Misura una scrittura sincrona su socket Unix locale, non quella asincrona/bufferizzata del §5. |
+| 11 | test_criterio11_hmac_argomenti.py | **no** | Tautologico: gli attributi contengono solo hash e nomi scelti dal test, non passa mai PII all'helper, quindi `assert pii not in attrs` non può fallire. Con un hash SHA-256 semplice al posto dell'HMAC il test passerebbe (R5). |
+| 15 | test_criterio15_hmac_rotazione.py | parziale | Proprietà dell'HMAC (stesso/diverso tenant, due chiavi, distruzione) verificate davvero. «Senza chiave valida l'attributo non è scritto» è verificato solo sulla funzione `hash_tool_args`, non sul percorso di scrittura (R5); chiave vuota considerata valida (R12). |
+| 16 | test_criterio16_prompt_hash.py | **no** | Usa nomi di chiave inventati dal test (`rendered_hash`), che qualsiasi whitelist scarterebbe. L'hash del render in `gravya.prompt.hash` viene scritto (R6). Limite dichiarato dall'implementer, ma il criterio non è soddisfatto né dimostrabile con questo test. |
+
+## Rilievi
+
+### Bloccanti (provati)
+
+1. **Colonne fuori whitelist con testo libero** (`tracing.py` 165-245, `models.py`). `SegmentStart.name`, `SegmentEnd.status`, `TraceStart.run_id`/`execution_ticket_id`/`workflow_id`/`workflow_version`/`retention_class` e `TraceEnd.status` sono scritti senza alcuna validazione né limite `max_value_bytes`. §4.2: «`name`, sorgenti, esiti e codici di errore sono valori di un vocabolario chiuso, non testo libero». Prompt, PII e messaggi di errore passano da qui. Violazione di E1 §4.2/§6, criterio 4, DA-E1-02. Prova: `test_R17`.
+2. **Il fail-open si rompe se i segnali non si scrivono** (`tracing.py` `_fail_open` 144-153, `signals.py` 58-67). Se la scrittura della traccia fallisce perché il DB è giù, `PostgresSignalSink.emit` fallisce allo stesso modo e l'eccezione esce da `start_segment`, interrompendo l'esecuzione. Il test del criterio 5 usa solo il sink in memoria. Fonte: E1 §6, criterio 5. Prova: `test_R3`.
+3. **Un valore non hashable in `gravya.decision.outcome` manda in crash l'helper, anche in produzione** (`tracing.py:46`: `outcome in wl.POLICY_OUTCOMES` con una lista → `TypeError`). L'eccezione non è catturata (la whitelist gira fuori dal try del fail-open) e l'esecuzione si interrompe invece di scartare e segnalare. Fonte: E1 §6, criteri 4 e 5. Prova: `test_R2`.
+4. **Validazione dell'hash troppo permissiva** (`hashing.py` 51-58, `int(value,16)`). Sono accettati come «hash» `0x`+62 cifre, underscore interni, spazi ai bordi e maiuscole. Il formato fisso è HMAC-SHA-256 esadecimale (E1 §4.2); lo spazio ai bordi e gli underscore consentono di veicolare caratteri non esadecimali. Violazione del criterio 4 («nessun valore fuori formato»). Prova: `test_R1`, `test_R1b` (scritto nel DB).
+5. **`writer_transaction` perde il ruolo e il tenant nella transazione del chiamante** (`db.py` 27-31). Se la connessione ha già una transazione aperta (psycopg ha autocommit disattivato, caso normale), `conn.transaction()` crea un savepoint: `SET LOCAL ROLE gravya_writer` e `app.tenant_id` restano fino al commit del chiamante. Verificato: dopo `start_segment`, `current_user = gravya_writer` e `app.tenant_id` impostato. Le istruzioni successive del chiamante (per esempio l'audit fail-closed di B2 nella «transazione unica») girano come writer e falliscono con `permission denied`: il tracing blocca l'azione invece di essere fail-open. Il report dell'implementer afferma che il reset è garantito «per costruzione»: è falso in questo caso. Il GUC del tenant resta impostato e pregiudica l'isolamento (DA-E1-10). In più `PostgresSignalSink.emit` fa `commit()` sulla connessione del chiamante. Prova: `test_R13`, `test_R13b`.
+6. **Criteri 11 e 16 non verificati davvero** (vedi tabella). L'helper non impone l'HMAC: `start_segment` accetta qualunque stringa di 64 cifre esadecimali in `gravya.tool.args_hash`/`gravya.decision.args_hash`, anche senza `gravya.hash.key_ref` e senza chiave per il tenant. Un SHA-256 semplice di argomenti con PII passa; E1 §5 dice che «l'HMAC lo calcola l'helper» e che senza chiave l'attributo non è scritto, e DA-E1-09 vieta l'hash semplice a bassa entropia. Prova: `test_R5`, `test_R6`.
+7. **Il nome della chiave scartata porta contenuto arbitrario nella tabella di audit** (`tracing.py` 133-141: `key=d.key`). Il segnale scrive il nome della chiave così come arriva dal chiamante, senza limite né formato: un payload con chiave = testo libero (per esempio un dizionario costruito con il contenuto del messaggio) finisce intero in `gravya_signals_min_audit`. Il criterio 4 prova solo il valore sentinella; il principio di DA-E1-02 («un contenuto scartato non deve finire nell'audit») è violato per le chiavi. Prova: `test_R4`.
+
+### Da riportare (il documento dovrebbe cambiare, o decide l'utente)
+
+8. **Nessun buffer né scrittura asincrona** (`tracing.py`: `_write_buffer_size` letto in `__init__` e mai usato). E1 §5 prevede «asincrono e bufferizzato (`e1.write_buffer_size`)», §6 «DB lento, buffer pieno» come caso fail-open. Il codice scrive in modo sincrono, senza timeout: con una tabella bloccata, `start_segment` resta appeso (>3 s nella prova) e l'esecuzione con lui. Il valore della variabile è letto solo per soddisfare il criterio 17. Il report non lo dichiara come divergenza. Prova: `test_R8`, `test_R8b`. Se il buffer è rinviato, il documento o il perimetro devono dirlo.
+9. **Segmenti e tracce modificabili dopo la chiusura** (`0002_schema.py`: `GRANT SELECT, INSERT, UPDATE` al writer su tutte le colonne; `tracing.py` `end_segment`/`end_trace`). E1 §6 e §7: «nessuna modifica dopo la chiusura» (3.2.5). Un secondo `end_segment` riscrive `status`; il writer può riscrivere gli attributi aggirando la whitelist. `end_segment(kind=...)` non controlla che il `kind` coincida con quello del segmento salvato e scrive gli attributi di un altro `kind` nel segmento. Prova: `test_R7a`, `test_R7b`.
+10. **Valori «opachi» che non lo sono** (`whitelist.py`: `opaque_id`, `destination_id`). Accettati: `RSSMRA80A01H501U`, `3331234567`, `mario.rossi`, un IBAN, 2000 caratteri `A`. `destination_id` accetta `api.openai.com/v1/chat/completions` (indirizzo senza schema: «non un URL», DA-B2-07). Il docstring e il report dichiarano che non sono vocabolari chiusi, ma un controllo solo sul formato lascia passare PII compatta e testo codificato fino a `max_value_bytes`. Prova: `test_R9`, `test_R9b`. Da decidere: elenchi chiusi (E16/catalogo).
+11. **CI non funzionante come scritta** (`.github/workflows/ci.yml`, `tests/test_criterio5_fail_open.py`, `tests/test_passo0_migrazioni.py`). Questi test usano `dbname=...` e `postgresql+psycopg://root@/...` fissi (socket Unix) e ignorano `GRAVYA_E1_TEST_DSN`. Il service PostgreSQL di GitHub Actions è raggiungibile solo via TCP. Simulato con `PGHOST=127.0.0.1 pytest tests/test_criterio5_fail_open.py tests/test_passo0_migrazioni.py` → 2 failed, 1 error. Dedotto per la CI reale (non eseguita). Il passo 0 chiede che il comando di test della CI passi.
+12. **Interfaccia unica delle variabili: solo interi positivi e struttura non validata** (`variables.py`). Una struttura malformata dell'istantanea solleva `AttributeError` senza segnale (DX-17: blocca e segnala): `test_R18`. L'interfaccia è dichiarata «condivisa» ma non gestisce booleani (`incident.nis2_flow_active`, `retention.class_override_enabled`) né 0. Il helper legge le variabili una sola volta all'avvio: una modifica non è applicata «senza rilascio». Minimi/massimi sono `null` per tutte e quattro le variabili, coerente col catalogo (validità tecnica).
+
+### Minori
+
+13. `partitions.py:38` `epoch_year = 2000` costante nel codice. Non è una durata né una soglia di configurazione, ma fissa l'allineamento dei bucket per `interval_months` non divisori di 12 e non è documentata. Valutazione DX-22: non violazione stretta, da dichiarare.
+14. `partitions.py` `partition_bounds` non converte i timestamp con fuso orario non UTC: `2031-06-01 00:30+02:00` (= 31/05 22:30 UTC) dà `[giugno, luglio)` e la riga di maggio non trova la partizione. Prova: `test_R14a`.
+15. `ensure_partition` con `CREATE TABLE IF NOT EXISTS` restituisce il nome di una partizione esistente con confini diversi, se l'intervallo cambia (mensile → bimestrale): la riga di aprile non trova partizione, nonostante la funzione abbia dichiarato la copertura. Prova: `test_R14b`. Il catalogo dice che l'effetto non è descritto.
+16. Segmento di un tenant agganciabile al `trace_id` di un altro tenant (nessun controllo né FK; il WITH CHECK guarda solo `tenant_id`): `test_R11`. Impatto basso: la riga resta del tenant B.
+17. `gravya_signals_min_audit` (provvisoria, **trattata come provvisoria**: marcata nella migrazione, nel COMMENT, nel docstring e nel report; non è trattata come definitiva) è senza RLS e con `SELECT` al writer multi-tenant, quindi il writer legge i segnali di tutti i tenant (`test_R10d`). Da risolvere quando si definisce la tabella reale.
+18. Chiave HMAC vuota (`b""`) considerata chiave valida: `test_R12`.
+19. `migrations/env.py:12` URL di default fisso `postgresql+psycopg://root@/gravya_e1_test` (utente, database, socket): URL hardcoded (DX-22) in codice non di test; senza `DATABASE_URL` la migrazione parte sul database di test.
+20. Il test del criterio 8 ha un'asserzione con `or` quasi tautologica (`uuid.UUID(str(trace_a)) in rows_a or str(...) in {...}`).
+
+## Tentativi di rottura
+
+- Letta tra tenant (traces e segmenti): bloccata (R10a, test 3). Scrittura con `tenant_id` diverso: rifiutata dal WITH CHECK (R10a). UPDATE cross-tenant: 0 righe (R10c). Lettura diretta delle partizioni da parte del writer: negata (R10b).
+- Writer NOSUPERUSER/NOBYPASSRLS verificato su `pg_roles`; superuser usato solo per verifiche e `SET LOCAL ROLE`.
+- Guardia di produzione: letta da `API_ENV` (R15, ok), blocca l'avvio per «da definire». `API_ENV=Production` o assente = sviluppo (R15b, informativo: invariante esatta, non è un rilievo).
+- Sentinella nel valore di una chiave ammessa o fuori whitelist: non arriva a segmenti né audit (R16, ok). Nel nome della chiave: arriva (rilievo 7).
+- Nessuna dipendenza o import OpenTelemetry/SDK di tracing (grep su `src`, `pyproject.toml`); nessun segreto (le chiavi sono sintetiche di test); nessun URL nel codice di `src` (solo `migrations/env.py`).
+- Non applicabili al perimetro (non implementati, nessun rilievo): audit fail-closed di B2/A3, HITL e checkpointer, tool senza destinazione (DA-B2-07), segmenti LLM/tool, propagazione, retention.
+- Test «mutati» mentalmente: il criterio 3 fallirebbe senza RLS; i criteri 11 e 16 passerebbero con l'implementazione sbagliata.
+
+## Istruzioni rivolte a un agente nei file letti
+
+Nessuna. Il task dell'implementer contiene solo istruzioni del coordinator (non trattate come tali dal reviewer).

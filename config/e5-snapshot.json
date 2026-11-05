@@ -1,0 +1,94 @@
+{
+  "_comment": "Istantanea versionata delle variabili di piattaforma (E5, DA-A1-10), ripiego finché A6 non esiste. Contiene solo le variabili che servono ai passi 0-3 di E1 v1.6 (docs/E1-tracing-distribuito.md), copiate da docs/catalogo-variabili.md v1.4. Modificabile solo con una PR. Letta da un'unica interfaccia condivisa (src/gravya_e1/config/variables.py). Giro 2: unità di e1.write_buffer_size (numero di segmenti) e valori di sviluppo confermati dall'utente (decisione 3, task-implementer-giro2.md).",
+  "source_catalog_version": "1.4",
+  "variables": {
+    "e1.partition_interval_months": {
+      "value": 1,
+      "unit": "months",
+      "status": "proposta_da_validare",
+      "catalog_ref": "catalogo-variabili.md §12, riga `e1.partition_interval_months` (proposta da validare, E1 §4.1)",
+      "min": 1,
+      "max": null
+    },
+    "e1.overhead_p95_ms": {
+      "value": 5,
+      "unit": "ms",
+      "status": "proposta_da_validare",
+      "catalog_ref": "catalogo-variabili.md §12, riga `e1.overhead_p95_ms` (proposta da validare, E1 §5, §7)",
+      "min": 1,
+      "max": null
+    },
+    "e1.write_buffer_size": {
+      "value": 100,
+      "unit": "count (numero di segmenti in coda, decisione 3 dell'utente, task-implementer-giro2.md)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "catalogo-variabili.md §12, riga `e1.write_buffer_size` (da definire nel catalogo; unità confermata dall'utente nel giro 2)",
+      "min": 1,
+      "max": null
+    },
+    "e1.attributes.max_value_bytes": {
+      "value": 2048,
+      "unit": "bytes",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "catalogo-variabili.md §12, riga `e1.attributes.max_value_bytes` (da definire, intervallo minimo-massimo richiesto prima della produzione, regola 11; valore di sviluppo confermato dall'utente nel giro 2)",
+      "min": 1,
+      "max": null
+    },
+    "e1.write_statement_timeout_ms": {
+      "value": 2000,
+      "unit": "ms (timeout di una singola istruzione di scrittura dell'helper, giro 3)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 3): il coordinator la aggiunge a catalogo-variabili.md; valore di sviluppo scelto dall'implementer, stesso trattamento di e1.write_buffer_size",
+      "min": 1,
+      "max": null
+    },
+    "e1.write_connect_timeout_s": {
+      "value": 2,
+      "unit": "s (timeout di connessione del thread di scrittura/segnali dell'helper, intero: libpq legge secondi interi, valori sotto 2 diventano 2, 0 e' attesa infinita, giro 5, decisione dell'utente)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 5): il coordinator la aggiunge a catalogo-variabili.md",
+      "min": 2,
+      "max": null
+    },
+    "e1.write_tcp_keepalives_idle_s": {
+      "value": 10,
+      "unit": "s (keepalive TCP: secondi di inattivita' prima del primo probe, giro 3)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 3): il coordinator la aggiunge a catalogo-variabili.md",
+      "min": 1,
+      "max": null
+    },
+    "e1.write_tcp_keepalives_interval_s": {
+      "value": 5,
+      "unit": "s (keepalive TCP: intervallo tra probe, giro 3)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 3): il coordinator la aggiunge a catalogo-variabili.md",
+      "min": 1,
+      "max": null
+    },
+    "e1.write_tcp_keepalives_count": {
+      "value": 3,
+      "unit": "count (keepalive TCP: numero di probe prima di considerare la connessione morta, giro 3)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 3): il coordinator la aggiunge a catalogo-variabili.md",
+      "min": 1,
+      "max": null
+    },
+    "e1.write_tcp_user_timeout_ms": {
+      "value": 5000,
+      "unit": "ms (tcp_user_timeout di libpq e durata massima applicativa di un job del thread di scrittura/segnali, giro 4, CR N2)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 4): il coordinator la aggiunge a catalogo-variabili.md",
+      "min": 1,
+      "max": null
+    }
+  }
+}
