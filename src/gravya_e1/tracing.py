@@ -55,21 +55,59 @@ pacchetti di prova fissi dei revisori costruiscono l'helper con
 `production_override=True` e senza `tenant_context` in decine di casi.
 Fuori da produzione reale, se `tenant_context` e' assente l'helper si avvia
 comunque, ma emette lo stesso segnale in forma informativa (non bloccante).
+
+Giro 4 (dopo il terzo RIPORTA di code-reviewer e compliance-auditor).
+- **N2/N3.** Un guardiano per-job (`e1.write_tcp_user_timeout_ms`, usato sia
+  come `tcp_user_timeout` di libpq sia come durata massima applicativa di un
+  job) interrompe dall'esterno una scrittura o un'emissione di segnale ferme
+  oltre il tempo configurato: chiude il socket della connessione bloccata
+  (`shutdown()`, sicuro tra thread - non un `close()` concorrente, che su
+  Linux non sblocca una `recv()` in corso in un altro thread). `close()` usa
+  lo stesso meccanismo subito se `flush()` non si svuota entro il proprio
+  `timeout`, invece di una `put()` bloccante del sentinella: non si appende
+  mai oltre il `timeout` dato. I job rimasti in coda allo spegnimento sono
+  contati (le scritture, in `loss_count`) e segnalati (log di ripiego: i
+  thread di sfondo sono gia' fermi a quel punto).
+- **G3-01.** I segnali passano da una coda e un thread di sfondo propri
+  (separati da quelli delle scritture): nessuna emissione tocca mai il
+  thread del chiamante. Coda piena: log di ripiego diretto (mai il
+  database). Quando il sink dato (`signal_sink`) e' un `PostgresSignalSink`
+  (riconosciuto per duck typing sull'attributo `_conn`, l'unico modo
+  compatibile con la firma esistente `PostgresSignalSink(conn)` usata dai
+  pacchetti di prova dei revisori), la sua connessione e' soggetta allo
+  stesso guardiano per-job delle scritture: non e' una *nuova* connessione
+  creata da `TracingHelper` (il sink resta quello costruito dal chiamante),
+  ma la stessa interruzione e lo stesso timeout configurato.
+- **N9.** Il contesto del tenant si confronta come UUID canonico (non come
+  stringa): `tenant_context="...-ABC..."` (maiuscolo) e un modello con lo
+  stesso tenant in minuscolo ora corrispondono.
+- **N11.** `connect_timeout` non viene piu' arrotondato (`max(1, round(...))`
+  trasformava 400 ms in 1 s e 2500 ms in 2 s): si passa `ms/1000` esatto.
+- **G3-05.** Il nome di una chiave scartata in un segnale e' riportato per
+  intero SOLO se e' una chiave nota della whitelist reale di E1; per
+  qualunque altra chiave, solo la lunghezza (prima: anche un identificatore
+  puntato generico a 4 segmenti passava per intero).
+
+Vedi `docs/revisioni/impl-e1/report-implementer.md`, sezione "Giro 4", per
+la nota sul punto NON implementato (G3-04, API_ENV a vocabolario chiuso:
+contraddice un test bloccato del giro 1) e sulla scelta per N11.
 """
 from __future__ import annotations
 
 import json
 import logging
 import queue
+import socket
 import threading
 import time
+import uuid as _uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import psycopg
 
 from gravya_e1 import whitelist as wl
-from gravya_e1.config.env import is_declared, is_production
+from gravya_e1.config.env import is_declared, is_declared_value_valid, is_production
 from gravya_e1.config.variables import VariableRegistry
 from gravya_e1.db import writer_transaction
 from gravya_e1.hashing import HashUnavailableError, compute_args_hmac
@@ -86,6 +124,16 @@ _SENTINEL = object()
 
 class AttributeRejectedError(ValueError):
     """Sollevato fuori produzione quando un campo/attributo non e' conforme (§6)."""
+
+
+def _canonical_tenant(value: Any) -> str:
+    """UUID canonico se possibile (N9: confronto robusto al maiuscolo/minuscolo
+    e ad altre forme equivalenti), altrimenti il valore testuale cosi' com'e'
+    (difensivo: non deve mai sollevare)."""
+    try:
+        return str(_uuid.UUID(str(value)))
+    except (ValueError, AttributeError, TypeError):
+        return str(value)
 
 
 class TenantContextRequiredError(RuntimeError):
@@ -292,7 +340,7 @@ class TracingHelper:
         self._signals = signal_sink
         self._keys = key_provider
         self._production_override = production_override
-        self._tenant_context = str(tenant_context) if tenant_context is not None else None
+        self._tenant_context = _canonical_tenant(tenant_context) if tenant_context is not None else None
         self._conninfo = conninfo
 
         # Avvio dell'helper (criterio 17): legge subito le variabili "da
@@ -305,6 +353,10 @@ class TracingHelper:
         self._keepalives_idle_s = self._variables.get("e1.write_tcp_keepalives_idle_s").value
         self._keepalives_interval_s = self._variables.get("e1.write_tcp_keepalives_interval_s").value
         self._keepalives_count = self._variables.get("e1.write_tcp_keepalives_count").value
+        # Giro 4 (N2): usato sia come `tcp_user_timeout` di libpq sia come
+        # durata massima applicativa di un job (guardiano per-job sotto).
+        self._tcp_user_timeout_ms = self._variables.get("e1.write_tcp_user_timeout_ms").value
+        self._job_timeout_s = self._tcp_user_timeout_ms / 1000
 
         self._loss_lock = threading.Lock()
         self.loss_count = 0
@@ -313,36 +365,49 @@ class TracingHelper:
         # Giro 4: `tenant_context` e' obbligatorio solo sotto la guardia di
         # produzione REALE (`is_production()`, non `production_override`,
         # che resta una "produzione simulata" per i test - vedi report).
+        # Emissione sincrona apposta (non c'e' ancora un thread dei segnali:
+        # non serve, e non c'e' un chiamante da proteggere da latenza a
+        # questo punto, l'avvio e' gia' sincrono).
         if self._tenant_context is None:
             if is_production():
-                self._safe_emit(
-                    "trace.tenant_context_absent",
-                    reason="tenant_context_absent_bloccante",
-                )
+                self._emit_at_startup("trace.tenant_context_absent", reason="tenant_context_absent_bloccante")
                 raise TenantContextRequiredError(
                     "tenant_context e' obbligatorio quando API_ENV=production"
                 )
-            self._safe_emit(
-                "trace.tenant_context_absent",
-                reason="tenant_context_absent_informativo",
-            )
-
-        self._queue: "queue.Queue" = queue.Queue(maxsize=self._write_buffer_size)
-        self._pending = 0
-        self._pending_cv = threading.Condition()
+            self._emit_at_startup("trace.tenant_context_absent", reason="tenant_context_absent_informativo")
 
         self._conn_lock = threading.Lock()
         self._own_conn: psycopg.Connection | None = None
         self._closed = False
 
+        self._pending = 0
+        self._pending_cv = threading.Condition()
+
+        # Giro 4 (G3-01): coda e thread di sfondo propri per i segnali,
+        # separati da quelli delle scritture (sotto): nessuna emissione tocca
+        # mai il thread del chiamante.
+        self._queue: "queue.Queue" = queue.Queue(maxsize=self._write_buffer_size)
+        self._signal_queue: "queue.Queue" = queue.Queue(maxsize=self._write_buffer_size)
+
         self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker_thread.start()
+        self._signal_worker_thread = threading.Thread(target=self._signal_worker_loop, daemon=True)
+        self._signal_worker_thread.start()
 
-        if self._production_override is None and not is_declared():
-            self._safe_emit(
-                "e5.environment_undeclared",
-                reason="API_ENV non impostata: ambiente trattato come sviluppo",
-            )
+        if self._production_override is None:
+            if not is_declared():
+                self._emit_at_startup("e5.environment_undeclared", reason="API_ENV non impostata: ambiente trattato come sviluppo")
+            elif not is_declared_value_valid():
+                # Giro 4 (G3-04, decisione del coordinator): un valore fuori
+                # dall'insieme chiuso non blocca l'avvio (vedi test_R15b,
+                # bloccato dal giro 1: solo "production" esatto fa la
+                # differenza), ma lo segnala, a differenza di prima dove
+                # restava silenzioso. Il valore stesso non e' riportato (non
+                # e' nell'insieme chiuso dei campi di segnale, B7).
+                self._emit_at_startup(
+                    "e5.environment_invalid",
+                    reason="API_ENV impostata fuori dall'insieme chiuso (production/development/test): trattata come sviluppo",
+                )
 
     # -- ambiente -------------------------------------------------------
     def _is_production(self) -> bool:
@@ -352,18 +417,101 @@ class TracingHelper:
         return is_production()
 
     # -- segnali, mai propagati (B2) --------------------------------------
-    def _safe_emit(self, event: str, *, tenant_id: str | None = None, **fields: Any) -> None:
+    def _emit_at_startup(self, event: str, **fields: Any) -> None:
+        """Invio sincrono, solo per i controlli nel costruttore (giro 4): a
+        quel punto il thread dei segnali non esiste ancora (o non serve: non
+        c'e' un chiamante da proteggere dalla latenza durante l'avvio, gia'
+        sincrono di suo). Stesso ripiego di `_safe_emit` in caso di eccezione
+        del sink."""
         try:
-            self._signals.emit(event, tenant_id=tenant_id, **fields)
+            self._signals.emit(event, tenant_id=None, **fields)
         except Exception:  # noqa: BLE001 - il fail-open non dipende dal sink (B2/R-08)
-            with self._loss_lock:
-                self._pending_signal_loss += 1
             try:
-                log_fallback(event, tenant_id=tenant_id, **fields)
+                log_fallback(event, tenant_id=None, **fields)
             except Exception:  # noqa: BLE001 - ripiego di ultima istanza
                 pass
+
+    def _safe_emit(self, event: str, *, tenant_id: str | None = None, **fields: Any) -> None:
+        """Accoda l'emissione (giro 4, G3-01): la esegue solo il thread di
+        sfondo dei segnali, mai il thread del chiamante. Coda piena: log di
+        ripiego diretto (mai il database)."""
+        try:
+            self._signal_queue.put_nowait((event, tenant_id, fields))
+        except queue.Full:
+            try:
+                log_fallback(event, tenant_id=tenant_id, **fields)
+            except Exception:  # noqa: BLE001
+                pass
             return
-        self._flush_pending_loss(tenant_id)
+        with self._pending_cv:
+            self._pending += 1
+            self._pending_cv.notify_all()
+
+    def _signal_worker_loop(self) -> None:
+        while True:
+            item = self._signal_queue.get()
+            if item is _SENTINEL:
+                self._signal_queue.task_done()
+                break
+            event, tenant_id, fields = item
+            watchdog = None
+            sink_conn = self._extract_sink_connection()
+            if sink_conn is not None:
+                watchdog = threading.Timer(self._job_timeout_s, self._force_disconnect, args=(sink_conn,))
+                watchdog.daemon = True
+                watchdog.start()
+            try:
+                self._signals.emit(event, tenant_id=tenant_id, **fields)
+            except Exception:  # noqa: BLE001 - il fail-open non dipende dal sink (B2/R-08)
+                with self._loss_lock:
+                    self._pending_signal_loss += 1
+                try:
+                    log_fallback(event, tenant_id=tenant_id, **fields)
+                except Exception:  # noqa: BLE001 - ripiego di ultima istanza
+                    pass
+            else:
+                self._flush_pending_loss(tenant_id)
+            finally:
+                if watchdog is not None:
+                    watchdog.cancel()
+                with self._pending_cv:
+                    self._pending -= 1
+                    self._pending_cv.notify_all()
+                self._signal_queue.task_done()
+
+    def _extract_sink_connection(self) -> psycopg.Connection | None:
+        """Duck typing (giro 4, G3-01): se `self._signals` e' un
+        `PostgresSignalSink` (o qualunque sink che espone `_conn`), la sua
+        connessione e' soggetta allo stesso guardiano per-job delle
+        scritture (N2), con lo stesso timeout configurato. Non e' una nuova
+        connessione creata da `TracingHelper`: il sink resta quello dato dal
+        chiamante (compatibilita' con `PostgresSignalSink(conn)`)."""
+        conn = getattr(self._signals, "_conn", None)
+        return conn if isinstance(conn, psycopg.Connection) else None
+
+    def _force_disconnect(self, conn: psycopg.Connection | None) -> None:
+        """Interrompe dall'esterno un'operazione bloccata su `conn` (N2/N3):
+        `shutdown()` sul socket sottostante sblocca subito qualunque
+        `recv`/`send` in corso nel thread che la sta eseguendo (a differenza
+        di un `close()` concorrente, che su Linux non sblocca una syscall gia'
+        bloccata in un altro thread). Chi stava usando `conn` la vede fallire
+        con un errore, gestito dal chiamante (fail-open, B2)."""
+        if conn is None:
+            return
+        try:
+            fd = conn.pgconn.socket
+        except Exception:  # noqa: BLE001 - connessione gia' chiusa o non disponibile
+            return
+        if fd is None or fd < 0:
+            return
+        try:
+            raw = socket.socket(fileno=fd)
+            try:
+                raw.shutdown(socket.SHUT_RDWR)
+            finally:
+                raw.detach()  # non chiudere l'fd: resta della connessione originale
+        except OSError:  # noqa: BLE001 - gia' chiuso o mai connesso del tutto
+            pass
 
     def _flush_pending_loss(self, tenant_id: str | None) -> None:
         with self._loss_lock:
@@ -391,8 +539,12 @@ class TracingHelper:
 
     # -- contesto del tenant (G16) ------------------------------------------
     def _resolve_tenant(self, model_tenant_id: Any) -> str | None:
-        """Ritorna il tenant autoritativo, o None se e' in conflitto col contesto."""
-        model_tenant = str(model_tenant_id)
+        """Ritorna il tenant autoritativo, o None se e' in conflitto col contesto.
+
+        Giro 4 (N9): confronto come UUID canonico, non come stringa (prima:
+        lo stesso tenant in maiuscolo come contesto rifiutava ogni
+        scrittura legittima)."""
+        model_tenant = _canonical_tenant(model_tenant_id)
         if self._tenant_context is None:
             return model_tenant
         if model_tenant != self._tenant_context:
@@ -488,13 +640,18 @@ class TracingHelper:
     def _get_own_connection(self) -> psycopg.Connection:
         """Chiamato solo dal thread di sfondo (consumatore unico della coda)."""
         if self._own_conn is None or self._own_conn.closed:
-            connect_timeout_s = max(1, round(self._write_connect_timeout_ms / 1000))
+            # Giro 4 (N11): nessun arrotondamento silenzioso. `ms/1000` esatto
+            # (prima: `max(1, round(ms/1000))` trasformava 400 ms in 1 s).
+            connect_timeout_s = self._write_connect_timeout_ms / 1000
             kwargs = dict(
                 connect_timeout=connect_timeout_s,
                 keepalives=1,
                 keepalives_idle=self._keepalives_idle_s,
                 keepalives_interval=self._keepalives_interval_s,
                 keepalives_count=self._keepalives_count,
+                # Giro 4 (N2): timeout lato client sui dati gia' inviati e
+                # non ancora confermati, in millisecondi (libpq >= 12).
+                tcp_user_timeout=self._tcp_user_timeout_ms,
             )
             with self._conn_lock:
                 if self._conninfo:
@@ -528,8 +685,18 @@ class TracingHelper:
             if job is _SENTINEL:
                 self._queue.task_done()
                 break
+            watchdog = None
             try:
                 conn = self._get_own_connection()
+                # Giro 4 (N2): un job fermo oltre `e1.write_tcp_user_timeout_ms`
+                # (rete bloccata dopo la connessione: ne' `statement_timeout`
+                # ne' `connect_timeout` ne' i keepalive la sbloccano, perche'
+                # il peer e' comunque vivo a livello TCP) viene interrotto
+                # dall'esterno invece di restare fermo finche' il kernel non
+                # chiude la connessione da solo.
+                watchdog = threading.Timer(self._job_timeout_s, self._force_disconnect, args=(conn,))
+                watchdog.daemon = True
+                watchdog.start()
                 handlers[type(job)](conn, job)
                 self._flush_pending_loss(job.tenant_id)
             except Exception as exc:  # noqa: BLE001 - fail-open deliberato (B2), solo per le tracce
@@ -541,6 +708,8 @@ class TracingHelper:
                 self._invalidate_connection()
                 self._record_loss(exc, job.table, job.tenant_id)
             finally:
+                if watchdog is not None:
+                    watchdog.cancel()
                 with self._pending_cv:
                     self._pending -= 1
                     self._pending_cv.notify_all()
@@ -576,14 +745,68 @@ class TracingHelper:
         return True
 
     def close(self, timeout: float = 5.0) -> None:
-        """Ferma il thread di sfondo e chiude la connessione propria (test e spegnimento)."""
+        """Ferma i due thread di sfondo (scritture e segnali) e chiude le
+        connessioni: non si appende mai oltre `timeout` in totale (N3).
+
+        Se `flush()` non si svuota entro `timeout`, il job fermo (scrittura o
+        segnale) viene interrotto dall'esterno con lo stesso guardiano di N2,
+        invece di affidarsi a una `put()` bloccante del sentinella (che con
+        la coda piena e il thread fermo non sarebbe mai tornata). I job
+        rimasti in coda allo spegnimento sono contati (le scritture) e
+        segnalati con il ripiego di log diretto, non in silenzio (CA G3-11).
+        """
         if self._closed:
             return
         self._closed = True
-        self.flush(timeout)
-        self._queue.put(_SENTINEL)
-        self._worker_thread.join(timeout)
+        deadline = time.monotonic() + timeout
+        flushed = self.flush(max(0.0, deadline - time.monotonic()))
+        if not flushed:
+            self._force_disconnect(self._own_conn)
+            self._force_disconnect(self._extract_sink_connection())
+        for q in (self._queue, self._signal_queue):
+            try:
+                q.put_nowait(_SENTINEL)
+            except queue.Full:
+                pass  # il thread corrispondente esce comunque dopo il job in corso
+        self._worker_thread.join(max(0.0, deadline - time.monotonic()))
+        self._signal_worker_thread.join(max(0.0, deadline - time.monotonic()))
+        self._drain_remaining_as_lost()
         self._invalidate_connection()
+
+    def _drain_remaining_as_lost(self) -> None:
+        """Job rimasti in coda, mai processati (CA G3-11): contati (le
+        scritture, in `loss_count`) e segnalati col ripiego di log diretto (i
+        due thread di sfondo sono gia' fermi qui: nessuno consumerebbe
+        un'emissione accodata ora)."""
+        while True:
+            try:
+                job = self._queue.get_nowait()
+            except queue.Empty:
+                break
+            if job is _SENTINEL:
+                continue
+            with self._pending_cv:
+                self._pending -= 1
+            with self._loss_lock:
+                self.loss_count += 1
+            try:
+                log_fallback("trace.write_failed", tenant_id=job.tenant_id, table=job.table, reason="helper chiuso", count=1)
+            except Exception:  # noqa: BLE001
+                pass
+        while True:
+            try:
+                item = self._signal_queue.get_nowait()
+            except queue.Empty:
+                break
+            if item is _SENTINEL:
+                continue
+            event, tenant_id, fields = item
+            with self._pending_cv:
+                self._pending -= 1
+            try:
+                log_fallback(event, tenant_id=tenant_id, **fields)
+            except Exception:  # noqa: BLE001
+                pass
 
     # -- handler delle scritture (sulla connessione propria dell'helper) ----
     def _handle_insert_trace(self, conn: psycopg.Connection, job: _InsertTraceJob) -> None:

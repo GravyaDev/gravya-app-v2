@@ -68,6 +68,7 @@ def test_senza_chiave_valida_attributo_non_scritto_e_segnale(signal_sink, variab
     helper = make_helper(variables, signal_sink, provider, production_override=False)
     result = helper.hash_tool_args("tenant-senza-chiave", ARGS)
     assert result is None
+    assert helper.flush(timeout=5)  # giro 4: i segnali sono asincroni (coda propria, G3-01)
     assert "trace.args_hash_unavailable" in signal_sink.kinds()
 
 

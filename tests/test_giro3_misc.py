@@ -181,6 +181,7 @@ def test_end_segment_kind_sconosciuto_non_solleva_in_produzione(admin_conn, vari
         SegmentEnd(segment_id=uuid.uuid4(), tenant_id=uuid.uuid4(), ended_at=NOW(), status="ok"),
         "kind_sconosciuto_bogus",
     )  # non deve sollevare
+    assert helper.flush(timeout=5)  # giro 4: i segnali sono asincroni (coda propria, G3-01)
     assert "trace.segment_attribute_discarded" in signal_sink.kinds()
 
 
@@ -244,17 +245,16 @@ def test_dopo_start_segment_la_riga_non_e_necessariamente_scritta(admin_conn, va
         assert cur.fetchone() is not None, "dopo flush() la riga deve essere scritta"
 
 
-def test_coda_piena_perdita_contata_senza_attesa(signal_sink, key_provider):
+def test_coda_piena_perdita_contata_senza_attesa(signal_sink, key_provider, tmp_path):
     """G4: con la coda piena, una nuova scrittura e' una perdita immediata, senza attesa."""
     import json
-    import pathlib
-    import tempfile
 
     from _e1vars import snapshot_with
     from gravya_e1.config.variables import SnapshotVariableRegistry
     from gravya_e1.tracing import TracingHelper
 
-    path = pathlib.Path(tempfile.mkstemp(suffix=".json")[1])
+    # Giro 4 (CR N13): `tmp_path` (cancellato da pytest), mai un file in /tmp.
+    path = tmp_path / "snapshot.json"
     path.write_text(json.dumps(snapshot_with({"e1.write_buffer_size": {"value": 1, "unit": "count", "status": "deciso"}})))
     reg = SnapshotVariableRegistry(signal_sink=signal_sink, snapshot_path=path, production_override=False)
 
