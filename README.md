@@ -235,8 +235,8 @@ macchina (DECISIONS §6 «Catena di fornitura» e «Minuti di GitHub Actions»).
 - `.github/workflows/ci.yml`: runner `ubuntu-24.04`, action fissate per SHA
   (checkout v7.0.1, setup-python v7.1.0, entrambe su Node 24); servizi PostgreSQL
   definiti una volta sola (ancora YAML), con il digest dell'immagine in un solo
-  punto. Parte solo con `push` (non con `pull_request`: i merge in `main` si
-  fanno in locale) o a mano (`workflow_dispatch`), e **non parte** se il push
+  punto. Parte solo con `push` di branch (non di tag; non con `pull_request`: i
+  merge in `main` si fanno in locale) o a mano (`workflow_dispatch`), e **non parte** se il push
   tocca solo `docs/**`, `stato/**`, `**/*.md`, `.claude/**` (`paths-ignore`:
   basta un file diverso perché parta). Un nuovo push sullo stesso branch annulla
   l'esecuzione in corso (`concurrency`).
@@ -248,23 +248,62 @@ macchina (DECISIONS §6 «Catena di fornitura» e «Minuti di GitHub Actions»).
 
 **In locale** (`scripts/fornitura-locale.py`, solo libreria standard più `git`,
 `gh`, `docker`):
-1. controllo OSV del lockfile;
+1. controllo OSV di `requirements.lock.txt` e di `requirements-strumenti.lock.txt`;
 2. digest di PostgreSQL fissato in `ci.yml` contro quello attuale del tag;
 3. rigenerazione del lockfile alle ultime versioni (comando dell'intestazione del
-   lockfile con `--upgrade`, su `origin/main`, nella cartella `.fornitura-lavoro/`
-   ignorata da git); se cambia: branch `impl/lockfile-AAAA-MM-GG`, push e PR con
-   le differenze (non ne apre un'altra se una PR di lockfile è ancora aperta).
+   lockfile con `--upgrade`, dopo un `git fetch`, su `origin/main`, nella cartella
+   `.fornitura-lavoro/` ignorata da git); se cambia: branch `impl/lockfile-AAAA-MM-GG`,
+   push e PR con le differenze (non ne apre un'altra se una PR di lockfile è ancora
+   aperta). Se `main` locale ha commit non pubblicati su `pyproject.toml` o sui
+   lockfile, non apre nessuna PR: esito «errore» con una issue che lo spiega (prima
+   si fa il push di `main`).
 
-Un controllo fallito apre una issue assegnata a `GravyaDev` con titolo fisso per
-tipo, senza duplicarla se ce n'è già una aperta con lo stesso titolo. Codici di
-uscita (somma bit a bit): 0 tutto a posto; 1 vulnerabilità; 2 digest cambiato;
-4 controllo non riuscito; 8 aggiornamento del lockfile non riuscito; 16 PR
-aperta (esito normale); 32 issue non aperta.
+Ogni controllo è isolato: un'eccezione inattesa in uno diventa il suo esito
+«errore» (con la sua issue) e non fa perdere le issue degli altri. Un
+controllo fallito apre una issue assegnata a `GravyaDev` con titolo fisso per tipo.
+Se ce n'è già una aperta con lo stesso titolo: se il contenuto è cambiato aggiunge
+un commento con il nuovo contenuto, se è invariato non fa nulla (le issue non si
+chiudono da sole). `gh` parte sempre con `-R <proprietario>/<repository>` ricavato
+dal remoto `origin`, mai dalla cartella di lancio; prima di scrivere in una issue,
+in un commento o in una PR si tolgono i pattern di credenziali (`ghp_…`,
+`github_pat_…`, `gho_…`, URL `https://…@`). Codici di uscita (somma bit a bit): 0
+tutto a posto; 1 vulnerabilità; 2 digest cambiato; 4 controllo non riuscito; 8
+aggiornamento del lockfile non riuscito (anche: git, gh, pip-tools, venv, timeout);
+16 PR aperta (esito normale); 32 issue non aperta; con `--stato`, 64 = ultima
+esecuzione riuscita troppo vecchia o assente.
+
+**Traccia delle esecuzioni e `--stato`.** A ogni esecuzione (anche fallita o di
+`--prova`) si aggiunge una riga JSON (data, esito per controllo, versioni) a
+`~/.local/state/gravya-fornitura/esiti.jsonl`, fuori dal repository. Il controllo
+periodico dipende da una macchina che può essere spenta (WSL2), quindi va
+controllato che giri davvero:
+
+```bash
+python3 scripts/fornitura-locale.py --stato    # ultima esecuzione riuscita; errore (64) se più vecchia di 9 giorni o assente
+```
+
+Il `coordinator` lo esegue a ogni avvio di sessione. «Riuscita» = esecuzione vera
+(non `--prova`) di tutti e tre i controlli senza nessun errore (trovare
+vulnerabilità non è un fallimento del controllo). La soglia
+(`SOGLIA_ESECUZIONE_GIORNI`, in testa a `scripts/fornitura-locale.py`) è il
+periodo del timer più un margine di 2 giorni. Se manca la rete o il token di `gh`
+è scaduto, la issue non si apre (codice 32 nel journal): in quel caso il segnale
+è proprio `--stato`, che non dipende da GitHub.
+
+**Strumenti fissati.** `pip-tools` e le sue dipendenze stanno, con versioni e hash,
+in `requirements-strumenti.lock.txt` (comando di rigenerazione nell'intestazione,
+partendo da `requirements-strumenti.in`) e si installano con `--require-hashes`;
+il job settimanale controlla con OSV anche quel file. **Limite dichiarato:** la
+rigenerazione (`pip-compile --all-build-deps`) risolve e costruisce le dipendenze di
+build, che possono eseguire codice di terze parti nella stessa sessione utente in cui
+`gh` e `git` hanno le credenziali: non è isolata in un contenitore. Mitigazioni: il
+risultato passa da OSV, dalla CI e dalla revisione prima del merge; il token di `gh`
+resta una scelta dell'utente (consigliato un token limitato al solo repository).
 
 ```bash
 python3 scripts/fornitura-locale.py --prova                     # niente issue, branch, push o PR: riferisce soltanto
 python3 scripts/fornitura-locale.py --solo digest               # un solo controllo (osv,digest,lockfile)
-python3 scripts/fornitura-locale.py --solo digest --prova --digest-attuale sha256:<64 cifre>   # prova del ramo «digest cambiato»
+python3 scripts/fornitura-locale.py --solo digest --prova --digest-attuale sha256:<64 cifre>   # prova del ramo «digest cambiato» (solo con --prova)
 python3 scripts/fornitura-locale.py                             # esecuzione vera
 ```
 
@@ -278,11 +317,14 @@ bash scripts/installa-timer-fornitura.sh
 systemctl --user list-timers gravya-fornitura.timer      # prossima esecuzione
 journalctl --user -u gravya-fornitura.service -n 50      # esito e messaggi
 systemctl --user start gravya-fornitura.service          # esecuzione a mano ora
+python3 scripts/fornitura-locale.py --stato              # l'ultimo controllo riuscito è recente?
 systemctl --user disable --now gravya-fornitura.timer    # disinstallare
 ```
 
 Il timer è settimanale con `Persistent=true`: se il computer era spento all'ora
-prevista, l'esecuzione parte all'accensione successiva.
+prevista, l'esecuzione parte all'accensione successiva. Lo script esegue
+`daemon-reload` dopo la copia e, se il timer era già attivo, anche `restart`
+(altrimenti una modifica di `OnCalendar` non avrebbe effetto).
 
 **Prima del merge in `main`** (in locale, `scripts/agenti.py`):
 
@@ -290,8 +332,13 @@ prevista, l'esecuzione parte all'accensione successiva.
 python3 scripts/agenti.py worktree-unisci <nome> -m "messaggio del merge"
 ```
 
-Nel worktree esegue `scripts/osv-check.py` e `pytest tests/` con le variabili di
-`.worktrees/<nome>.env`; solo se entrambi riescono fa `git merge --no-ff
-impl/<nome>` in `main` dal repository principale. Altrimenti rifiuta e `main`
-non cambia. Non fa push. Prova il branch, non il risultato del merge: se `main`
-è andato avanti, avvisa.
+Rifiuta (e `main` non cambia) se: l'HEAD del worktree non coincide con la punta di
+`impl/<nome>`; `main` non è antenato del branch (`main` è andato avanti: prima si
+aggiorna il branch con un merge di `main` e si rilanciano i controlli); l'ultima
+esecuzione riuscita del job settimanale è più vecchia di `SOGLIA_ESECUZIONE_GIORNI`
+(oppure si forza con `--forza-fornitura`, e il messaggio di merge lo riporta);
+oppure un controllo fallisce. Nel worktree, con le variabili di
+`.worktrees/<nome>.env`, esegue `scripts/osv-check.py` sui due lockfile, `pytest
+tests/` e `scripts/test-non-superuser.sh`; solo se tutti riescono fa `git merge
+--no-ff impl/<nome>` in `main` dal repository principale. Non fa push. L'obbligo
+resta una convenzione del coordinator: un `git merge` a mano lo aggira.
