@@ -6,6 +6,9 @@ risultati dei tool. In produzione l'attributo e' scartato e un segnale
 arriva ad A5 con kind, chiave, motivo e conteggio: un valore sentinella nel
 payload non compare in nessuna riga della tabella di audit (0 risultati).
 In sviluppo/test lo stesso payload fa fallire la scrittura (§6).
+
+Giro 3: la scrittura e' asincrona (coda + thread di sfondo): `flush()` prima
+di interrogare il database.
 """
 from __future__ import annotations
 
@@ -14,13 +17,13 @@ from datetime import datetime, timezone
 
 from gravya_e1.models import SegmentStart
 from gravya_e1.signals import PostgresSignalSink
-from gravya_e1.tracing import AttributeRejectedError, TracingHelper
+from gravya_e1.tracing import AttributeRejectedError
 
 SENTINEL = "SENTINELLA-PII-non-deve-comparire-mai-42f9"
 
 
-def test_payload_con_testo_libero_fallisce_in_sviluppo(admin_conn, variables, signal_sink, key_provider, ensure_partitions_now):
-    helper = TracingHelper(variables, signal_sink, key_provider, production_override=False)
+def test_payload_con_testo_libero_fallisce_in_sviluppo(admin_conn, variables, signal_sink, key_provider, ensure_partitions_now, make_helper):
+    helper = make_helper(variables, signal_sink, key_provider, production_override=False)
     tenant_id = uuid.uuid4()
     segment = SegmentStart(
         segment_id=uuid.uuid4(),
@@ -42,10 +45,10 @@ def test_payload_con_testo_libero_fallisce_in_sviluppo(admin_conn, variables, si
 
 
 def test_attributo_scartato_in_produzione_mai_nella_tabella_di_audit(
-    admin_conn, variables, key_provider, ensure_partitions_now
+    admin_conn, variables, key_provider, ensure_partitions_now, make_helper
 ):
     signal_sink = PostgresSignalSink(admin_conn)
-    helper = TracingHelper(variables, signal_sink, key_provider, production_override=True)
+    helper = make_helper(variables, signal_sink, key_provider, production_override=True)
     tenant_id = uuid.uuid4()
     segment_id = uuid.uuid4()
     segment = SegmentStart(
@@ -60,6 +63,7 @@ def test_attributo_scartato_in_produzione_mai_nella_tabella_di_audit(
         },
     )
     helper.start_segment(admin_conn, segment)
+    assert helper.flush(timeout=5)
 
     with admin_conn.cursor() as cur:
         cur.execute(

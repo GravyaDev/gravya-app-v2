@@ -15,6 +15,8 @@ from gravya_e1.keys import StaticTestKeyProvider
 from gravya_e1.signals import InMemorySignalSink
 from gravya_e1.tracing import TracingHelper
 
+from _e1vars import snapshot_with
+
 
 def test_variabile_assente_blocca_e_segnala(tmp_path, signal_sink):
     path = tmp_path / "snapshot.json"
@@ -78,9 +80,16 @@ def test_helper_parte_in_sviluppo_con_valori_di_sviluppo(variables, signal_sink)
         key_provider=StaticTestKeyProvider(),
         production_override=False,
     )
-    assert helper._write_buffer_size == 100  # valore di sviluppo dichiarato nell'istantanea
-    assert helper._max_value_bytes == 2048
-    assert helper._write_statement_timeout_ms == 2000  # giro 3: e1.write_statement_timeout_ms
+    try:
+        assert helper._write_buffer_size == 100  # valore di sviluppo dichiarato nell'istantanea
+        assert helper._max_value_bytes == 2048
+        assert helper._write_statement_timeout_ms == 2000  # giro 3: e1.write_statement_timeout_ms
+        assert helper._write_connect_timeout_ms == 2000
+        assert helper._keepalives_idle_s == 10
+        assert helper._keepalives_interval_s == 5
+        assert helper._keepalives_count == 3
+    finally:
+        helper.close()
 
 
 def test_helper_non_parte_in_produzione_senza_variabile_da_definire(signal_sink):
@@ -97,24 +106,22 @@ def test_helper_non_parte_in_produzione_senza_variabile_da_definire(signal_sink)
 
 def test_helper_non_parte_in_produzione_senza_write_statement_timeout_ms(tmp_path, signal_sink):
     # Giro 3: e1.write_statement_timeout_ms ha lo stesso trattamento di
-    # e1.write_buffer_size/e1.attributes.max_value_bytes (DX-22): qui le due
+    # e1.write_buffer_size/e1.attributes.max_value_bytes (DX-22): qui le
     # altre variabili sono "deciso" (valide) apposta, cosi' il blocco in
     # produzione si osserva proprio sulla nuova variabile "da definire".
     path = tmp_path / "snapshot.json"
     path.write_text(
         json.dumps(
-            {
-                "variables": {
-                    "e1.write_buffer_size": {"value": 100, "unit": "count", "status": "deciso"},
-                    "e1.attributes.max_value_bytes": {"value": 2048, "unit": "bytes", "status": "deciso"},
+            snapshot_with(
+                {
                     "e1.write_statement_timeout_ms": {
                         "value": 2000,
                         "unit": "ms",
                         "status": "da_definire",
                         "dev_only": True,
-                    },
+                    }
                 }
-            }
+            )
         )
     )
     prod_vars = SnapshotVariableRegistry(signal_sink=signal_sink, snapshot_path=path, production_override=True)
@@ -135,4 +142,7 @@ def test_helper_non_parte_in_produzione_senza_write_statement_timeout_ms(tmp_pat
         key_provider=StaticTestKeyProvider(),
         production_override=False,
     )
-    assert helper._write_statement_timeout_ms == 2000
+    try:
+        assert helper._write_statement_timeout_ms == 2000
+    finally:
+        helper.close()

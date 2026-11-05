@@ -15,16 +15,15 @@ from datetime import datetime, timezone
 
 from gravya_e1.models import SegmentStart
 from gravya_e1.signals import PostgresSignalSink
-from gravya_e1.tracing import TracingHelper
 
 TEMPLATE_HASH = hashlib.sha256(b"template:greeting:v3").hexdigest()
 RENDER_TEXT_WITH_PII = "Ciao Mario Rossi, la tua email e' mario.rossi@example.com"
 RENDER_HASH = hashlib.sha256(RENDER_TEXT_WITH_PII.encode("utf-8")).hexdigest()
 
 
-def test_solo_hash_del_template_in_riga_mai_render(admin_conn, variables, key_provider, ensure_partitions_now):
+def test_solo_hash_del_template_in_riga_mai_render(admin_conn, variables, key_provider, ensure_partitions_now, make_helper):
     signal_sink = PostgresSignalSink(admin_conn)
-    helper = TracingHelper(variables, signal_sink, key_provider, production_override=True)
+    helper = make_helper(variables, signal_sink, key_provider, production_override=True)
     segment = SegmentStart(
         segment_id=uuid.uuid4(),
         trace_id=uuid.uuid4(),
@@ -32,7 +31,7 @@ def test_solo_hash_del_template_in_riga_mai_render(admin_conn, variables, key_pr
         kind="llm",
         started_at=datetime.now(timezone.utc),
         attributes={
-            "gravya.prompt.key": "greeting",
+            "gravya.prompt.key": "prompt_greeting",
             "gravya.prompt.version": "v3",
             "gravya.prompt.hash": TEMPLATE_HASH,
             # tentativi non ammessi dalla whitelist: testo renderizzato e un
@@ -42,6 +41,7 @@ def test_solo_hash_del_template_in_riga_mai_render(admin_conn, variables, key_pr
         },
     )
     helper.start_segment(admin_conn, segment)
+    assert helper.flush(timeout=5)
 
     with admin_conn.cursor() as cur:
         cur.execute(
