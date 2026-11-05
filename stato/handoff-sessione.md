@@ -16,9 +16,10 @@ Riscritto il 2026-11-05 (sessione 9, prima in Claude Code locale). Si riscrive, 
 ## Prossimi passi, in ordine
 1. `python3 scripts/agenti.py lancia docs/revisioni/ci-locale/task-implementer-giro3.md`; poi code-reviewer di verifica (giro 3, sul modello di `task-code-reviewer-giro2.md`). Con OK: `python3 scripts/agenti.py worktree-unisci ci-locale` (comando nuovo del branch: dopo il merge è in `main`; per questo primo merge usarlo dal worktree o fare il merge a mano con gli stessi controlli: OSV, `tests/`, `test-non-superuser.sh`), push, `worktree-chiudi ci-locale`.
 2. Dopo il merge: installare il timer (`bash scripts/installa-timer-fornitura.sh`, istruzioni nel README), eseguire una volta il job vero, aggiungere a `CLAUDE.md` (Avvio) `python3 scripts/fornitura-locale.py --stato`; registrar: attuazione dei punti di §6 «Catena di fornitura», rilievi residui RIPORTA del compliance-auditor (`docs/revisioni/ci-locale/report-compliance-auditor.md`) in §4, e le decisioni dell'utente sotto.
+2b. Token del job locale: `~/.config/gravya-fornitura/env` (permessi 600, solo esistenza e permessi da controllare, mai il contenuto); scade il 2027-02-03 (DECISIONS §6 «Catena di fornitura»): ricordarlo all'utente nelle sessioni da gennaio 2027.
 3. **Nuova fase, sessione nuova:** A1 passi 3-4 sull'ossatura.
 4. Alla prossima revisione di A1: App. C r.251 cita «DECISIONS §4» per «Mutazioni del grafo», ora in §6.
 5. Poi: allineamento degli altri documenti dell'ondata 1; approvazione dei sette documenti; ondata 2 (A5, A6, F6). Con il plan-auditor: `security.vulnerability_scan_interval_days` del catalogo e la cadenza settimanale del job.
 
-## In attesa di risposta dall'utente (da presentare in un blocco)
-1. Scadenza del token fine-grained del job locale (DECISIONS §4, punto aggiunto dal registrar): data da annotare nel registro per il rinnovo. Il token è creato dall'utente; va in `~/.config/gravya-fornitura/env` (`GH_TOKEN=…`, permessi 600, cartella 700), con il comando dato all'utente il 2026-11-05. All'avvio controllare solo che il file esista con quei permessi, senza leggerlo.
+## In attesa di risposta dall'utente
+- Nessuna.
