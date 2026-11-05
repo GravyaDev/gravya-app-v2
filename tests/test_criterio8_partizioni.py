@@ -38,6 +38,18 @@ def _registry_with_interval(tmp_path, signal_sink, months: int) -> SnapshotVaria
     return SnapshotVariableRegistry(signal_sink=signal_sink, snapshot_path=path)
 
 
+def test_partizione_creata_ha_rls_abilitata_e_forzata(admin_conn, tmp_path, signal_sink):
+    """CA minore / CR R-11: una partizione protegge anche l'accesso diretto, non solo via il padre."""
+    reg = _registry_with_interval(tmp_path, signal_sink, months=1)
+    ts = datetime(2029, 9, 10, tzinfo=timezone.utc)
+    name = ensure_partition(admin_conn, "gravya_traces", ts, reg)
+    with admin_conn.cursor() as cur:
+        cur.execute("SELECT relrowsecurity, relforcerowsecurity FROM pg_class WHERE relname = %s", (name,))
+        row_security, force_security = cur.fetchone()
+    assert row_security is True
+    assert force_security is True
+
+
 def test_calcolo_confini_rispetta_intervallo_dalla_variabile(tmp_path, signal_sink):
     reg = _registry_with_interval(tmp_path, signal_sink, months=2)
     interval = reg.get("e1.partition_interval_months").value
@@ -52,7 +64,7 @@ def test_creazione_partizione_idempotente(admin_conn, tmp_path, signal_sink):
     ts = datetime(2027, 6, 10, tzinfo=timezone.utc)
     name1 = ensure_partition(admin_conn, "gravya_traces", ts, reg)
     name2 = ensure_partition(admin_conn, "gravya_traces", ts, reg)
-    assert name1 == name2 == "gravya_traces_p202706"
+    assert name1 == name2 == "gravya_traces_p202706_202707"
 
 
 def test_riga_finisce_nella_partizione_corretta_per_il_tempo(admin_conn, tmp_path, signal_sink):
@@ -82,9 +94,10 @@ def test_riga_finisce_nella_partizione_corretta_per_il_tempo(admin_conn, tmp_pat
 
     with admin_conn.cursor() as cur:
         cur.execute(f"SELECT trace_id FROM {part_a}")
-        rows_a = {r[0] for r in cur.fetchall()}
+        rows_a = {str(r[0]) for r in cur.fetchall()}
         cur.execute(f"SELECT trace_id FROM {part_b}")
-        rows_b = {r[0] for r in cur.fetchall()}
-    assert uuid.UUID(str(trace_a)) in rows_a or str(trace_a) in {str(r) for r in rows_a}
-    assert str(trace_b) in {str(r) for r in rows_b}
-    assert str(trace_a) not in {str(r) for r in rows_b}
+        rows_b = {str(r[0]) for r in cur.fetchall()}
+    assert str(trace_a) in rows_a
+    assert str(trace_b) in rows_b
+    assert str(trace_a) not in rows_b
+    assert str(trace_b) not in rows_a

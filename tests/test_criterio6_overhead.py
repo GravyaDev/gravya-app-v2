@@ -35,7 +35,7 @@ def test_overhead_p95_sotto_soglia_di_catalogo(admin_conn, variables, signal_sin
         tenant_id=tenant_id,
         kind="agent",
         started_at=datetime.now(timezone.utc),
-        attributes={"gen_ai.agent.id": "a", "gen_ai.agent.name": "warmup"},
+        attributes={"gen_ai.agent.id": "agent_warmup", "gen_ai.agent.name": "agent_warmup"},
     )
     helper.start_segment(admin_conn, warmup_segment)
 
@@ -47,7 +47,7 @@ def test_overhead_p95_sotto_soglia_di_catalogo(admin_conn, variables, signal_sin
             tenant_id=tenant_id,
             kind="agent",
             started_at=datetime.now(timezone.utc),
-            attributes={"gen_ai.agent.id": "a", "gen_ai.agent.name": "bench"},
+            attributes={"gen_ai.agent.id": "agent_bench", "gen_ai.agent.name": "agent_bench"},
         )
         start = time.perf_counter()
         helper.start_segment(admin_conn, segment)

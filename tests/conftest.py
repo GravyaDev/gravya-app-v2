@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import uuid
 from datetime import datetime, timezone
 
@@ -12,19 +11,22 @@ from gravya_e1.keys import StaticTestKeyProvider
 from gravya_e1.partitions import ensure_partition
 from gravya_e1.signals import InMemorySignalSink
 
-TEST_DB_DSN = os.environ.get("GRAVYA_E1_TEST_DSN", "dbname=gravya_e1_test")
+from _pgconn import pg_dsn
+
+TEST_DB_NAME = "gravya_e1_test"
 
 
 @pytest.fixture()
 def admin_conn():
-    """Connessione da superuser di sviluppo locale (`root`, peer auth).
+    """Connessione da superuser di sviluppo locale (ruolo di sviluppo, auth peer o PG*).
 
     Usata solo per compiti amministrativi nei test (creare partizioni,
     ispezionare dati bypassando RLS per verificare cosa e' stato scritto
     davvero). Le scritture applicative passano sempre da `writer_transaction`
-    (ruolo `gravya_writer`, senza bypass di RLS).
+    (ruolo `gravya_writer`, senza bypass di RLS). Il DSN si legge da
+    `GRAVYA_E1_TEST_DSN`/variabili PG* (CR: niente socket Unix fisso).
     """
-    conn = psycopg.connect(TEST_DB_DSN)
+    conn = psycopg.connect(pg_dsn(TEST_DB_NAME))
     yield conn
     conn.rollback()
     conn.close()

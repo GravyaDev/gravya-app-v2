@@ -63,7 +63,7 @@ def test_scrittura_con_tenant_diverso_dal_contesto_rifiutata(admin_conn, ensure_
     tenant_b = uuid.uuid4()
     trace_id = uuid.uuid4()
 
-    with pytest.raises(psycopg.errors.Error):
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
         with writer_transaction(admin_conn, str(tenant_b)) as tconn:
             with tconn.cursor() as cur:
                 # Sessione impostata come tenant_b, ma la riga dichiara tenant_a:
@@ -85,7 +85,7 @@ def test_scrittura_con_tenant_diverso_dal_contesto_rifiutata(admin_conn, ensure_
 
 def test_tenant_id_non_nullo(admin_conn, ensure_partitions_now):
     trace_id = uuid.uuid4()
-    with pytest.raises(psycopg.errors.Error):
+    with pytest.raises(psycopg.errors.NotNullViolation):
         with admin_conn.transaction():
             with admin_conn.cursor() as cur:
                 cur.execute(

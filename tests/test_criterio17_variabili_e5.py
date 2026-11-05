@@ -25,15 +25,44 @@ def test_variabile_assente_blocca_e_segnala(tmp_path, signal_sink):
     assert "e5.variable_unreadable" in signal_sink.kinds()
 
 
-def test_valore_non_intero_e_bloccato_e_segnalato(tmp_path, signal_sink):
+def test_valore_negativo_e_bloccato_e_segnalato(tmp_path, signal_sink):
+    # Giro 2 (CR 12): l'interfaccia accetta anche stringhe di vocabolario e
+    # booleani, non solo interi positivi; resta non valido un intero
+    # negativo (B3/CR 12: 0 e' tecnicamente valido, un negativo no).
     path = tmp_path / "snapshot.json"
-    path.write_text(
-        json.dumps({"variables": {"x.y": {"value": "non-numerico", "unit": "ms", "status": "deciso"}}})
-    )
+    path.write_text(json.dumps({"variables": {"x.y": {"value": -5, "unit": "ms", "status": "deciso"}}}))
     reg = SnapshotVariableRegistry(signal_sink=signal_sink, snapshot_path=path)
     with pytest.raises(VariableUnavailableError):
         reg.get("x.y")
     assert "e5.variable_invalid" in signal_sink.kinds()
+
+
+def test_valore_di_tipo_non_supportato_e_bloccato_e_segnalato(tmp_path, signal_sink):
+    path = tmp_path / "snapshot.json"
+    path.write_text(json.dumps({"variables": {"x.y": {"value": [1, 2], "unit": "ms", "status": "deciso"}}}))
+    reg = SnapshotVariableRegistry(signal_sink=signal_sink, snapshot_path=path)
+    with pytest.raises(VariableUnavailableError):
+        reg.get("x.y")
+    assert "e5.variable_invalid" in signal_sink.kinds()
+
+
+def test_valore_booleano_e_stringa_di_vocabolario_sono_validi(tmp_path, signal_sink):
+    # Giro 2 (CR 12): l'interfaccia non gestiva booleani ne' vocabolari di
+    # stringa; ora li accetta.
+    path = tmp_path / "snapshot.json"
+    path.write_text(
+        json.dumps(
+            {
+                "variables": {
+                    "incident.nis2_flow_active": {"value": False, "unit": "", "status": "deciso"},
+                    "retention.tenant_offboarding_choice": {"value": "export", "unit": "", "status": "deciso"},
+                }
+            }
+        )
+    )
+    reg = SnapshotVariableRegistry(signal_sink=signal_sink, snapshot_path=path)
+    assert reg.get("incident.nis2_flow_active").value is False
+    assert reg.get("retention.tenant_offboarding_choice").value == "export"
 
 
 def test_proposta_da_validare_vale_come_primo_valore_con_segnale(variables, signal_sink):

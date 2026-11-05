@@ -11,19 +11,22 @@ import sys
 import psycopg
 import pytest
 
+from _pgconn import alembic_database_url, pg_dsn
+
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_DB_OWNER = os.environ.get("PGUSER", "root")
 
 
 @pytest.fixture()
 def scratch_database():
     name = "gravya_e1_migration_check"
-    admin = psycopg.connect("dbname=postgres", autocommit=True)
+    admin = psycopg.connect(pg_dsn("postgres"), autocommit=True)
     with admin.cursor() as cur:
         cur.execute(f"DROP DATABASE IF EXISTS {name}")
-        cur.execute(f"CREATE DATABASE {name} OWNER root")
+        cur.execute(f"CREATE DATABASE {name} OWNER {_DB_OWNER}")
     admin.close()
     yield name
-    admin = psycopg.connect("dbname=postgres", autocommit=True)
+    admin = psycopg.connect(pg_dsn("postgres"), autocommit=True)
     with admin.cursor() as cur:
         cur.execute(f"DROP DATABASE IF EXISTS {name}")
     admin.close()
@@ -31,7 +34,7 @@ def scratch_database():
 
 def _alembic(args: list[str], dsn: str) -> subprocess.CompletedProcess:
     env = dict(os.environ)
-    env["DATABASE_URL"] = f"postgresql+psycopg://root@/{dsn}"
+    env["DATABASE_URL"] = alembic_database_url(dsn)
     return subprocess.run(
         [sys.executable, "-m", "alembic", *args],
         cwd=REPO_ROOT,
@@ -42,7 +45,7 @@ def _alembic(args: list[str], dsn: str) -> subprocess.CompletedProcess:
 
 
 def _user_tables(dsn: str) -> set[str]:
-    conn = psycopg.connect(f"dbname={dsn}")
+    conn = psycopg.connect(pg_dsn(dsn))
     with conn.cursor() as cur:
         cur.execute(
             "select table_name from information_schema.tables "
