@@ -22,6 +22,14 @@ Due comandi:
               `worktree-chiudi` cancella worktree, branch locale e remoto e container
               solo se il branch è già unito in main e il worktree è pulito.
 
+  worktree-unisci
+              Controllo obbligatorio prima del merge in main (DECISIONS §6 «Catena di
+              fornitura»): nel worktree esegue il controllo OSV del lockfile e la suite
+              `tests/` con le variabili di `.worktrees/<nome>.env`; solo se entrambi
+              riescono fa `git merge --no-ff impl/<nome>` in main dal repository
+              principale, con il messaggio passato. Altrimenti rifiuta e non tocca main.
+              Non fa push.
+
 Esempi:
   python3 scripts/agenti.py nuovo-task implementer impl-e1-chiusura --nome micro-api-env
   python3 scripts/agenti.py lancia docs/revisioni/impl-e1-chiusura/task-implementer-micro-api-env.md
@@ -36,6 +44,7 @@ import datetime as dt
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -60,6 +69,12 @@ def immagine_ci() -> str | None:
 
 IMMAGINE_PG = immagine_ci()
 PORTA_INIZIALE = 5433
+# Controllo prima del merge (`worktree-unisci`): percorsi relativi al worktree.
+LOCKFILE = "requirements.lock.txt"
+SCRIPT_OSV = "scripts/osv-check.py"
+CARTELLA_TEST = "tests"
+# Argomenti di pytest come nel criterio di fine dei task (nessuna cache, basetemp nel worktree).
+ARGOMENTI_PYTEST = ["-q", "-p", "no:cacheprovider", "--basetemp=.pytest_basetemp"]
 AGENTI = RADICE / ".claude" / "agents"
 REVISIONI = RADICE / "docs" / "revisioni"
 
@@ -427,6 +442,65 @@ def cmd_worktree_chiudi(a: argparse.Namespace) -> None:
     file_env(nome).unlink(missing_ok=True)
 
 
+def leggi_env_worktree(nome: str) -> dict[str, str]:
+    """Variabili del worktree da `.worktrees/<nome>.env` (una riga `CHIAVE=valore ...`, come la scrive worktree-crea)."""
+    f = file_env(nome)
+    if not f.is_file():
+        sys.exit(f"Manca {f.relative_to(RADICE)}: il worktree non ha le variabili di PostgreSQL (worktree-crea).")
+    env = {}
+    for token in shlex.split(f.read_text(encoding="utf-8")):
+        chiave, sep, valore = token.partition("=")
+        if not sep or not chiave:
+            sys.exit(f"{f.relative_to(RADICE)}: voce non valida {token!r} (atteso CHIAVE=valore).")
+        env[chiave] = valore
+    return env
+
+
+def comandi_controllo(dove: Path) -> list[tuple[str, list[str]]]:
+    """Controlli prima del merge, in ordine, da eseguire con cwd = worktree."""
+    py = str(dove / ".venv" / "bin" / "python")
+    return [
+        ("controllo OSV del lockfile", [py, SCRIPT_OSV, LOCKFILE]),
+        ("suite dei test", [py, "-m", "pytest", *ARGOMENTI_PYTEST, CARTELLA_TEST]),
+    ]
+
+
+def cmd_worktree_unisci(a: argparse.Namespace) -> None:
+    nome = nome_valido(a.nome)
+    dove = WORKTREE / nome
+    branch = PREFISSO_BRANCH + nome
+    if not dove.is_dir():
+        sys.exit(f"Il worktree {nome} non esiste.")
+    if not a.messaggio.strip():
+        sys.exit("Il messaggio di merge non può essere vuoto.")
+    s = stato_worktree(nome)
+    if not s["esiste_branch"]:
+        sys.exit(f"Il branch {branch} non esiste.")
+    if s["sporco"]:
+        sys.exit(f"Il worktree {nome} ha modifiche non committate: non unisco (il controllo non le coprirebbe).")
+    if s["unito"]:
+        sys.exit(f"Il branch {branch} è già unito in {BRANCH_BASE}: niente da fare.")
+    corrente = git("rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+    if corrente != BRANCH_BASE:
+        sys.exit(f"Il repository principale è su {corrente!r}, non su {BRANCH_BASE}: non unisco.")
+    if git("status", "--porcelain", "--untracked-files=no").stdout.strip():
+        sys.exit("Il repository principale ha modifiche non committate: non unisco.")
+    if git("merge-base", "--is-ancestor", BRANCH_BASE, branch, check=False).returncode != 0:
+        print(f"ATTENZIONE: {BRANCH_BASE} ha commit che {branch} non contiene: i controlli provano il branch, "
+              f"non il risultato del merge.", file=sys.stderr)
+    env = dict(os.environ, **leggi_env_worktree(nome))
+    for descrizione, cmd in comandi_controllo(dove):
+        print(f"== {descrizione}: {' '.join(cmd)}", flush=True)
+        if subprocess.run(cmd, cwd=dove, env=env).returncode != 0:
+            sys.exit(f"RIFIUTATO: {descrizione} non riuscito. {BRANCH_BASE} non è stato toccato.")
+    r = git("merge", "--no-ff", branch, "-m", a.messaggio, check=False)
+    if r.returncode != 0:
+        git("merge", "--abort", check=False)
+        sys.exit(f"RIFIUTATO: il merge di {branch} in {BRANCH_BASE} non è riuscito ({r.stderr.strip() or r.stdout.strip()}); "
+                 f"merge annullato, {BRANCH_BASE} com'era.")
+    print(f"Unito {branch} in {BRANCH_BASE}: {git('rev-parse', '--short', 'HEAD').stdout.strip()} (nessun push).")
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="comando", required=True)
@@ -455,6 +529,11 @@ def main() -> None:
     wx = sub.add_parser("worktree-chiudi", help="cancella worktree, branch e container dopo il merge")
     wx.add_argument("nome")
     wx.set_defaults(f=cmd_worktree_chiudi)
+
+    wu = sub.add_parser("worktree-unisci", help="OSV e suite nel worktree; solo se riescono, merge --no-ff in main (senza push)")
+    wu.add_argument("nome")
+    wu.add_argument("-m", "--messaggio", required=True, help="messaggio del commit di merge")
+    wu.set_defaults(f=cmd_worktree_unisci)
 
     a = p.parse_args()
     a.f(a)
