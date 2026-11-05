@@ -16,6 +16,7 @@ raggiungere il database.
 """
 from __future__ import annotations
 
+import os
 import uuid
 from datetime import datetime, timezone
 
@@ -26,6 +27,15 @@ from gravya_e1.models import SegmentStart, TraceStart
 from gravya_e1.signals import PostgresSignalSink
 
 TEST_DB = "gravya_e1_test"
+
+
+def _unreachable_conninfo() -> str:
+    """Porta 1: nessun servizio in ascolto, connect() fallisce sempre. Giro 5
+    (CR R1): host/utente dalle variabili PG* (ripiego locale), mai un
+    un ruolo fisso (incluso quello locale di sviluppo) nel testo del file."""
+    host = os.environ.get("PGHOST") or "127.0.0.1"
+    user = os.environ.get("PGUSER") or "root"
+    return f"host={host} port=1 connect_timeout=1 dbname=postgres user={user}"
 
 
 def test_connessione_del_chiamante_chiusa_non_causa_perdita_con_db_sano(variables, signal_sink, key_provider, make_helper):
@@ -55,7 +65,7 @@ def test_scrittura_traccia_non_riuscita_e_fail_open(signal_sink, key_provider, m
         signal_sink,
         key_provider,
         production_override=False,
-        conninfo="host=127.0.0.1 port=1 connect_timeout=1 dbname=postgres user=root",
+        conninfo=_unreachable_conninfo(),
     )
 
     trace = TraceStart(
@@ -79,7 +89,7 @@ def test_scrittura_segmento_non_riuscita_e_fail_open(signal_sink, key_provider, 
         signal_sink,
         key_provider,
         production_override=False,
-        conninfo="host=127.0.0.1 port=1 connect_timeout=1 dbname=postgres user=root",
+        conninfo=_unreachable_conninfo(),
     )
 
     segment = SegmentStart(
@@ -107,7 +117,7 @@ def test_sink_dei_segnali_non_scrivibile_non_blocca_il_fail_open(key_provider, m
         PostgresSignalSink(broken_conn),
         key_provider,
         production_override=False,
-        conninfo="host=127.0.0.1 port=1 connect_timeout=1 dbname=postgres user=root",
+        conninfo=_unreachable_conninfo(),
     )
 
     segment = SegmentStart(
@@ -138,5 +148,5 @@ def _unreachable_variables(tmp_path):
 
     # Giro 4 (CR N13): `tmp_path` (cancellato da pytest), mai un file in /tmp.
     path = tmp_path / "snapshot.json"
-    path.write_text(json.dumps(snapshot_with({"e1.write_connect_timeout_ms": {"value": 1000, "unit": "ms", "status": "deciso"}})))
+    path.write_text(json.dumps(snapshot_with({"e1.write_connect_timeout_s": {"value": 2, "unit": "s", "status": "deciso", "min": 2}})))
     return SnapshotVariableRegistry(signal_sink=InMemorySignalSink(), snapshot_path=path, production_override=False)

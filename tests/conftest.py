@@ -97,13 +97,20 @@ def password_auth_conninfo(admin_conn):
     salvata su disco, valida solo per la sessione di questo processo. Usa la
     regola generica gia' presente in pg_hba.conf
     (`host all all 127.0.0.1/32 scram-sha-256`): nessuna riga nuova.
+
+    Giro 5 (CR correzione 6): il ruolo si elimina davvero a fine test
+    (`DROP OWNED` + `DROP ROLE`), non solo la password: prima restava nel
+    cluster a ogni corsa (`LOGIN` senza password, membro di `gravya_writer`,
+    con `CONNECT`), un residuo pericoloso con autenticazione `trust`.
     """
+    import os
     import secrets
 
     from psycopg import sql
 
     role = "gravya_e1_pwtest"
     password = secrets.token_urlsafe(24)
+    host = os.environ.get("PGHOST") or "127.0.0.1"
     with admin_conn.cursor() as cur:
         cur.execute(
             f"""
@@ -121,8 +128,11 @@ def password_auth_conninfo(admin_conn):
         cur.execute(f"GRANT CONNECT ON DATABASE {TEST_DB_NAME} TO {role};")
     admin_conn.commit()
     try:
-        yield f"host=127.0.0.1 user={role} password={password} dbname={TEST_DB_NAME}"
+        yield f"host={host} user={role} password={password} dbname={TEST_DB_NAME}"
     finally:
         with admin_conn.cursor() as cur:
-            cur.execute(f"ALTER ROLE {role} PASSWORD NULL;")
+            cur.execute(f"DROP OWNED BY {role};")
+        admin_conn.commit()
+        with admin_conn.cursor() as cur:
+            cur.execute(f"DROP ROLE IF EXISTS {role};")
         admin_conn.commit()

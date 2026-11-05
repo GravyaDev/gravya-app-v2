@@ -93,15 +93,18 @@ def test_con_tenant_context_nessun_segnale_di_assenza_fuori_produzione(variables
     assert not [e for e in signal_sink.signals if e.kind == "trace.tenant_context_absent"]
 
 
-# --- G3-04 (decisione del coordinator): API_ENV fuori insieme chiuso -------
-# Non blocca l'avvio (contraddirebbe test_R15b, bloccato dal giro 1: solo
-# "production" esatto conta), ma emette un segnale distinto.
+# --- G3-04 / giro 5 (decisione dell'utente): API_ENV fuori insieme chiuso --
+# Giro 5: l'avvio SI BLOCCA (decisione dell'utente, ribalta la scelta del
+# giro 4): test_R15b di code-reviewer/ diventa fallito atteso per questa
+# stessa decisione (vedi report, sezione "Giro 5").
 
 
-def test_api_env_fuori_insieme_chiuso_non_blocca_ma_segnala(monkeypatch, variables, signal_sink, key_provider, make_helper):
+def test_api_env_fuori_insieme_chiuso_blocca_l_avvio_con_segnale(monkeypatch, variables, signal_sink, key_provider):
+    from gravya_e1.tracing import EnvironmentInvalidError
+
     monkeypatch.setenv("API_ENV", "Production")  # fuori insieme chiuso (non e' "production" esatto)
-    helper = make_helper(variables, signal_sink, key_provider, tenant_context=str(uuid.uuid4()))
-    assert helper is not None
+    with pytest.raises(EnvironmentInvalidError):
+        TracingHelper(variables, signal_sink, key_provider, tenant_context=str(uuid.uuid4()))
     assert "e5.environment_invalid" in signal_sink.kinds()
 
 
@@ -122,20 +125,30 @@ def test_api_env_assente_non_segnala_invalido_solo_non_dichiarato(signal_sink, k
 # --- G3-01: i segnali passano da una coda/thread propri, il chiamante non aspetta ---
 
 
-def test_segnale_con_sink_bloccato_il_chiamante_non_aspetta(variables, key_provider, make_helper, admin_conn, ensure_partitions_now):
-    """Giro 4 (CA G3-01): un `PostgresSignalSink` la cui connessione si blocca
-    dopo essere stata stabilita (stessa tecnica di
-    code-reviewer-giro3/test_giro3.py::test_N1/N2, qui sul sink dei segnali,
-    non sulla scrittura) non deve far aspettare il chiamante: i segnali
-    passano da una coda e un thread di sfondo propri (separati dalle
-    scritture)."""
-    if not tcp_ok():
-        pytest.skip("TCP non disponibile")
+def test_segnale_con_connessione_propria_bloccata_il_chiamante_non_aspetta(variables, key_provider, admin_conn, ensure_partitions_now):
+    """Giro 5 (correzione 2, S1): il thread dei segnali usa una connessione
+    PROPRIA (stesso `conninfo` della scrittura, non quella data dal
+    chiamante a `PostgresSignalSink`, giro 5): se quella connessione si
+    blocca dopo essere stata stabilita, il chiamante non deve aspettare."""
+    import os
+
+    reason = tcp_ok()
+    if reason:
+        pytest.skip(reason)
     proxy = FreezableProxy()
-    sink_conn = psycopg.connect(f"host=127.0.0.1 port={proxy.port} user=root dbname={TEST_DB}")
-    sink = PostgresSignalSink(sink_conn)
-    helper = make_helper(variables, sink, key_provider, production_override=True)
+    user = os.environ.get("PGUSER") or "root"
+    sink = PostgresSignalSink(admin_conn)  # "marcatore di tipo": non e' piu' la connessione usata per scrivere
+    helper = TracingHelper(
+        variables, sink, key_provider, production_override=True,
+        conninfo=f"host=127.0.0.1 port={proxy.port} user={user} dbname={TEST_DB}",
+    )
     try:
+        # prima emissione: stabilisce la connessione propria (rete non ancora bloccata)
+        helper.end_segment(
+            None, SegmentEnd(segment_id=uuid.uuid4(), tenant_id=uuid.uuid4(), ended_at=NOW(), status="ok"),
+            "kind_sconosciuto_bogus",
+        )
+        assert helper.flush(timeout=5)
         proxy.frozen = True
         t0 = time.perf_counter()
         for _ in range(30):
@@ -145,7 +158,58 @@ def test_segnale_con_sink_bloccato_il_chiamante_non_aspetta(variables, key_provi
                 "kind_sconosciuto_bogus",
             )  # kind sconosciuto in produzione: scarto con segnale (trace.segment_attribute_discarded)
         elapsed = time.perf_counter() - t0
-        assert elapsed < 1.0, f"il chiamante ha aspettato {elapsed:.2f}s con il sink dei segnali bloccato"
+        assert elapsed < 1.0, f"il chiamante ha aspettato {elapsed:.2f}s con la connessione dei segnali bloccata"
     finally:
         proxy.frozen = False
-        sink_conn.close()
+        helper.close(timeout=10)
+
+
+def test_segnale_scritto_con_connessione_propria_non_con_quella_del_chiamante(admin_conn, variables, key_provider, ensure_partitions_now, make_helper):
+    """Giro 5 (correzione 2, S1): la connessione data a `PostgresSignalSink`
+    non e' piu' usata per scrivere (solo un marcatore "voglio un sink
+    Postgres", riconosciuto per tipo): anche se e' gia' chiusa, il segnale
+    arriva comunque, scritto con la connessione propria dell'helper
+    (`conninfo`, come per le scritture)."""
+    from _pgconn import pg_dsn
+
+    broken = psycopg.connect(pg_dsn(TEST_DB))
+    broken.close()
+    sink = PostgresSignalSink(broken)
+    tenant_id = uuid.uuid4()
+    helper = make_helper(variables, sink, key_provider, production_override=True)
+    helper.end_segment(
+        None, SegmentEnd(segment_id=uuid.uuid4(), tenant_id=tenant_id, ended_at=NOW(), status="ok"),
+        "kind_sconosciuto_bogus",
+    )
+    assert helper.flush(timeout=5)
+    admin_conn.rollback()
+    with admin_conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM gravya_signals_min_audit WHERE tenant_id=%s", (str(tenant_id),))
+        assert cur.fetchone() is not None, "il segnale non e' stato scritto: la connessione propria dell'helper non e' stata usata"
+
+
+def test_segnale_si_riconnette_dopo_un_errore(admin_conn, variables, key_provider, ensure_partitions_now, make_helper):
+    """Giro 5 (correzione 2, S2): dopo un errore sulla connessione propria dei
+    segnali (qui simulato chiudendola a mano), l'emissione successiva
+    riesce lo stesso (riconnessione), non resta bloccata in una transazione
+    fallita."""
+    sink = PostgresSignalSink(admin_conn)  # mai usata per scrivere (vedi sopra)
+    helper = make_helper(variables, sink, key_provider, production_override=True)
+    tenant_id = uuid.uuid4()
+    helper.end_segment(
+        None, SegmentEnd(segment_id=uuid.uuid4(), tenant_id=tenant_id, ended_at=NOW(), status="ok"),
+        "kind_sconosciuto_bogus",
+    )
+    assert helper.flush(timeout=5)
+    # chiude a mano la connessione propria dei segnali: la prossima emissione deve riconnettersi da sola
+    helper._force_disconnect(helper._own_signal_conn)
+    tenant_id2 = uuid.uuid4()
+    helper.end_segment(
+        None, SegmentEnd(segment_id=uuid.uuid4(), tenant_id=tenant_id2, ended_at=NOW(), status="ok"),
+        "kind_sconosciuto_bogus",
+    )
+    assert helper.flush(timeout=10)
+    admin_conn.rollback()
+    with admin_conn.cursor() as cur:
+        cur.execute("SELECT 1 FROM gravya_signals_min_audit WHERE tenant_id=%s", (str(tenant_id2),))
+        assert cur.fetchone() is not None, "il segnale dopo la riconnessione non e' stato scritto"

@@ -84,7 +84,7 @@ def test_helper_parte_in_sviluppo_con_valori_di_sviluppo(variables, signal_sink)
         assert helper._write_buffer_size == 100  # valore di sviluppo dichiarato nell'istantanea
         assert helper._max_value_bytes == 2048
         assert helper._write_statement_timeout_ms == 2000  # giro 3: e1.write_statement_timeout_ms
-        assert helper._write_connect_timeout_ms == 2000
+        assert helper._write_connect_timeout_s == 2
         assert helper._keepalives_idle_s == 10
         assert helper._keepalives_interval_s == 5
         assert helper._keepalives_count == 3

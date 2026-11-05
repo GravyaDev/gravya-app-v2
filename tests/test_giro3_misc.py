@@ -260,10 +260,15 @@ def test_coda_piena_perdita_contata_senza_attesa(signal_sink, key_provider, tmp_
 
     # conninfo verso una porta che non risponde: il thread di sfondo resta
     # occupato a lungo nel connect_timeout, cosi' la coda (dimensione 1) si
-    # riempie subito con la prima scrittura.
+    # riempie subito con la prima scrittura. Giro 5 (CR R1): host/ruolo dalle
+    # variabili PG* (ripiego locale), non fissi nel testo del file.
+    import os
+
+    host = os.environ.get("PGHOST") or "127.0.0.1"
+    role = os.environ.get("PGUSER") or "root"
     helper = TracingHelper(
         reg, signal_sink, key_provider, production_override=False,
-        conninfo="host=127.0.0.1 port=1 connect_timeout=5 dbname=postgres user=root",
+        conninfo=f"host={host} port=1 connect_timeout=5 dbname=postgres user={role}",
     )
     try:
         seg1 = SegmentStart(segment_id=uuid.uuid4(), trace_id=uuid.uuid4(), tenant_id=uuid.uuid4(), kind="agent",
