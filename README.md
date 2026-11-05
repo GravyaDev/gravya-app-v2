@@ -225,19 +225,73 @@ pytest -q -p no:cacheprovider --basetemp=docs/revisioni/impl-e1/code-reviewer-gi
   sopra), passato per variabile d'ambiente. **Verificato in questo giro**
   con lo stesso ruolo creato per `tests/` sopra.
 
-### Catena di fornitura (CI)
+### Catena di fornitura (CI e controlli in locale)
 
+Le Actions di GitHub hanno un tetto mensile di minuti (sforarlo ha già bloccato
+tutto): su GitHub gira solo ciò che serve davvero, il resto gira su questa
+macchina (DECISIONS §6 «Catena di fornitura» e «Minuti di GitHub Actions»).
+
+**Su GitHub**
 - `.github/workflows/ci.yml`: runner `ubuntu-24.04`, action fissate per SHA
-  (checkout v7.0.1, setup-python v7.1.0, entrambe su Node 24); i servizi
-  PostgreSQL sono definiti una volta sola (ancora YAML), con il digest
-  dell'immagine in un solo punto.
-- `.github/workflows/fornitura.yml`: a ogni push e pull request e ogni
-  settimana (`schedule`, anche `workflow_dispatch`) esegue
-  `python3 scripts/osv-check.py` (versioni di `requirements.lock.txt` contro
-  OSV: esce con errore se ce ne sono con vulnerabilità note, o se OSV non
-  risponde). Solo nell'esecuzione settimanale o manuale un secondo job
-  confronta il digest di `postgres:18` fissato in `ci.yml` con quello attuale
-  e fallisce se è cambiato (segnale per aggiornarlo).
-- `.github/dependabot.yml`: aggiornamenti settimanali delle action. I
-  pacchetti Python non sono ancora coperti (vedi il report di
-  `docs/revisioni/ci-fornitura/`).
+  (checkout v7.0.1, setup-python v7.1.0, entrambe su Node 24); servizi PostgreSQL
+  definiti una volta sola (ancora YAML), con il digest dell'immagine in un solo
+  punto. Parte solo con `push` (non con `pull_request`: i merge in `main` si
+  fanno in locale) o a mano (`workflow_dispatch`), e **non parte** se il push
+  tocca solo `docs/**`, `stato/**`, `**/*.md`, `.claude/**` (`paths-ignore`:
+  basta un file diverso perché parta). Un nuovo push sullo stesso branch annulla
+  l'esecuzione in corso (`concurrency`).
+- `.github/workflows/fornitura.yml`: il solo controllo OSV
+  (`scripts/osv-check.py`), solo se il push cambia `requirements.lock.txt`,
+  `scripts/osv-check.py` o il workflow stesso, o a mano. Niente `schedule`.
+- `.github/dependabot.yml`: aggiornamenti settimanali delle action. I pacchetti
+  Python non sono coperti da Dependabot: li copre il job locale qui sotto.
+
+**In locale** (`scripts/fornitura-locale.py`, solo libreria standard più `git`,
+`gh`, `docker`):
+1. controllo OSV del lockfile;
+2. digest di PostgreSQL fissato in `ci.yml` contro quello attuale del tag;
+3. rigenerazione del lockfile alle ultime versioni (comando dell'intestazione del
+   lockfile con `--upgrade`, su `origin/main`, nella cartella `.fornitura-lavoro/`
+   ignorata da git); se cambia: branch `impl/lockfile-AAAA-MM-GG`, push e PR con
+   le differenze (non ne apre un'altra se una PR di lockfile è ancora aperta).
+
+Un controllo fallito apre una issue assegnata a `GravyaDev` con titolo fisso per
+tipo, senza duplicarla se ce n'è già una aperta con lo stesso titolo. Codici di
+uscita (somma bit a bit): 0 tutto a posto; 1 vulnerabilità; 2 digest cambiato;
+4 controllo non riuscito; 8 aggiornamento del lockfile non riuscito; 16 PR
+aperta (esito normale); 32 issue non aperta.
+
+```bash
+python3 scripts/fornitura-locale.py --prova                     # niente issue, branch, push o PR: riferisce soltanto
+python3 scripts/fornitura-locale.py --solo digest               # un solo controllo (osv,digest,lockfile)
+python3 scripts/fornitura-locale.py --solo digest --prova --digest-attuale sha256:<64 cifre>   # prova del ramo «digest cambiato»
+python3 scripts/fornitura-locale.py                             # esecuzione vera
+```
+
+**Timer settimanale** (systemd utente; WSL2 con systemd e «linger» attivo). Le
+unità stanno in `systemd/`; lo script le copia in `~/.config/systemd/user/` con
+il percorso del repository e abilita il timer. Va lanciato dal repository
+principale (non da un worktree) e si può rieseguire senza danni:
+
+```bash
+bash scripts/installa-timer-fornitura.sh
+systemctl --user list-timers gravya-fornitura.timer      # prossima esecuzione
+journalctl --user -u gravya-fornitura.service -n 50      # esito e messaggi
+systemctl --user start gravya-fornitura.service          # esecuzione a mano ora
+systemctl --user disable --now gravya-fornitura.timer    # disinstallare
+```
+
+Il timer è settimanale con `Persistent=true`: se il computer era spento all'ora
+prevista, l'esecuzione parte all'accensione successiva.
+
+**Prima del merge in `main`** (in locale, `scripts/agenti.py`):
+
+```bash
+python3 scripts/agenti.py worktree-unisci <nome> -m "messaggio del merge"
+```
+
+Nel worktree esegue `scripts/osv-check.py` e `pytest tests/` con le variabili di
+`.worktrees/<nome>.env`; solo se entrambi riescono fa `git merge --no-ff
+impl/<nome>` in `main` dal repository principale. Altrimenti rifiuta e `main`
+non cambia. Non fa push. Prova il branch, non il risultato del merge: se `main`
+è andato avanti, avvisa.
