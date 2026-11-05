@@ -1,0 +1,63 @@
+{
+  "branch": "impl/e1-runtime",
+  "commit": [
+    "9a9745a Runtime Python 3.15: lockfile rigenerato con hash da pyproject.toml",
+    "128fb38 CI: Python 3.15 e PostgreSQL 18 fissato per digest",
+    "3834130 README: prerequisiti Python 3.15 e PostgreSQL 18; report implementer",
+    "4f0e5e5 Report e1-runtime: esito CI"
+  ],
+  "criteri": [
+    {
+      "id": "Lockfile Python 3.15 con hash, ultime versioni, intestazione senza /tmp",
+      "stato": "implementato",
+      "test": "assente (verifica di installazione)",
+      "eseguito": "pip install --require-hashes -r requirements.lock.txt nel .venv ricreato con Python 3.15.2: ok; pip check: nessun errore"
+    },
+    {
+      "id": "OSV senza vulnerabilità sulle versioni fissate",
+      "stato": "implementato",
+      "test": "assente (query OSV)",
+      "eseguito": "querybatch OSV su 18 pacchetti: nessuna vulnerabilità; versione fissata uguale all'ultima su PyPI per tutti"
+    },
+    {
+      "id": "pyproject requires-python 3.15",
+      "stato": "implementato",
+      "test": "assente",
+      "eseguito": "non eseguito"
+    },
+    {
+      "id": "CI Python 3.15 e postgres:18 per digest nei due job",
+      "stato": "implementato",
+      "test": "assente (CI)",
+      "eseguito": "gh run 42084513531 sul commit 3834130: test e test-non-superuser success"
+    },
+    {
+      "id": "README versioni",
+      "stato": "implementato",
+      "test": "assente",
+      "eseguito": "non eseguito"
+    },
+    {
+      "id": "Criterio di fine: pytest verde 10 volte e test-non-superuser",
+      "stato": "implementato",
+      "test": "tests/",
+      "eseguito": "pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp: 88 passed, 10 volte su 10; bash scripts/test-non-superuser.sh: OK"
+    }
+  ],
+  "file_modificati": [
+    "requirements.lock.txt",
+    "pyproject.toml",
+    ".github/workflows/ci.yml",
+    "README.md",
+    "docs/revisioni/e1-runtime/report-implementer.md"
+  ],
+  "decisioni_mancanti": [],
+  "divergenze": [],
+  "non_verificato": [
+    "Le prove dei revisori in docs/revisioni/impl-e1/code-reviewer*/ non sono state eseguite (le esegue il coordinator dopo il merge).",
+    "Il lockfile è stato generato con pip-tools 7.6.2 e --strip-extras: la riga psycopg[binary] diventa psycopg + psycopg-binary (stesso insieme di pacchetti).",
+    "In questo ambiente git non aveva un'identità configurata: i commit sono firmati kloud-ai tramite variabili d'ambiente per singolo comando, senza modificare la configurazione.",
+    "Avvisi della CI non bloccanti: Node.js 20 deprecato per le action fissate (non modificate, come da task); ubuntu-latest migrerà a Ubuntu 26 dal 2026-10-19."
+  ],
+  "report": "docs/revisioni/e1-runtime/report-implementer.md"
+}

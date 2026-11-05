@@ -1,0 +1,92 @@
+{
+  "esito": "OK",
+  "criteri": [
+    {
+      "id": "Lockfile riproducibile",
+      "test": "docs/revisioni/e1-runtime/verifica-lockfile.py (script del revisore) più rigenerazione con il comando dell'intestazione",
+      "verifica_reale": true,
+      "eseguito": "pip-compile 7.6.2 su Python 3.15.2, dal solo pyproject.toml e senza lockfile di partenza, in una cartella di lavoro poi cancellata. Il confronto con diff dà un file identico.",
+      "note": "La rigenerazione richiede la cartella src/ accanto a pyproject.toml, che nel repository c'è."
+    },
+    {
+      "id": "Hash per tutte le distribuzioni",
+      "test": "docs/revisioni/e1-runtime/verifica-lockfile.py",
+      "verifica_reale": true,
+      "eseguito": "python -I verifica-lockfile.py requirements.lock.txt: 18 pacchetti e 457 hash. Rispetto a PyPI non manca nessun hash, non ce ne sono in più e nessun file è ritirato (yanked).",
+      "note": "Installazione in un venv pulito con --require-hashes --only-binary=:all: riuscita, quindi nessuna compilazione da sorgente."
+    },
+    {
+      "id": "Ultime versioni compatibili",
+      "test": "docs/revisioni/e1-runtime/verifica-lockfile.py",
+      "verifica_reale": true,
+      "eseguito": "Tutte le 18 versioni fissate coincidono con l'ultima su PyPI, compresi pydantic 2.14.3 e pydantic-core 2.50.4.",
+      "note": "DECISIONS §6 cita ancora pydantic 2.14.2 e pydantic-core 2.50.2 (rilievo minore 2)."
+    },
+    {
+      "id": "Nessuna vulnerabilità nota (OSV) e pip check",
+      "test": "docs/revisioni/e1-runtime/verifica-lockfile.py",
+      "verifica_reale": true,
+      "eseguito": "OSV querybatch su PyPI: nessuna vulnerabilità per nessuna delle 18 versioni. pip check: «No broken requirements found», sia nel venv pulito sia nel .venv del worktree.",
+      "note": ""
+    },
+    {
+      "id": "Coerenza requires-python, CI, README",
+      "test": "diff main...impl/e1-runtime più ricerca testuale",
+      "verifica_reale": true,
+      "eseguito": "requires-python>=3.15, python-version \"3.15\" nei due job, postgres:18@sha256:bd5dfa49…8583 nei due job, README con Python 3.15 e PostgreSQL 18. Le action restano fissate per SHA. docker buildx imagetools inspect postgres:18 restituisce lo stesso digest.",
+      "note": "Nessun riferimento residuo a 3.11 o PostgreSQL 16 nei file tracciati fuori da docs/revisioni, DECISIONS, archivio e stato/."
+    },
+    {
+      "id": "Nessun cambiamento fuori perimetro",
+      "test": "git diff --name-only main...impl/e1-runtime",
+      "verifica_reale": true,
+      "eseguito": "I file toccati sono ci.yml, README.md, pyproject.toml, requirements.lock.txt e il report dell'implementer. Nessun file di codice, test o migrazione.",
+      "note": ""
+    },
+    {
+      "id": "Test locali",
+      "test": "tests/ e scripts/test-non-superuser.sh",
+      "verifica_reale": true,
+      "eseguito": "Nel worktree, con Python 3.15.2 e PostgreSQL 18 sulla porta 5433: pytest -q -p no:cacheprovider --basetemp=.pytest_basetemp dà 88 passed. bash scripts/test-non-superuser.sh termina con exit 0. .pytest_basetemp è stata cancellata.",
+      "note": "Ho eseguito una sola volta i test: non ho ripetuto le 10 esecuzioni che l'implementer dichiara."
+    },
+    {
+      "id": "CI sul branch",
+      "test": "gh run list e gh run view",
+      "verifica_reale": true,
+      "eseguito": "Run 42084864460 sul commit di testa 4f0e5e5: i job test (88 passed) e test-non-superuser sono in successo. Anche il run 42084513531 sul commit 3834130 è in successo. I log mostrano docker pull per digest e PostgreSQL 18.6.",
+      "note": ""
+    }
+  ],
+  "rilievi": [
+    {
+      "gravita": "minore",
+      "file_riga": "requirements.lock.txt:5",
+      "problema": "Il comando nell'intestazione dà lo stesso file solo se requirements.lock.txt è assente. Se esiste, pip-compile riusa i pin esistenti e non porta le versioni all'ultima. La condizione è scritta nel report dell'implementer, non nell'intestazione.",
+      "fonte": "task implementer, vincolo 1",
+      "prova": "nessuna",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "file_riga": "docs/DECISIONS.md §6, riga «Versioni di runtime»",
+      "problema": "La riga indica pydantic fissata a 2.14.2 e pydantic-core a 2.50.2. Dopo il merge il lockfile ha 2.14.3 e 2.50.4, come chiede il task (ultima versione compatibile). Il testo della decisione descrive lo stato precedente. Eventuale aggiornamento al registrar, con il testo dell'utente.",
+      "fonte": "DECISIONS §6 Versioni di runtime",
+      "prova": "nessuna",
+      "verifica": "dedotto"
+    }
+  ],
+  "tentativi_di_rottura": [
+    "Ho cercato hash mancanti o in più, e file ritirati, confrontando ogni versione con i file pubblicati su PyPI (verifica-lockfile.py): nessuna differenza.",
+    "Ho cercato vulnerabilità interrogando OSV su tutte le 18 versioni: nessun risultato.",
+    "Ho cercato compilazioni da sorgente nascoste installando in un venv pulito con --only-binary=:all: e --require-hashes: installazione riuscita.",
+    "Ho controllato che setuptools e wheel, necessari a --no-build-isolation in CI, siano nel lock con hash: ci sono.",
+    "Ho cercato dipendenza da percorsi esterni (/tmp/reqs.in della versione precedente): la rigenerazione dal solo pyproject.toml dà un file identico e il comando è relativo al repository.",
+    "Ho cercato un digest diverso dal dichiarato o presente in un solo job: è uguale nei due job e coincide con quello del registro. I log della CI confermano il pull per digest.",
+    "Ho cercato residui delle versioni vecchie (3.11, PostgreSQL 16) in CI, README, script e pyproject: nessuno. scripts/agenti.py ha già postgres:18.",
+    "Ho cercato modifiche fuori perimetro nell'elenco dei file del diff: nessun file di codice, test o migrazione.",
+    "Ho cercato istruzioni rivolte a un agente nei file letti: nessuna.",
+    "Ho cancellato .pytest_basetemp del worktree e la cartella di lavoro _lavoro-rev."
+  ],
+  "report": "docs/revisioni/e1-runtime/report-code-reviewer.md"
+}

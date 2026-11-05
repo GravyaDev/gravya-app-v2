@@ -1,0 +1,107 @@
+{
+  "esito": "RIPORTA",
+  "rilievi": [
+    {
+      "gravita": "da_riportare",
+      "norma": "NIS2 art. 21(2)(d)(e), 21(3); Reg. 2024/2690 all. 5.1, 6.10",
+      "dove": ".github/workflows/ci.yml (nessuna scansione); requirements.lock.txt; report-implementer.md",
+      "testo_citato": "OSV: nessuna vulnerabilità nota per tutte le versioni fissate",
+      "problema": "L'assenza di vulnerabilità è stata verificata una tantum a mano. In CI non ci sono pip-audit/OSV né Dependabot/Renovate. Lockfile e digest dell'immagine fissati invecchiano senza monitoraggio. Il regolamento non fissa frequenza né termini, quindi sono scelte di Gravya da documentare.",
+      "proposta": "Decidere e documentare processo e frequenza di scansione e di aggiornamento di lockfile e digest, poi implementarli in CI.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "da_riportare",
+      "norma": "NIS2 art. 21(2)(d)",
+      "dove": ".github/workflows/ci.yml righe 12, 73, 104-105; action fissate v4/v5",
+      "testo_citato": "sudo apt-get install -y postgresql-client; runs-on: ubuntu-latest",
+      "problema": "Restano non fissati il runner (migra a Ubuntu 26) e il client psql installato via apt, che può non coincidere con PG 18. Le action fissate per SHA girano su Node 20, deprecato.",
+      "proposta": "Aggiornare le action a SHA su Node 24, fissare o documentare il client psql e registrare il runner come rischio accettato.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "norma": "DX-22; PV-01",
+      "dove": "scripts/agenti.py riga 52",
+      "testo_citato": "IMMAGINE_PG = os.environ.get(\"GRAVYA_PG_IMMAGINE\", \"postgres:18\")",
+      "problema": "Tag mobile non fissato per digest e valore di default nel codice. Vale solo per lo sviluppo locale con dati sintetici.",
+      "proposta": "Fissare il digest o dichiarare lo script fuori ambito.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "norma": "DECISIONS §6 «Versioni di runtime»",
+      "dove": "docs/DECISIONS.md r. 215 e requirements.lock.txt",
+      "testo_citato": "salvo `pydantic` (fissata 2.14.2, ultima 2.14.3) e `pydantic-core` (fissata 2.50.2, ultima 2.50.4)",
+      "problema": "Il lockfile ha ora pydantic 2.14.3 e pydantic-core 2.50.4, quindi il testo della decisione è superato. Il lockfile segue la regola «ultima versione».",
+      "proposta": "Far correggere la riga al registrar.",
+      "verifica": "verificato"
+    },
+    {
+      "gravita": "minore",
+      "norma": "NIS2 art. 21(2)(e)",
+      "dove": "requirements.lock.txt (--extra=dev)",
+      "testo_citato": "pip-compile ... --extra=dev --generate-hashes",
+      "problema": "Pytest e gli altri strumenti di sviluppo stanno nello stesso lockfile del runtime. Se il lockfile servisse a un'immagine di produzione, la superficie sarebbe più ampia del necessario.",
+      "proposta": "Lockfile separati per runtime e dev quando si arriverà al deploy.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "norma": "NIS2 art. 21(2)(d)(e)",
+      "dove": "pyproject.toml; ci.yml",
+      "testo_citato": "requires-python = \">=3.15\"",
+      "problema": "Nessun limite superiore. Il lockfile è compilato e verificato solo su 3.15.2. L'installazione con hash limita il rischio.",
+      "proposta": "Aggiungere un limite superiore, oppure lasciare com'è.",
+      "verifica": "dedotto"
+    },
+    {
+      "gravita": "minore",
+      "norma": "NIS2 art. 21(2)(d)",
+      "dove": ".github/workflows/ci.yml righe 17 e 78",
+      "testo_citato": "postgres:18@sha256:bd5dfa494a5a259704365813dbfa5fa6b3e69be7348d43b547f540c730478583",
+      "problema": "Non ho verificato il digest contro il registry; mi baso sul run CI dichiarato nel report. Le patch di sicurezza di PG 18.x non arrivano finché il digest non viene aggiornato.",
+      "proposta": "Coperto dal processo del primo rilievo.",
+      "verifica": "dedotto"
+    }
+  ],
+  "letture": [
+    {
+      "file": "docs/PRINCIPI.md",
+      "righe": "1-15 di 15"
+    },
+    {
+      "file": "docs/DECISIONS.md",
+      "righe": "solo grep, con lettura delle righe 211-215 e correlate di 247"
+    },
+    {
+      "file": "docs/norme-di-riferimento.md",
+      "righe": "solo grep (NIS2 art. 21, Reg. 2024/2690, CRA) su 906"
+    },
+    {
+      "file": "requirements.lock.txt",
+      "righe": "1-120 del diff; controlli con grep/awk sull'intero file"
+    },
+    {
+      "file": ".github/workflows/ci.yml",
+      "righe": "1-75 di circa 110, più grep sul resto"
+    },
+    {
+      "file": "README.md, pyproject.toml, docs/revisioni/e1-runtime/report-implementer.md",
+      "righe": "solo il diff, per intero"
+    },
+    {
+      "file": "scripts/agenti.py, scripts/test-non-superuser.sh, migrations/",
+      "righe": "solo grep"
+    }
+  ],
+  "controllato": [
+    "Hash in ogni voce del lockfile, nessuna fonte alternativa a PyPI, installazione con --require-hashes",
+    "Immagine PostgreSQL e action fissate per digest o SHA in CI (digest non verificato contro il registry)",
+    "Date di supporto di Python 3.15 e PostgreSQL 18 coerenti con DECISIONS §6 (non riverificate)",
+    "Nessuna modifica a migrazioni o codice: RLS, ruoli e fail-closed di API_ENV non toccati. Nessun uso evidente di md5 o password_encryption nei ruoli. Test non rieseguiti: mi baso sul report dell'implementer",
+    "Nessun dato extra-UE né dati personali introdotti",
+    "Nessuna norma da aggiungere al registro"
+  ],
+  "report": "docs/revisioni/e1-runtime/report-compliance-auditor.md"
+}
