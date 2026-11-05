@@ -1,0 +1,19 @@
+{
+  "registri_modificati": [
+    "docs/DECISIONS.md",
+    "docs/decisioni-archivio.md"
+  ],
+  "righe_aggiornate": [
+    "DECISIONS.md «Ultimo aggiornamento»: aggiornata con 90 giorni e scadenza 2027-02-03 (versione precedente in archivio)",
+    "DECISIONS.md §6 «Catena di fornitura», punto (8): aggiunti durata 90 giorni, creazione 2026-11-05, scadenza 2027-02-03 e rinnovo a cura dell'utente (versione precedente in archivio)",
+    "DECISIONS.md §4 «Scadenza del token del job locale»: punto rimosso (versione in archivio con rimando alla decisione dell'utente)",
+    "decisioni-archivio.md: aggiunto il testo dell'utente «90 giorni» nella sezione «2026-11-05 — testi dell'utente (token dedicato per il job locale)»; aggiunta la sezione «2026-11-05 — righe superate (scadenza del token del job locale)» in coda"
+  ],
+  "documenti_da_aggiornare": [
+    {
+      "doc": "CI (documento citato in DECISIONS §4 e §6, non trovato in docs/ alla radice)",
+      "motivo": "Riportare durata 90 giorni e scadenza 2027-02-03 del token fine-grained del job locale, con il rinnovo a cura dell'utente; aggiornare anche lo storico modifiche del documento."
+    }
+  ],
+  "conflitti_da_riportare": []
+}
