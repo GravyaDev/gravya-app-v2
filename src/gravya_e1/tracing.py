@@ -14,12 +14,12 @@ pensato per l'uso concorrente della stessa connessione).
 Ogni scrittura e' soggetta a: (1) un limite di concorrenza
 (`e1.write_buffer_size` tentativi in corso contemporaneamente: oltre, e'
 "buffer pieno", perdita immediata senza nemmeno provare la scrittura); (2)
-un timeout di istruzione (`_STATEMENT_TIMEOUT_MS`, invariante operativo, non
-una variabile di catalogo: da confermare con l'utente, vedi report) che
-assicura che un DB lento o bloccato non faccia attendere il chiamante
-indefinitamente. In entrambi i casi: perdita contata e segnalata, il
-chiamante non aspetta oltre il timeout e non vede mai l'eccezione
-(criterio 5/6, E1 §5/§6).
+un timeout di istruzione (`e1.write_statement_timeout_ms`, letto
+dall'istantanea E5 come `e1.write_buffer_size`: DX-22, giro 3, nessun valore
+fisso nel codice) che assicura che un DB lento o bloccato non faccia
+attendere il chiamante indefinitamente. In entrambi i casi: perdita contata
+e segnalata, il chiamante non aspetta oltre il timeout e non vede mai
+l'eccezione (criterio 5/6, E1 §5/§6).
 
 Fail-open vero (B2). Nessuna eccezione, ne' della scrittura ne' dell'invio
 di un segnale, esce mai da queste funzioni pubbliche verso il chiamante.
@@ -50,13 +50,6 @@ from gravya_e1.signals import SignalSink, log_fallback
 logger = logging.getLogger("gravya_e1.tracing")
 
 TRACE_REQUIRED_FIELDS = frozenset({"run_id"})
-
-# Invariante operativo (non una variabile di catalogo, non una soglia di
-# prodotto): limite di tempo per un singolo tentativo di scrittura, cosi' un
-# DB lento o bloccato non fa attendere il chiamante oltre pochi secondi
-# (B5). Da confermare/spostare nel catalogo se l'utente lo ritiene una
-# variabile di piattaforma (vedi report, decisioni_mancanti).
-_STATEMENT_TIMEOUT_MS = 2000
 
 
 class AttributeRejectedError(ValueError):
@@ -252,6 +245,7 @@ class TracingHelper:
         # mancante blocca l'avvio (solleva VariableUnavailableError).
         self._write_buffer_size = self._variables.get("e1.write_buffer_size").value
         self._max_value_bytes = self._variables.get("e1.attributes.max_value_bytes").value
+        self._write_statement_timeout_ms = self._variables.get("e1.write_statement_timeout_ms").value
 
         self._loss_lock = threading.Lock()
         self.loss_count = 0
@@ -385,9 +379,9 @@ class TracingHelper:
         """Esegue `fn` sulla connessione propria dell'helper, mai quella del chiamante.
 
         Limite di concorrenza (`e1.write_buffer_size`) e timeout di
-        istruzione (`_STATEMENT_TIMEOUT_MS`): un buffer pieno o un DB lento
-        sono una perdita contata e segnalata, mai un'attesa indefinita per
-        il chiamante (B5, criterio 5/6).
+        istruzione (`e1.write_statement_timeout_ms`): un buffer pieno o un
+        DB lento sono una perdita contata e segnalata, mai un'attesa
+        indefinita per il chiamante (B5, criterio 5/6).
         """
         try:
             self._set_conn_template(conn_template)
@@ -414,7 +408,7 @@ class TracingHelper:
 
     # -- scritture effettive (sulla connessione propria) ----------------
     def _write_insert_trace(self, conn: psycopg.Connection, job: _InsertTraceJob) -> None:
-        with writer_transaction(conn, job.tenant_id, statement_timeout_ms=_STATEMENT_TIMEOUT_MS) as c, c.cursor() as cur:
+        with writer_transaction(conn, job.tenant_id, statement_timeout_ms=self._write_statement_timeout_ms) as c, c.cursor() as cur:
             cur.execute(
                 """
                 INSERT INTO gravya_traces
@@ -436,7 +430,7 @@ class TracingHelper:
             )
 
     def _write_update_trace(self, conn: psycopg.Connection, job: _UpdateTraceJob) -> None:
-        with writer_transaction(conn, job.tenant_id, statement_timeout_ms=_STATEMENT_TIMEOUT_MS) as c, c.cursor() as cur:
+        with writer_transaction(conn, job.tenant_id, statement_timeout_ms=self._write_statement_timeout_ms) as c, c.cursor() as cur:
             cur.execute("SELECT ended_at FROM gravya_traces WHERE trace_id = %s FOR UPDATE", (job.trace_id,))
             row = cur.fetchone()
             if row is None:
@@ -455,7 +449,7 @@ class TracingHelper:
             )
 
     def _write_insert_segment(self, conn: psycopg.Connection, job: _InsertSegmentJob) -> None:
-        with writer_transaction(conn, job.tenant_id, statement_timeout_ms=_STATEMENT_TIMEOUT_MS) as c, c.cursor() as cur:
+        with writer_transaction(conn, job.tenant_id, statement_timeout_ms=self._write_statement_timeout_ms) as c, c.cursor() as cur:
             # Il writer non puo' leggere le tracce di un altro tenant (RLS):
             # una funzione SECURITY DEFINER verifica, senza esporre i dati
             # altrui, se il trace_id e' gia' di un tenant diverso (CA R-04,
@@ -494,7 +488,7 @@ class TracingHelper:
             )
 
     def _write_update_segment(self, conn: psycopg.Connection, job: _UpdateSegmentJob) -> None:
-        with writer_transaction(conn, job.tenant_id, statement_timeout_ms=_STATEMENT_TIMEOUT_MS) as c, c.cursor() as cur:
+        with writer_transaction(conn, job.tenant_id, statement_timeout_ms=self._write_statement_timeout_ms) as c, c.cursor() as cur:
             cur.execute(
                 "SELECT kind, ended_at FROM gravya_trace_segments WHERE segment_id = %s FOR UPDATE", (job.segment_id,)
             )

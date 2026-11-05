@@ -80,6 +80,7 @@ def test_helper_parte_in_sviluppo_con_valori_di_sviluppo(variables, signal_sink)
     )
     assert helper._write_buffer_size == 100  # valore di sviluppo dichiarato nell'istantanea
     assert helper._max_value_bytes == 2048
+    assert helper._write_statement_timeout_ms == 2000  # giro 3: e1.write_statement_timeout_ms
 
 
 def test_helper_non_parte_in_produzione_senza_variabile_da_definire(signal_sink):
@@ -92,3 +93,46 @@ def test_helper_non_parte_in_produzione_senza_variabile_da_definire(signal_sink)
             production_override=True,
         )
     assert "e5.variable_unreadable" in signal_sink.kinds()
+
+
+def test_helper_non_parte_in_produzione_senza_write_statement_timeout_ms(tmp_path, signal_sink):
+    # Giro 3: e1.write_statement_timeout_ms ha lo stesso trattamento di
+    # e1.write_buffer_size/e1.attributes.max_value_bytes (DX-22): qui le due
+    # altre variabili sono "deciso" (valide) apposta, cosi' il blocco in
+    # produzione si osserva proprio sulla nuova variabile "da definire".
+    path = tmp_path / "snapshot.json"
+    path.write_text(
+        json.dumps(
+            {
+                "variables": {
+                    "e1.write_buffer_size": {"value": 100, "unit": "count", "status": "deciso"},
+                    "e1.attributes.max_value_bytes": {"value": 2048, "unit": "bytes", "status": "deciso"},
+                    "e1.write_statement_timeout_ms": {
+                        "value": 2000,
+                        "unit": "ms",
+                        "status": "da_definire",
+                        "dev_only": True,
+                    },
+                }
+            }
+        )
+    )
+    prod_vars = SnapshotVariableRegistry(signal_sink=signal_sink, snapshot_path=path, production_override=True)
+    with pytest.raises(VariableUnavailableError):
+        TracingHelper(
+            variables=prod_vars,
+            signal_sink=signal_sink,
+            key_provider=StaticTestKeyProvider(),
+            production_override=True,
+        )
+    assert "e5.variable_unreadable" in signal_sink.kinds()
+
+    # fuori produzione, la stessa istantanea parte con il valore di sviluppo.
+    dev_vars = SnapshotVariableRegistry(signal_sink=signal_sink, snapshot_path=path, production_override=False)
+    helper = TracingHelper(
+        variables=dev_vars,
+        signal_sink=signal_sink,
+        key_provider=StaticTestKeyProvider(),
+        production_override=False,
+    )
+    assert helper._write_statement_timeout_ms == 2000

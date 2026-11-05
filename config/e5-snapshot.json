@@ -35,6 +35,15 @@
       "catalog_ref": "catalogo-variabili.md §12, riga `e1.attributes.max_value_bytes` (da definire, intervallo minimo-massimo richiesto prima della produzione, regola 11; valore di sviluppo confermato dall'utente nel giro 2)",
       "min": 1,
       "max": null
+    },
+    "e1.write_statement_timeout_ms": {
+      "value": 2000,
+      "unit": "ms (timeout di una singola istruzione di scrittura dell'helper, giro 3)",
+      "status": "da_definire",
+      "dev_only": true,
+      "catalog_ref": "non ancora nel catalogo (DX-22, giro 3): il coordinator la aggiunge a catalogo-variabili.md; valore di sviluppo scelto dall'implementer, stesso trattamento di e1.write_buffer_size",
+      "min": 1,
+      "max": null
     }
   }
 }
