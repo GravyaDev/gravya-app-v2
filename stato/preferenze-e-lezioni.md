@@ -18,6 +18,8 @@ Solo il modo di lavorare, nella forma in vigore. Le decisioni di progetto stanno
 - Se l'utente ha già dichiarato una scelta, applicarla e allineare i file senza ripresentarla come decisione.
 - Niente budget di sessione: non proporre di fermare una sessione a metà.
 - Configurazioni lean, senza copie superflue; file già pronti da incollare sulla piattaforma.
+- Ricopiatura dei prompt degli agenti sulla piattaforma: se ne occupa l'utente se servirà (2026-11-05); non tenerla tra le azioni aperte e non ricordarla.
+- Repository di riferimento locali (`gravya-app`, `gravya-app-kloudify`): lavoro in corso dell'utente, mai toccarli, nemmeno con comandi che scrivono di nascosto (`git status`); blocco in `stato/ambiente.md`. Prima di rimuovere strumenti di sistema, controllare che non li usino.
 - **Continuità tra ambienti:** tutto deve essere utilizzabile da Claude Code locale (abbonamento) e dalla piattaforma (API): task in file committati, percorsi relativi, niente di necessario solo in /tmp, /mnt o nei thread.
 - **File temporanei degli agenti** (/tmp, tmp di pytest, pacchetti scaricati): il coordinator li verifica e li cancella direttamente, **senza segnalarli**. Si segnala solo un file fuori perimetro nel repository, con dati sensibili o non temporaneo. Non cancellare i file di servizio della piattaforma (/tmp/ale-*).
 
